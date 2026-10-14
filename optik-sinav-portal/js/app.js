@@ -18,6 +18,11 @@ window.App = {
     } else {
       this.currentTab = 'login';
     }
+
+    if (window.CloudSync && typeof window.CloudSync.init === 'function') {
+      window.CloudSync.init();
+    }
+
     this.render();
   },
 
@@ -111,6 +116,9 @@ window.App = {
 
     if (!session || this.currentTab === 'login') {
       appContainer.innerHTML = this.renderLoginView();
+      if (window.CloudSync && typeof window.CloudSync.updateStatusBadge === 'function') {
+        window.CloudSync.updateStatusBadge();
+      }
       return;
     }
 
@@ -127,6 +135,10 @@ window.App = {
     // Sekmeye özel başlatıcılar
     if (this.currentTab === 'kamera_tara') {
       this.initCameraScanner();
+    }
+
+    if (window.CloudSync && typeof window.CloudSync.updateStatusBadge === 'function') {
+      window.CloudSync.updateStatusBadge();
     }
   },
 
@@ -151,6 +163,12 @@ window.App = {
           </div>
 
           <div class="flex items-center gap-2">
+            <!-- Bulut Senkronizasyon Rozeti -->
+            <button id="cloud-sync-badge" onclick="App.showCloudSyncModal()" title="Bulut Senkronizasyon Ayarları" class="px-2.5 py-1.5 rounded-xl text-xs font-bold border transition flex items-center gap-1.5 bg-slate-800 text-slate-300 border-slate-700">
+              <span class="w-2 h-2 rounded-full bg-slate-400"></span>
+              <span class="hidden sm:inline">Bulut Durumu</span>
+            </button>
+
             ${session.isImpersonating ? `
               <button onclick="App.returnToSuperAdmin()" class="px-3 py-1.5 bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 border border-amber-500/40 rounded-xl text-xs font-bold transition flex items-center gap-1">
                 <span>👑</span> <span>Merkeze Dön</span>
@@ -212,6 +230,12 @@ window.App = {
     return `
       <div class="min-h-screen bg-slate-950 text-white flex items-center justify-center p-4">
         <div class="bg-slate-900 border border-slate-800 rounded-3xl p-7 sm:p-9 max-w-md w-full shadow-2xl relative overflow-hidden">
+          <div class="absolute top-4 right-4">
+            <button id="cloud-sync-badge" onclick="App.showCloudSyncModal()" title="Bulut Senkronizasyon Ayarları" class="px-2.5 py-1 rounded-xl text-[11px] font-bold border transition flex items-center gap-1.5 bg-slate-800/80 text-slate-300 border-slate-700">
+              <span class="w-2 h-2 rounded-full bg-slate-400"></span>
+              <span>Bulut</span>
+            </button>
+          </div>
           <div class="text-center mb-6">
             <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-3xl mx-auto mb-3 shadow-lg shadow-emerald-500/20">
               📸
@@ -956,6 +980,146 @@ window.App = {
     this.activeExamId = examId;
     this.currentTab = 'neticeler';
     this.render();
+  },
+
+  // --- HİBRİT BULUT SENKRONİZASYON PENCERESİ ---
+  showCloudSyncModal() {
+    const existing = document.getElementById('cloud-sync-modal');
+    if (existing) existing.remove();
+
+    const currentConfig = window.CloudSync ? window.CloudSync.getConfig() : null;
+    const configString = currentConfig ? JSON.stringify(currentConfig, null, 2) : '';
+    const status = window.CloudSync ? window.CloudSync.getStatus() : { code: 'not_configured', label: 'Yerel Mod' };
+
+    const modal = document.createElement('div');
+    modal.id = 'cloud-sync-modal';
+    modal.className = 'fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in';
+    modal.innerHTML = `
+      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-7 max-w-xl w-full shadow-2xl relative max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between pb-4 border-b border-slate-800 mb-5">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-emerald-400 flex items-center justify-center text-slate-950 font-black text-xl shadow-lg">
+              ☁️
+            </div>
+            <div>
+              <h3 class="text-base sm:text-lg font-black text-white">Hibrit Bulut Senkronizasyonu</h3>
+              <p class="text-xs text-slate-400 font-medium">Firebase Firestore ile Cihazlar Arası Canlı Eşitleme</p>
+            </div>
+          </div>
+          <button onclick="App.closeCloudSyncModal()" class="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-sm font-bold transition">
+            ✕
+          </button>
+        </div>
+
+        <!-- Durum Bildirim Kartı -->
+        <div class="p-3.5 rounded-2xl mb-5 flex items-center gap-3 border ${status.code === 'connected' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300' : (status.code === 'not_configured' ? 'bg-amber-500/10 border-amber-500/30 text-amber-300' : 'bg-slate-800/80 border-slate-700 text-slate-300')}">
+          <span class="w-3 h-3 rounded-full ${status.code === 'connected' ? 'bg-emerald-400 animate-pulse' : (status.code === 'not_configured' ? 'bg-amber-400' : 'bg-slate-400')}"></span>
+          <div class="text-xs">
+            <strong class="block font-bold">${status.label}</strong>
+            <span class="text-[11px] opacity-80">
+              ${status.code === 'connected' 
+                ? 'Tüm hocaların kaydettiği talebeler, sınavlar ve okunan optik formlar anlık olarak bu merkeze eşitlenmektedir.' 
+                : 'Sistem şu anda güvenle yerel hafızada çalışmaktadır. Ortak bulut havuzu için aşağıdaki Firebase yapılandırmasını tanımlayabilirsiniz.'}
+            </span>
+          </div>
+        </div>
+
+        <!-- Yapılandırma Giriş Alanı -->
+        <div class="space-y-4">
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5 flex items-center justify-between">
+              <span>Firebase Yapılandırması (firebaseConfig)</span>
+              ${currentConfig ? '<span class="text-emerald-400 text-[11px] font-bold">✓ Tanımlı</span>' : '<span class="text-slate-500 text-[11px]">JSON veya JS kodu yapıştırın</span>'}
+            </label>
+            <textarea id="firebase-config-input" rows="6" placeholder="const firebaseConfig = {&#10;  apiKey: &quot;AIzaSy...&quot;,&#10;  authDomain: &quot;projeniz.firebaseapp.com&quot;,&#10;  projectId: &quot;projeniz&quot;,&#10;  storageBucket: &quot;projeniz.firebasestorage.app&quot;,&#10;  messagingSenderId: &quot;123456&quot;,&#10;  appId: &quot;1:123456:web:...&quot;&#10;};"
+              class="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-xs font-mono text-slate-200 focus:border-emerald-500 focus:outline-none transition leading-relaxed">${configString}</textarea>
+          </div>
+
+          <!-- Aksiyon Butonları -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+            <button onclick="App.handleSaveCloudConfig()" class="py-2.5 px-4 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black text-xs rounded-xl shadow-md transition flex items-center justify-center gap-2">
+              <span>💾</span> <span>Kaydet & Bağlan</span>
+            </button>
+            <button onclick="App.handlePullCloudData()" class="py-2.5 px-4 bg-cyan-600/20 hover:bg-cyan-600 text-cyan-300 hover:text-white font-bold text-xs rounded-xl border border-cyan-500/40 transition flex items-center justify-center gap-2">
+              <span>🔄</span> <span>Buluttan Şimdi Çek</span>
+            </button>
+            <button onclick="App.handlePushCloudData()" class="py-2.5 px-4 bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-slate-950 font-bold text-xs rounded-xl border border-amber-500/40 transition flex items-center justify-center gap-2">
+              <span>⬆️</span> <span>Yerel Verileri Buluta Aktar</span>
+            </button>
+            <button onclick="App.handleClearCloudConfig()" class="py-2.5 px-4 bg-slate-800 hover:bg-rose-950/40 hover:text-rose-400 text-slate-400 font-bold text-xs rounded-xl border border-slate-700 transition flex items-center justify-center gap-2">
+              <span>🗑️</span> <span>Ayarları Sıfırla</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 3 Adımda Firebase Kurulum Kılavuzu -->
+        <div class="mt-5 pt-4 border-t border-slate-800/80">
+          <details class="text-xs text-slate-400 group">
+            <summary class="font-bold text-slate-300 cursor-pointer hover:text-emerald-400 transition flex items-center justify-between">
+              <span>📖 3 Adımda Ücretsiz Firebase Kurulum Rehberi</span>
+              <span class="group-open:rotate-180 transition transform">▾</span>
+            </summary>
+            <div class="mt-3 space-y-2 text-[11px] leading-relaxed text-slate-400 bg-slate-950/60 p-3.5 rounded-xl border border-slate-800">
+              <p><strong>1. Proje Oluşturun:</strong> <a href="https://console.firebase.google.com" target="_blank" class="text-emerald-400 underline font-bold">console.firebase.google.com</a> adresine Google hesabınızla girin ve <em>"Proje Ekle"</em> butonuna basın.</p>
+              <p><strong>2. Firestore Veritabanını Açın:</strong> Sol menüden <em>Build > Firestore Database</em> bölümüne gelin, <em>"Create database"</em> deyin ve başlangıç kuralını <em>"Test mode"</em> seçerek onaylayın.</p>
+              <p><strong>3. Web Kodunu Kopyalayın:</strong> Sol üstteki Proje Ayarları (Dişli çark) > <em>Genel</em> sekmesinde sayfanın altına inip Web Uygulaması Ekle (<code>&lt;/&gt;</code>) ikonuna tıklayın. Karşınıza gelen <code>const firebaseConfig = { ... };</code> kodunu kopyalayıp buradaki kutucuğa yapıştırın.</p>
+            </div>
+          </details>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+  },
+
+  closeCloudSyncModal() {
+    const modal = document.getElementById('cloud-sync-modal');
+    if (modal) modal.remove();
+  },
+
+  handleSaveCloudConfig() {
+    const input = document.getElementById('firebase-config-input');
+    if (!input) return;
+    const val = input.value.trim();
+    if (!val) {
+      this.showToast('Lütfen Firebase yapılandırma kodunu giriniz.', 'warning');
+      return;
+    }
+
+    if (window.CloudSync && window.CloudSync.saveConfigFromInput(val)) {
+      this.showToast('Bulut yapılandırması kaydedildi! Bağlantı kuruluyor...', 'success');
+      setTimeout(() => {
+        this.closeCloudSyncModal();
+        this.render();
+      }, 700);
+    } else {
+      this.showToast('Yapılandırma çözümlenemedi. Lütfen apiKey ve projectId içeren geçerli kodu yapıştırın.', 'error');
+    }
+  },
+
+  handlePullCloudData() {
+    if (window.CloudSync) {
+      this.showToast('Buluttaki veriler taranıyor ve eşitleniyor...', 'info');
+      window.CloudSync.pullAllFromCloud(true);
+    }
+  },
+
+  handlePushCloudData() {
+    if (window.CloudSync) {
+      this.showToast('Yereldeki tüm kayıtlar buluta aktarılıyor...', 'info');
+      window.CloudSync.pushAllToCloud(true);
+    }
+  },
+
+  handleClearCloudConfig() {
+    if (confirm('Bulut yapılandırmasını silmek ve yerel hafıza moduna dönmek istediğinize emin misiniz? (Yerel verileriniz korunacaktır)')) {
+      if (window.CloudSync) {
+        window.CloudSync.clearConfig();
+        this.showToast('Bulut yapılandırması temizlendi. Yerel hafıza moduna geçildi.', 'info');
+        this.closeCloudSyncModal();
+        this.render();
+      }
+    }
   },
 
   renderFooter() {

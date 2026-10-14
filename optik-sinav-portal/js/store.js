@@ -194,6 +194,9 @@ class MultiTenantStore {
     };
     list.push(newInst);
     this.saveInstitutions(list);
+    if (window.CloudSync && typeof window.CloudSync.syncInstitution === 'function') {
+      window.CloudSync.syncInstitution(newInst);
+    }
     return newInst;
   }
 
@@ -203,6 +206,9 @@ class MultiTenantStore {
     if (idx !== -1) {
       list[idx] = { ...list[idx], ...updated };
       this.saveInstitutions(list);
+      if (window.CloudSync && typeof window.CloudSync.syncInstitution === 'function') {
+        window.CloudSync.syncInstitution(list[idx]);
+      }
       return list[idx];
     }
     return null;
@@ -215,6 +221,9 @@ class MultiTenantStore {
     localStorage.removeItem(STORAGE_PREFIX + id + '_students');
     localStorage.removeItem(STORAGE_PREFIX + id + '_exams');
     localStorage.removeItem(STORAGE_PREFIX + id + '_results');
+    if (window.CloudSync && typeof window.CloudSync.deleteInstitution === 'function') {
+      window.CloudSync.deleteInstitution(id);
+    }
   }
 
   // --- Kurum Bazlı Talebe İşlemleri ---
@@ -247,12 +256,18 @@ class MultiTenantStore {
     };
     list.push(newSt);
     this.saveStudents(instId, list);
+    if (window.CloudSync && typeof window.CloudSync.syncStudent === 'function') {
+      window.CloudSync.syncStudent(instId, newSt);
+    }
     return newSt;
   }
 
   deleteStudent(instId, studentId) {
     let list = this.getStudents(instId).filter(s => s.id !== studentId);
     this.saveStudents(instId, list);
+    if (window.CloudSync && typeof window.CloudSync.deleteStudent === 'function') {
+      window.CloudSync.deleteStudent(instId, studentId);
+    }
   }
 
   // Excel / CSV metninden toplu talebe içe aktarma
@@ -314,6 +329,9 @@ class MultiTenantStore {
     });
 
     this.saveStudents(instId, finalList);
+    if (window.CloudSync && typeof window.CloudSync.syncStudentsBulk === 'function') {
+      window.CloudSync.syncStudentsBulk(instId, finalList);
+    }
     return { success: true, count: finalList.length, added: addedCount };
   }
 
@@ -356,6 +374,9 @@ class MultiTenantStore {
     };
     list.unshift(newExam);
     this.saveExams(instId, list);
+    if (window.CloudSync && typeof window.CloudSync.syncExam === 'function') {
+      window.CloudSync.syncExam(instId, newExam);
+    }
     return newExam;
   }
 
@@ -366,6 +387,9 @@ class MultiTenantStore {
     const allResults = this.getAllResults(instId);
     const filtered = allResults.filter(r => r.examId !== examId);
     this.saveAllResults(instId, filtered);
+    if (window.CloudSync && typeof window.CloudSync.deleteExam === 'function') {
+      window.CloudSync.deleteExam(instId, examId);
+    }
   }
 
   // --- Sınav Neticeleri & Okunan Formlar ---
@@ -408,6 +432,9 @@ class MultiTenantStore {
     }
 
     this.saveAllResults(instId, all);
+    if (window.CloudSync && typeof window.CloudSync.syncResult === 'function') {
+      window.CloudSync.syncResult(instId, fullResult);
+    }
     return fullResult;
   }
 

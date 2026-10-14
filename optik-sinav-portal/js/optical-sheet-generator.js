@@ -12,8 +12,6 @@ window.OpticalSheetGenerator = {
   // Basit ve hafif QR kod SVG üreticisi (Harici kütüphane gerektirmez)
   // QR Kod yerine yüksek kontrastlı 2D Data Matrix / Barkod & QR SVG çizici
   generateQrSvg(text, size = 90) {
-    // Basit bir QR kod desenini standart bir SVG olarak render eder
-    // İçerisinde taranabilir veri metni ve benzersiz kare deseni taşır
     const safeText = encodeURIComponent(text);
     return `
       <div class="qr-box border-2 border-black p-1 bg-white inline-block text-center" style="width:${size}px; height:${size}px;">
