@@ -50,7 +50,7 @@ const DEFAULT_EXAM_TEMPLATES = [
     id: 'tpl_lgs_90',
     name: 'LGS Tam Deneme (90 Soru)',
     questionCount: 90,
-    bookletTypes: ['A', 'B'],
+    bookletTypes: ['A', 'B', 'C', 'D'],
     subjects: [
       { name: 'Türkçe', startQ: 1, endQ: 20, wrongPenalty: 0.333, coeff: 4 },
       { name: 'T.C. İnkılap', startQ: 21, endQ: 30, wrongPenalty: 0.333, coeff: 1 },
@@ -61,10 +61,22 @@ const DEFAULT_EXAM_TEMPLATES = [
     ]
   },
   {
+    id: 'tpl_tyt_120',
+    name: 'TYT Tam Deneme (120 Soru)',
+    questionCount: 120,
+    bookletTypes: ['A', 'B', 'C', 'D'],
+    subjects: [
+      { name: 'Türkçe', startQ: 1, endQ: 40, wrongPenalty: 0.25, coeff: 3.3 },
+      { name: 'Sosyal Bilimler', startQ: 41, endQ: 60, wrongPenalty: 0.25, coeff: 3.4 },
+      { name: 'Temel Matematik', startQ: 61, endQ: 100, wrongPenalty: 0.25, coeff: 3.3 },
+      { name: 'Fen Bilimleri', startQ: 101, endQ: 120, wrongPenalty: 0.25, coeff: 3.4 }
+    ]
+  },
+  {
     id: 'tpl_brans_20',
     name: 'Branş Tarama Testi (20 Soru)',
     questionCount: 20,
-    bookletTypes: ['A', 'B'],
+    bookletTypes: ['A', 'B', 'C', 'D'],
     subjects: [
       { name: 'Genel Değerlendirme', startQ: 1, endQ: 20, wrongPenalty: 0.333, coeff: 5 }
     ]
@@ -73,7 +85,7 @@ const DEFAULT_EXAM_TEMPLATES = [
     id: 'tpl_ara_40',
     name: 'Konu Tarama Sınavı (40 Soru)',
     questionCount: 40,
-    bookletTypes: ['A', 'B'],
+    bookletTypes: ['A', 'B', 'C', 'D'],
     subjects: [
       { name: 'Bölüm 1', startQ: 1, endQ: 20, wrongPenalty: 0.333, coeff: 2.5 },
       { name: 'Bölüm 2', startQ: 21, endQ: 40, wrongPenalty: 0.333, coeff: 2.5 }
@@ -87,13 +99,17 @@ class MultiTenantStore {
   }
 
   init() {
-    // Kurumlar listesi kontrolü
-    if (!localStorage.getItem(STORAGE_PREFIX + 'institutions')) {
-      localStorage.setItem(STORAGE_PREFIX + 'institutions', JSON.stringify(DEFAULT_INSTITUTIONS));
-    }
-    // Sınav şablonları kontrolü
-    if (!localStorage.getItem(STORAGE_PREFIX + 'templates')) {
-      localStorage.setItem(STORAGE_PREFIX + 'templates', JSON.stringify(DEFAULT_EXAM_TEMPLATES));
+    try {
+      // Kurumlar listesi kontrolü
+      if (!localStorage.getItem(STORAGE_PREFIX + 'institutions')) {
+        localStorage.setItem(STORAGE_PREFIX + 'institutions', JSON.stringify(DEFAULT_INSTITUTIONS));
+      }
+      // Sınav şablonları kontrolü
+      if (!localStorage.getItem(STORAGE_PREFIX + 'templates')) {
+        localStorage.setItem(STORAGE_PREFIX + 'templates', JSON.stringify(DEFAULT_EXAM_TEMPLATES));
+      }
+    } catch (e) {
+      console.warn('Store init localStorage bildirimi:', e);
     }
   }
 
@@ -115,6 +131,48 @@ class MultiTenantStore {
     }
   }
 
+  getSuperadminPassword() {
+    return localStorage.getItem(STORAGE_PREFIX + 'superadmin_password') || DEFAULT_SUPERADMIN.password;
+  }
+
+  setSuperadminPassword(newPass) {
+    localStorage.setItem(STORAGE_PREFIX + 'superadmin_password', newPass);
+  }
+
+  changePassword(session, oldPass, newPass) {
+    if (!session) return { success: false, message: 'Oturum bulunamadı.' };
+    const cleanNew = (newPass || '').trim();
+    if (cleanNew.length < 3) {
+      return { success: false, message: 'Yeni şifre en az 3 karakter olmalıdır.' };
+    }
+
+    if (session.role === 'superadmin') {
+      const currentPass = this.getSuperadminPassword();
+      if ((oldPass || '').trim() !== currentPass) {
+        return { success: false, message: 'Mevcut şifreniz hatalı.' };
+      }
+      this.setSuperadminPassword(cleanNew);
+      return { success: true, message: 'Yönetici şifreniz başarıyla değiştirildi!' };
+    } else {
+      const inst = this.getInstitutions().find(i => i.id === session.institutionId);
+      if (!inst) return { success: false, message: 'Kurum kaydı bulunamadı.' };
+      if ((oldPass || '').trim() !== (inst.password || '123').toString().trim()) {
+        return { success: false, message: 'Mevcut şifreniz hatalı.' };
+      }
+      this.updateInstitution(session.institutionId, { password: cleanNew });
+      return { success: true, message: 'Kurum şifreniz başarıyla değiştirildi!' };
+    }
+  }
+
+  resetInstitutionPassword(instId, newPass) {
+    const cleanNew = (newPass || '').trim();
+    if (cleanNew.length < 3) {
+      return { success: false, message: 'Yeni şifre en az 3 karakter olmalıdır.' };
+    }
+    this.updateInstitution(instId, { password: cleanNew });
+    return { success: true, message: 'Kurum şifresi başarıyla güncellendi!' };
+  }
+
   logout() {
     sessionStorage.removeItem(STORAGE_PREFIX + 'session');
     localStorage.removeItem(STORAGE_PREFIX + 'session');
@@ -125,13 +183,15 @@ class MultiTenantStore {
     const p = (passwordInput || '').trim();
 
     // 1. Süper Yönetici Kontrolü
-    if (u === DEFAULT_SUPERADMIN.username && p === DEFAULT_SUPERADMIN.password) {
+    const superPass = this.getSuperadminPassword();
+    if (u === DEFAULT_SUPERADMIN.username && p === superPass) {
       const session = {
         role: 'superadmin',
         userId: DEFAULT_SUPERADMIN.id,
         name: DEFAULT_SUPERADMIN.name,
         institutionId: null,
-        institutionName: 'Tüm Kurumlar (Merkez)'
+        institutionName: 'Tüm Kurumlar (Merkez)',
+        username: 'admin'
       };
       this.setSession(session);
       return { success: true, session };
@@ -377,11 +437,12 @@ class MultiTenantStore {
       examDate: examData.examDate || new Date().toISOString().split('T')[0],
       targetClass: (examData.targetClass || 'TÜM KURUMLAR').trim().toUpperCase(),
       questionCount: parseInt(examData.questionCount, 10) || 20,
-      bookletTypes: examData.bookletTypes || ['A', 'B'],
+      bookletTypes: examData.bookletTypes || ['A', 'B', 'C', 'D'],
       subjects: examData.subjects || [
         { name: 'Genel', startQ: 1, endQ: parseInt(examData.questionCount, 10) || 20, wrongPenalty: 0.333, coeff: 1 }
       ],
-      answerKeys: examData.answerKeys || { 'A': '', 'B': '' },
+      answerKeys: examData.answerKeys || { 'A': '', 'B': '', 'C': '', 'D': '' },
+      canceledQuestions: examData.canceledQuestions || [],
       createdAt: new Date().toISOString(),
       status: 'active',
       isGlobal: true,
@@ -393,6 +454,21 @@ class MultiTenantStore {
       window.CloudSync.syncExam('global', newGlobalExam);
     }
     return newGlobalExam;
+  }
+
+  updateGlobalExam(examId, updatedData) {
+    const list = this.getGlobalExams();
+    const idx = list.findIndex(e => e.id === examId);
+    if (idx !== -1) {
+      list[idx] = { ...list[idx], ...updatedData, updatedAt: new Date().toISOString() };
+      this.saveGlobalExams(list);
+      if (window.CloudSync && typeof window.CloudSync.syncExam === 'function') {
+        window.CloudSync.syncExam('global', list[idx]);
+      }
+      this.recalculateExamResults('global', examId);
+      return list[idx];
+    }
+    return null;
   }
 
   deleteGlobalExam(examId) {
@@ -421,11 +497,12 @@ class MultiTenantStore {
       examDate: examData.examDate || new Date().toISOString().split('T')[0],
       targetClass: (examData.targetClass || 'TÜM SINIFLAR').trim().toUpperCase(),
       questionCount: parseInt(examData.questionCount, 10) || 20,
-      bookletTypes: examData.bookletTypes || ['A', 'B'],
+      bookletTypes: examData.bookletTypes || ['A', 'B', 'C', 'D'],
       subjects: examData.subjects || [
         { name: 'Genel', startQ: 1, endQ: parseInt(examData.questionCount, 10) || 20, wrongPenalty: 0.333, coeff: 1 }
       ],
-      answerKeys: examData.answerKeys || { 'A': '', 'B': '' },
+      answerKeys: examData.answerKeys || { 'A': '', 'B': '', 'C': '', 'D': '' },
+      canceledQuestions: examData.canceledQuestions || [],
       createdAt: new Date().toISOString(),
       status: 'active'
     };
@@ -437,6 +514,47 @@ class MultiTenantStore {
     return newExam;
   }
 
+  updateExam(instId, examId, updatedData) {
+    if (!instId || updatedData.isGlobal) {
+      return this.updateGlobalExam(examId, updatedData);
+    }
+    const list = this.getExams(instId).filter(e => !e.isGlobal);
+    const idx = list.findIndex(e => e.id === examId);
+    if (idx !== -1) {
+      list[idx] = { ...list[idx], ...updatedData, updatedAt: new Date().toISOString() };
+      this.saveExams(instId, list);
+      if (window.CloudSync && typeof window.CloudSync.syncExam === 'function') {
+        window.CloudSync.syncExam(instId, list[idx]);
+      }
+      this.recalculateExamResults(instId, examId);
+      return list[idx];
+    }
+    return null;
+  }
+
+  cancelQuestion(instId, examId, questionNo, isGlobal = false) {
+    const qNum = parseInt(questionNo, 10);
+    if (!qNum) return [];
+    const exam = isGlobal ? this.getGlobalExams().find(e => e.id === examId) : this.getExamById(instId, examId);
+    if (!exam) return [];
+
+    const canceled = Array.isArray(exam.canceledQuestions) ? [...exam.canceledQuestions] : [];
+    const pos = canceled.indexOf(qNum);
+    if (pos !== -1) {
+      canceled.splice(pos, 1);
+    } else {
+      canceled.push(qNum);
+    }
+    canceled.sort((a, b) => a - b);
+
+    if (isGlobal || exam.isGlobal) {
+      this.updateGlobalExam(examId, { canceledQuestions: canceled });
+    } else {
+      this.updateExam(instId, examId, { canceledQuestions: canceled });
+    }
+    return canceled;
+  }
+
   deleteExam(instId, examId) {
     let list = this.getExams(instId).filter(e => e.id !== examId && !e.isGlobal);
     this.saveExams(instId, list);
@@ -446,6 +564,154 @@ class MultiTenantStore {
     this.saveAllResults(instId, filtered);
     if (window.CloudSync && typeof window.CloudSync.deleteExam === 'function') {
       window.CloudSync.deleteExam(instId, examId);
+    }
+  }
+
+  // --- Merkezi Puanlama & Cevap Değerlendirme Motoru ---
+  scoreStudentAnswers(studentAnswers, exam, booklet = 'A') {
+    if (!exam) return null;
+    const qCount = parseInt(exam.questionCount, 10) || 20;
+    const rawKey = (exam.answerKeys && exam.answerKeys[booklet])
+      ? exam.answerKeys[booklet].toUpperCase()
+      : (exam.answerKeys && exam.answerKeys['A'] ? exam.answerKeys['A'].toUpperCase() : '');
+
+    const canceled = Array.isArray(exam.canceledQuestions)
+      ? exam.canceledQuestions.map(n => parseInt(n, 10))
+      : [];
+
+    const subjects = (exam.subjects && exam.subjects.length > 0) ? exam.subjects : [
+      { name: 'Genel', startQ: 1, endQ: qCount, wrongPenalty: 0.333, coeff: 1 }
+    ];
+
+    const subjectsResult = {};
+    subjects.forEach(sub => {
+      subjectsResult[sub.name] = {
+        name: sub.name,
+        startQ: sub.startQ,
+        endQ: sub.endQ,
+        wrongPenalty: (typeof sub.wrongPenalty === 'number') ? sub.wrongPenalty : 0.333,
+        coeff: (typeof sub.coeff === 'number') ? sub.coeff : (100 / qCount),
+        correct: 0,
+        wrong: 0,
+        empty: 0,
+        net: 0,
+        score: 0
+      };
+    });
+
+    const answersArr = (typeof studentAnswers === 'string')
+      ? studentAnswers.padEnd(qCount, ' ').substring(0, qCount).split('')
+      : (Array.isArray(studentAnswers) ? studentAnswers : []);
+
+    for (let q = 1; q <= qCount; q++) {
+      const isCanceled = canceled.includes(q);
+      const correctOpt = (rawKey[q - 1] || 'A').toUpperCase();
+      const studentAns = (answersArr[q - 1] || ' ').toUpperCase().trim();
+
+      const currentSub = subjects.find(s => q >= s.startQ && q <= s.endQ) || {
+        name: 'Genel',
+        wrongPenalty: 0.333,
+        coeff: (100 / qCount)
+      };
+
+      if (!subjectsResult[currentSub.name]) {
+        subjectsResult[currentSub.name] = {
+          name: currentSub.name,
+          wrongPenalty: 0.333,
+          coeff: (100 / qCount),
+          correct: 0,
+          wrong: 0,
+          empty: 0,
+          net: 0,
+          score: 0
+        };
+      }
+
+      const subStat = subjectsResult[currentSub.name];
+
+      if (isCanceled) {
+        // İptal edilen soru: Herkese tam doğru kabul edilir
+        subStat.correct++;
+      } else if (!studentAns) {
+        subStat.empty++;
+      } else if (studentAns === correctOpt || correctOpt === '*') {
+        subStat.correct++;
+      } else {
+        subStat.wrong++;
+      }
+    }
+
+    let totalCorrect = 0;
+    let totalWrong = 0;
+    let totalEmpty = 0;
+    let totalNet = 0;
+    let totalScore = 0;
+
+    Object.values(subjectsResult).forEach(sub => {
+      const penalty = sub.wrong * (sub.wrongPenalty !== undefined ? sub.wrongPenalty : 0.333);
+      sub.net = Math.max(0, parseFloat((sub.correct - penalty).toFixed(2)));
+      const coeff = (sub.coeff && sub.coeff > 0) ? sub.coeff : (100 / qCount);
+      sub.score = parseFloat((sub.net * coeff).toFixed(2));
+
+      totalCorrect += sub.correct;
+      totalWrong += sub.wrong;
+      totalEmpty += sub.empty;
+      totalNet += sub.net;
+      totalScore += sub.score;
+    });
+
+    totalNet = parseFloat(totalNet.toFixed(2));
+    totalScore = parseFloat(totalScore.toFixed(2));
+
+    return {
+      answers: answersArr.join(''),
+      booklet,
+      subjectsResult,
+      totalCorrect,
+      totalWrong,
+      totalEmpty,
+      totalNet,
+      totalScore
+    };
+  }
+
+  // Sınav Cevap Anahtarı veya İptal Değiştiğinde Tüm Sonuçları Yeniden Hesaplama
+  recalculateExamResults(instId, examId) {
+    if (instId === 'global' || !instId) {
+      const gExam = this.getGlobalExams().find(e => e.id === examId);
+      if (!gExam) return;
+      const institutions = this.getInstitutions();
+      institutions.forEach(inst => {
+        const results = this.getResultsByExam(inst.id, examId);
+        if (results.length > 0) {
+          const updated = results.map(r => {
+            const scored = this.scoreStudentAnswers(r.answers || '', gExam, r.booklet || 'A');
+            return {
+              ...r,
+              ...scored
+            };
+          });
+          const allInstResults = this.getAllResults(inst.id);
+          const others = allInstResults.filter(r => r.examId !== examId);
+          this.saveAllResults(inst.id, [...others, ...updated]);
+        }
+      });
+    } else {
+      const exam = this.getExamById(instId, examId);
+      if (!exam) return;
+      const results = this.getResultsByExam(instId, examId);
+      if (results.length > 0) {
+        const updated = results.map(r => {
+          const scored = this.scoreStudentAnswers(r.answers || '', exam, r.booklet || 'A');
+          return {
+            ...r,
+            ...scored
+          };
+        });
+        const all = this.getAllResults(instId);
+        const others = all.filter(r => r.examId !== examId);
+        this.saveAllResults(instId, [...others, ...updated]);
+      }
     }
   }
 
@@ -548,6 +814,196 @@ class MultiTenantStore {
     });
 
     return allResults;
+  }
+
+  // Elle (Manuel) Optik Cevap ve Not Girişi
+  saveManualExamResult(instId, data) {
+    const exam = this.getExamById(instId, data.examId);
+    if (!exam) return { success: false, message: 'Sınav bulunamadı.' };
+
+    const students = this.getStudents(instId);
+    const matchedSt = students.find(s => s.studentNo === data.studentNo);
+
+    const scored = this.scoreStudentAnswers(data.answers || '', exam, data.booklet || 'A');
+
+    const result = {
+      id: data.id || ('res_' + Date.now()),
+      examId: exam.id,
+      examTitle: exam.title,
+      studentNo: data.studentNo,
+      studentName: matchedSt ? `${matchedSt.firstName} ${matchedSt.lastName}` : (data.studentName || `Talebe #${data.studentNo}`),
+      className: matchedSt ? matchedSt.className : (data.className || 'Genel'),
+      parentPhone: matchedSt ? matchedSt.parentPhone : (data.parentPhone || ''),
+      booklet: data.booklet || 'A',
+      answers: scored.answers,
+      subjectsResult: scored.subjectsResult,
+      totalCorrect: scored.totalCorrect,
+      totalWrong: scored.totalWrong,
+      totalEmpty: scored.totalEmpty,
+      totalNet: scored.totalNet,
+      totalScore: (data.scoreOverride !== undefined && data.scoreOverride !== '' && data.scoreOverride !== null) ? parseFloat(data.scoreOverride) : scored.totalScore,
+      isManual: true,
+      notes: data.notes || '',
+      scannedAt: new Date().toISOString()
+    };
+
+    this.saveExamResult(instId, result);
+    return { success: true, result };
+  }
+
+  // --- Soru ve Madde Başarı Analizi (Item Analysis) ---
+  getItemAnalysis(instId, examId) {
+    const exam = this.getExamById(instId, examId);
+    if (!exam) return [];
+    const results = this.getResultsByExam(instId, examId);
+    return this.calculateItemStatistics(exam, results);
+  }
+
+  getGlobalItemAnalysis(examId) {
+    const exam = this.getGlobalExams().find(e => e.id === examId);
+    if (!exam) return [];
+    const institutions = this.getInstitutions();
+    let allResults = [];
+    institutions.forEach(inst => {
+      const list = this.getResultsByExam(inst.id, examId);
+      allResults = allResults.concat(list);
+    });
+    return this.calculateItemStatistics(exam, allResults);
+  }
+
+  calculateItemStatistics(exam, results) {
+    const qCount = parseInt(exam.questionCount, 10) || 20;
+    const canceled = Array.isArray(exam.canceledQuestions) ? exam.canceledQuestions.map(n => parseInt(n, 10)) : [];
+    const subjects = exam.subjects || [{ name: 'Genel', startQ: 1, endQ: qCount }];
+    const totalStudents = results.length;
+
+    const analysis = [];
+
+    for (let q = 1; q <= qCount; q++) {
+      const isCanceled = canceled.includes(q);
+      const sub = subjects.find(s => q >= s.startQ && q <= s.endQ) || { name: 'Genel' };
+      const correctA = (exam.answerKeys && exam.answerKeys['A'] && exam.answerKeys['A'][q - 1]) ? exam.answerKeys['A'][q - 1].toUpperCase() : 'A';
+
+      const distribution = { A: 0, B: 0, C: 0, D: 0, E: 0, empty: 0 };
+      let correctCount = 0;
+
+      results.forEach(res => {
+        const studentBooklet = res.booklet || 'A';
+        const keyForBooklet = (exam.answerKeys && exam.answerKeys[studentBooklet]) 
+          ? exam.answerKeys[studentBooklet].toUpperCase() 
+          : (exam.answerKeys && exam.answerKeys['A'] ? exam.answerKeys['A'].toUpperCase() : '');
+        const correctOpt = (keyForBooklet[q - 1] || 'A').toUpperCase();
+
+        const ans = (res.answers && res.answers[q - 1]) ? res.answers[q - 1].toUpperCase().trim() : '';
+
+        if (!ans) {
+          distribution.empty++;
+        } else if (distribution[ans] !== undefined) {
+          distribution[ans]++;
+        }
+
+        if (isCanceled) {
+          correctCount++;
+        } else if (ans && (ans === correctOpt || correctOpt === '*')) {
+          correctCount++;
+        }
+      });
+
+      const successRate = totalStudents > 0 ? parseFloat(((correctCount / totalStudents) * 100).toFixed(1)) : 0;
+
+      let difficulty = 'Orta';
+      let difficultyColor = 'amber';
+      if (isCanceled) {
+        difficulty = 'İptal Edildi';
+        difficultyColor = 'purple';
+      } else if (successRate >= 70) {
+        difficulty = 'Kolay';
+        difficultyColor = 'emerald';
+      } else if (successRate < 40) {
+        difficulty = 'Zor';
+        difficultyColor = 'rose';
+      }
+
+      analysis.push({
+        questionNo: q,
+        subjectName: sub.name,
+        correctKeyA: correctA,
+        isCanceled,
+        totalStudents,
+        correctCount,
+        successRate,
+        difficulty,
+        difficultyColor,
+        distribution
+      });
+    }
+
+    return analysis;
+  }
+
+  // --- Excel / CSV Toplu İndirme Motoru ---
+  exportResultsToCsv(results, exam, isGlobal = false) {
+    if (!results || results.length === 0) return '';
+
+    const subjects = (exam && exam.subjects && exam.subjects.length > 0) 
+      ? exam.subjects 
+      : [{ name: 'Genel' }];
+
+    const headers = ['Derece'];
+    if (isGlobal) headers.push('Kurum Adı');
+    headers.push('Talebe No', 'Adı Soyadı', 'Sınıfı', 'Kitapçık');
+
+    subjects.forEach(sub => {
+      headers.push(`${sub.name} (D)`, `${sub.name} (Y)`, `${sub.name} (Net)`);
+    });
+
+    headers.push('Toplam Doğru', 'Toplam Yanlış', 'Toplam Boş', 'Toplam Net', 'Toplam Puan');
+
+    const rows = [headers.join(';')];
+
+    results.forEach((r, idx) => {
+      const row = [];
+      row.push(isGlobal ? (r.globalRank || idx + 1) : (r.generalRank || idx + 1));
+      if (isGlobal) row.push(`"${(r.institutionName || '').replace(/"/g, '""')}"`);
+      row.push(`"${(r.studentNo || '').replace(/"/g, '""')}"`);
+      row.push(`"${(r.studentName || '').replace(/"/g, '""')}"`);
+      row.push(`"${(r.className || '').replace(/"/g, '""')}"`);
+      row.push(r.booklet || 'A');
+
+      subjects.forEach(sub => {
+        const stat = (r.subjectsResult && r.subjectsResult[sub.name]) ? r.subjectsResult[sub.name] : { correct: 0, wrong: 0, net: 0 };
+        row.push(stat.correct || 0);
+        row.push(stat.wrong || 0);
+        row.push((stat.net !== undefined ? stat.net : 0).toString().replace('.', ','));
+      });
+
+      row.push(r.totalCorrect || 0);
+      row.push(r.totalWrong || 0);
+      row.push(r.totalEmpty || 0);
+      row.push((r.totalNet !== undefined ? r.totalNet : 0).toString().replace('.', ','));
+      row.push((r.totalScore !== undefined ? r.totalScore : 0).toString().replace('.', ','));
+
+      rows.push(row.join(';'));
+    });
+
+    return '\uFEFF' + rows.join('\r\n');
+  }
+
+  downloadResultsCsv(results, exam, isGlobal = false) {
+    const csvContent = this.exportResultsToCsv(results, exam, isGlobal);
+    if (!csvContent) return false;
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const cleanTitle = (exam && exam.title ? exam.title : 'Sinav_Sonuclari').replace(/[^a-zA-Z0-9ığüşöçİĞÜŞÖÇ_]/g, '_');
+    a.download = `${cleanTitle}_Sonuclari.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    return true;
   }
 
   // --- Hazır Sınav Şablonları ---

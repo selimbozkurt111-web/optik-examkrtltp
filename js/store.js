@@ -133,11 +133,11 @@ class MultiTenantStore {
 
   getSuperadminPassword() {
     return localStorage.getItem(STORAGE_PREFIX + 'superadmin_password') || DEFAULT_SUPERADMIN.password;
-  },
+  }
 
   setSuperadminPassword(newPass) {
     localStorage.setItem(STORAGE_PREFIX + 'superadmin_password', newPass);
-  },
+  }
 
   changePassword(session, oldPass, newPass) {
     if (!session) return { success: false, message: 'Oturum bulunamadı.' };
@@ -162,7 +162,7 @@ class MultiTenantStore {
       this.updateInstitution(session.institutionId, { password: cleanNew });
       return { success: true, message: 'Kurum şifreniz başarıyla değiştirildi!' };
     }
-  },
+  }
 
   resetInstitutionPassword(instId, newPass) {
     const cleanNew = (newPass || '').trim();
@@ -171,7 +171,7 @@ class MultiTenantStore {
     }
     this.updateInstitution(instId, { password: cleanNew });
     return { success: true, message: 'Kurum şifresi başarıyla güncellendi!' };
-  },
+  }
 
   logout() {
     sessionStorage.removeItem(STORAGE_PREFIX + 'session');

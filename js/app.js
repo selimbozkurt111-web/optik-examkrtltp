@@ -61,6 +61,10 @@ window.App = {
 
   handleLogin(e) {
     e.preventDefault();
+    if (!window.PortalStore) {
+      this.showToast('Veri ambarı (store.js) hazırlanıyor, lütfen sayfayı yenileyiniz (Ctrl + F5).', 'warning');
+      return;
+    }
     const u = document.getElementById('login-username').value;
     const p = document.getElementById('login-password').value;
     const res = window.PortalStore.login(u, p);
