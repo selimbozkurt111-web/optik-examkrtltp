@@ -6,6 +6,28 @@
   <title>Optik Sınav Portalı • Çoklu Kurum Deneme Sınavı & Kamera ile Hızlı Okuma</title>
   <meta name="description" content="Kurslar ve okullar için telefon kamerasıyla optik form okuma, anında net hesaplama ve sıralama platformu.">
   
+  <script>
+    window.onerror = function(msg, url, line) {
+      console.error('Portal Hatası:', msg, url, line);
+      const root = document.getElementById('app-root');
+      if (root) {
+        root.innerHTML = `
+          <div style="min-height:100vh; background:#090d16; color:#f8fafc; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:20px; font-family:system-ui, sans-serif; text-align:center;">
+            <div style="font-size:42px; margin-bottom:12px;">⚠️</div>
+            <h2 style="font-size:18px; font-weight:bold; color:#f43f5e; margin-bottom:8px;">Portal Yüklenirken Bir Bildirim Oluştu</h2>
+            <div style="background:#1e293b; padding:12px 18px; border-radius:12px; font-family:monospace; font-size:12px; color:#cbd5e1; max-width:550px; text-align:left; word-break:break-all; border:1px solid #334155; margin-bottom:16px;">
+              <strong>Detay:</strong> ${msg}<br>
+              <strong>Dosya:</strong> ${url ? url.split('/').pop() : 'Bilinmiyor'} (Satır ${line})
+            </div>
+            <button onclick="localStorage.clear(); sessionStorage.clear(); location.reload();" style="padding:10px 20px; background:#10b981; color:#022c22; font-weight:bold; font-size:13px; border:none; border-radius:10px; cursor:pointer;">
+              Hafızayı Temizle ve Yeniden Başlat ⟳
+            </button>
+          </div>
+        `;
+      }
+    };
+  </script>
+  
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -223,8 +245,22 @@
   <script src="js/app.js"></script>
   <script>
     if (window.App && typeof window.App.init === 'function') {
-      window.App.init();
+      try {
+        window.App.init();
+      } catch (e) {
+        console.error('App.init çalıştırma hatası:', e);
+      }
     }
+
+    // Acil durum kurtarıcısı: 1 saniye içinde yükleme bitmezse login ekranını zorla bas
+    setTimeout(() => {
+      const root = document.getElementById('app-root');
+      if (root && root.innerHTML.includes('Portala Bağlanılıyor')) {
+        if (window.App && typeof window.App.renderLoginView === 'function') {
+          root.innerHTML = window.App.renderLoginView();
+        }
+      }
+    }, 1000);
   </script>
 </body>
 </html>
