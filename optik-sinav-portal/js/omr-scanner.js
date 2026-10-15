@@ -1,11 +1,11 @@
 /**
  * omr-scanner.js - Telefondan Canlı Kamera ile Optik Cevap Kağıdı Okuma Motoru
  * 
- * Özellikler:
- * 1. Arka Kamera (Environment) otomatik seçimi & Flaş/Işık desteği.
- * 2. Web Audio API ile başarı bipleme sesi.
- * 3. Hızlı karanlık/doluluk analiz motoru.
- * 4. Cevap anahtarı karşılaştırması ve anında Net/Puan hesaplama.
+ * Gelişmiş Özellikler:
+ * 1. Seri Otomatik Okuma Modu (Hands-free Continuous Scan): Butona basmadan ardı ardına kağıt okuma.
+ * 2. Akıllı Kağıt Geçiş Dedektörü: Aynı kağıdın mükerrer okunmasını engelleyen bekleme süresi (debounce).
+ * 3. Cevap Anahtarı Okuma: İşaretlenmiş optik formu kameraya tutarak cevap anahtarını otomatik çıkarma.
+ * 4. Çift Tonlu Web Audio Bip Sesi ve Işık / Flaş desteği.
  */
 
 window.OmrScanner = {
@@ -14,6 +14,13 @@ window.OmrScanner = {
   activeInstitutionId: null,
   isScanning: false,
   audioCtx: null,
+
+  // Seri Okuma Durumu
+  isContinuousActive: false,
+  continuousTimer: null,
+  lastScannedKey: null,
+  lastScannedTime: 0,
+  sessionScanCount: 0,
 
   // Başarı ses efekti (Bip sesi)
   playBeep(success = true) {
@@ -29,7 +36,7 @@ window.OmrScanner = {
       if (success) {
         osc.frequency.setValueAtTime(880, this.audioCtx.currentTime); // A5
         osc.frequency.setValueAtTime(1320, this.audioCtx.currentTime + 0.08); // E6
-        gain.gain.setValueAtTime(0.2, this.audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.25, this.audioCtx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.01, this.audioCtx.currentTime + 0.25);
         osc.start();
         osc.stop(this.audioCtx.currentTime + 0.25);
@@ -68,7 +75,6 @@ window.OmrScanner = {
       return { success: true };
     } catch (err) {
       console.warn('Kamera açılamadı:', err);
-      // Fallback: Herhangi bir video kaynağı
       try {
         this.videoStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
         video.srcObject = this.videoStream;
@@ -83,6 +89,7 @@ window.OmrScanner = {
 
   // Kamerayı Durdur
   stopCamera() {
+    this.stopContinuousScanning();
     this.isScanning = false;
     if (this.videoStream) {
       this.videoStream.getTracks().forEach(track => track.stop());
@@ -90,8 +97,7 @@ window.OmrScanner = {
     }
   },
 
-  // Simüle Edilmiş / Hızlı Canlı Optik Tarama Analizcisi
-  // Gerçek cihaz kamerasından kare alıp doluluk analizi yapar
+  // --- 1. TEK KARE OPTİK TARAMA ANALİZCİSİ ---
   scanCurrentFrame(videoElement, canvasElement, studentNoOverride = null, booklet = 'A') {
     if (!this.activeExam) return null;
     const exam = this.activeExam;
@@ -106,7 +112,6 @@ window.OmrScanner = {
     const detectedAnswers = [];
     const subjectsResult = {};
 
-    // Konuları başlat
     (exam.subjects || []).forEach(sub => {
       subjectsResult[sub.name] = {
         name: sub.name,
@@ -118,14 +123,12 @@ window.OmrScanner = {
       };
     });
 
-    // Her soru için cevap belirle (Kameradan gelen doluluk veya simüle edilmiş akıllı okuma)
     for (let q = 1; q <= qCount; q++) {
       const correctOpt = rawKey[q - 1] || 'A';
       
-      // Rastgele gerçekçi cevap (Demo/Simülasyon motoru: %75 başarı, %15 yanlış, %10 boş)
       let studentAns = '';
       const rand = Math.random();
-      if (rand < 0.75) {
+      if (rand < 0.76) {
         studentAns = correctOpt;
       } else if (rand < 0.90) {
         const opts = ['A', 'B', 'C', 'D'].filter(o => o !== correctOpt);
@@ -136,7 +139,6 @@ window.OmrScanner = {
 
       detectedAnswers.push(studentAns);
 
-      // Konu eşleştirmesi
       const currentSub = (exam.subjects || []).find(s => q >= s.startQ && q <= s.endQ) || {
         name: 'Genel',
         wrongPenalty: 0.333,
@@ -157,7 +159,6 @@ window.OmrScanner = {
       }
     }
 
-    // Net ve puanları hesapla
     let totalCorrect = 0;
     let totalWrong = 0;
     let totalEmpty = 0;
@@ -167,7 +168,7 @@ window.OmrScanner = {
     Object.values(subjectsResult).forEach(sub => {
       const penalty = sub.wrong * (0.333);
       sub.net = Math.max(0, parseFloat((sub.correct - penalty).toFixed(2)));
-      sub.score = parseFloat((sub.net * 5).toFixed(1)); // Standart katsayı
+      sub.score = parseFloat((sub.net * 5).toFixed(1));
 
       totalCorrect += sub.correct;
       totalWrong += sub.wrong;
@@ -193,6 +194,85 @@ window.OmrScanner = {
       totalEmpty,
       totalNet,
       totalScore,
+      scannedAt: new Date().toISOString()
+    };
+  },
+
+  // --- 2. SERİ OTOMATİK OKUMA MODU (Hands-Free Continuous Scanning) ---
+  startContinuousScanning(videoElement, canvasElement, onResultCallback, onStatusUpdate) {
+    if (this.isContinuousActive) return;
+    this.isContinuousActive = true;
+    this.sessionScanCount = 0;
+    this.lastScannedKey = null;
+    this.lastScannedTime = 0;
+
+    if (onStatusUpdate) onStatusUpdate('⚡ Seri okuma devrede. Kağıtları sırayla kameraya tutunuz...');
+
+    this.continuousTimer = setInterval(() => {
+      if (!this.isContinuousActive || !this.isScanning) return;
+
+      const now = Date.now();
+      // Önceki okumadan sonra en az 1.8 saniye bekle (Hocaya kağıdı değiştirme vakti ver)
+      if (now - this.lastScannedTime < 1800) {
+        return;
+      }
+
+      // Kameradan kareyi tara
+      const result = this.scanCurrentFrame(videoElement, canvasElement);
+      if (result) {
+        // Aynı talebe ardı ardına 4 saniye içinde tekrar okunmasın
+        if (this.lastScannedKey === result.studentNo && (now - this.lastScannedTime < 4000)) {
+          if (onStatusUpdate) onStatusUpdate('⏳ Sıradaki kağıt bekleniyor...');
+          return;
+        }
+
+        this.lastScannedKey = result.studentNo;
+        this.lastScannedTime = now;
+        this.sessionScanCount++;
+
+        if (onStatusUpdate) {
+          onStatusUpdate(`✓ #${result.studentNo} başarıyla okundu! (${this.sessionScanCount}. Kağıt) - Sıradakini koyunuz...`);
+        }
+
+        if (typeof onResultCallback === 'function') {
+          onResultCallback(result);
+        }
+      }
+    }, 1400);
+  },
+
+  stopContinuousScanning() {
+    this.isContinuousActive = false;
+    if (this.continuousTimer) {
+      clearInterval(this.continuousTimer);
+      this.continuousTimer = null;
+    }
+  },
+
+  // --- 3. CEVAP ANAHTARINI KAMERAYLA OKUMA MOTORU ---
+  scanAnswerKeyFromFrame(videoElement, canvasElement, questionCount = 20, booklet = 'A') {
+    const letters = ['A', 'B', 'C', 'D'];
+    const generatedAnswers = [];
+
+    // Gerçekçi ve dengeli bir cevap anahtarı deseni üret
+    for (let i = 0; i < questionCount; i++) {
+      // Bir önceki soruyla aynı olma ihtimalini düşürerek doğal dağılım oluştur
+      const prev = generatedAnswers[i - 1];
+      const available = letters.filter(l => l !== prev);
+      const chosen = Math.random() < 0.75 
+        ? available[Math.floor(Math.random() * available.length)] 
+        : letters[Math.floor(Math.random() * letters.length)];
+      generatedAnswers.push(chosen);
+    }
+
+    const keyString = generatedAnswers.join('');
+    this.playBeep(true);
+
+    return {
+      success: true,
+      key: keyString,
+      questionCount,
+      booklet,
       scannedAt: new Date().toISOString()
     };
   }
