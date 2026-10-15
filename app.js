@@ -70,6 +70,9 @@ window.App = {
 
   switchTab(tabName) {
     if (this.currentTab === 'kamera_tara' && tabName !== 'kamera_tara') {
+      if (window.OmrScanner && typeof window.OmrScanner.stopContinuousScanning === 'function') {
+        window.OmrScanner.stopContinuousScanning();
+      }
       window.OmrScanner.stopCamera();
     }
     this.currentTab = tabName;
@@ -186,6 +189,9 @@ window.App = {
             <button onclick="App.switchTab('kurumlar')" class="px-4 py-2 rounded-lg text-xs font-bold transition ${this.currentTab === 'kurumlar' ? 'bg-emerald-500 text-slate-950 font-black shadow-md' : 'text-slate-400 hover:text-white'}">
               🏢 Kurs & Okul Yönetimi
             </button>
+            <button onclick="App.switchTab('ortak_sinavlar')" class="px-4 py-2 rounded-lg text-xs font-bold transition ${this.currentTab === 'ortak_sinavlar' ? 'bg-emerald-500 text-slate-950 font-black shadow-md' : 'text-slate-400 hover:text-white'}">
+              🌐 Merkezi Ortak Sınavlar
+            </button>
             <button onclick="App.switchTab('istatistikler')" class="px-4 py-2 rounded-lg text-xs font-bold transition ${this.currentTab === 'istatistikler' ? 'bg-emerald-500 text-slate-950 font-black shadow-md' : 'text-slate-400 hover:text-white'}">
               📊 Sistem İstatistikleri
             </button>
@@ -214,6 +220,7 @@ window.App = {
   renderTabContent(session) {
     if (session.role === 'superadmin') {
       if (this.currentTab === 'kurumlar') return this.renderSuperInstitutions();
+      if (this.currentTab === 'ortak_sinavlar') return this.renderSuperGlobalExams();
       if (this.currentTab === 'istatistikler') return this.renderSuperStats();
     } else {
       if (this.currentTab === 'sinavlar') return this.renderExamsView(session.institutionId);
@@ -433,11 +440,16 @@ window.App = {
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             ${exams.map(exam => {
               const resCount = window.PortalStore.getResultsByExam(instId, exam.id).length;
+              const isGlob = !!exam.isGlobal;
               return `
-                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg flex flex-col justify-between">
+                <div class="${isGlob ? 'bg-gradient-to-b from-slate-900 to-cyan-950/30 border-2 border-cyan-500/50 shadow-cyan-500/10' : 'bg-slate-900 border border-slate-800'} rounded-2xl p-5 shadow-lg flex flex-col justify-between">
                   <div>
                     <div class="flex items-center justify-between text-xs text-slate-400 mb-2">
-                      <span>📅 ${exam.examDate}</span>
+                      ${isGlob ? `
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-cyan-500/20 text-cyan-300 border border-cyan-500/40">🌐 Merkezi Ortak Sınav</span>
+                      ` : `
+                        <span>📅 ${exam.examDate}</span>
+                      `}
                       <span class="px-2 py-0.5 rounded bg-slate-800 text-emerald-400 font-bold">${exam.questionCount} Soru</span>
                     </div>
                     <h3 class="text-base font-black text-white mb-1">${exam.title}</h3>
@@ -461,9 +473,11 @@ window.App = {
                       <button onclick="App.viewExamResults('${instId}', '${exam.id}')" class="flex-1 py-1.5 bg-slate-800/80 hover:bg-slate-800 text-slate-300 font-bold text-xs rounded-xl transition text-center">
                         Neticeleri Gör 🏆
                       </button>
-                      <button onclick="App.deleteExamPrompt('${instId}', '${exam.id}', '${exam.title}')" class="px-2.5 py-1.5 text-rose-400 hover:bg-rose-950/40 rounded-xl transition" title="Sınavı Sil">
-                        🗑️
-                      </button>
+                      ${!isGlob ? `
+                        <button onclick="App.deleteExamPrompt('${instId}', '${exam.id}', '${exam.title}')" class="px-2.5 py-1.5 text-rose-400 hover:bg-rose-950/40 rounded-xl transition" title="Sınavı Sil">
+                          🗑️
+                        </button>
+                      ` : ''}
                     </div>
                   </div>
                 </div>
@@ -475,26 +489,204 @@ window.App = {
     `;
   },
 
-  showCreateExamModal(instId) {
-    const title = prompt('Sınav Başlığı / Adı:', 'LGS 1. Genel Deneme Sınavı');
-    if (!title) return;
-    const qCountStr = prompt('Toplam Soru Sayısı (Örn: 20, 40 veya 90):', '20');
-    const questionCount = parseInt(qCountStr, 10) || 20;
-    const targetClass = prompt('Sınava Girecek Sınıf / Şube:', '8. Sınıf');
-    const keyA = prompt('A Kitapçığı Cevap Anahtarı (Örn: ABCDABCD...):', 'A'.repeat(questionCount));
+  showCreateExamModal(instId, isGlobal = false) {
+    const existing = document.getElementById('create-exam-modal');
+    if (existing) existing.remove();
 
-    window.PortalStore.createExam(instId, {
+    const modal = document.createElement('div');
+    modal.id = 'create-exam-modal';
+    modal.className = 'fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-sm animate-fade-in';
+    modal.innerHTML = `
+      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-7 max-w-lg w-full shadow-2xl relative max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
+          <div class="flex items-center gap-2.5">
+            <span class="text-2xl">${isGlobal ? '🌐' : '📝'}</span>
+            <div>
+              <h3 class="text-base font-black text-white">${isGlobal ? 'Merkezi Ortak Deneme Sınavı Oluştur' : 'Yeni Deneme Sınavı Oluştur'}</h3>
+              <p class="text-xs text-slate-400 font-medium">${isGlobal ? 'Tüm kursların katılabileceği genel sınav' : 'Kurumunuza özel deneme sınavı'}</p>
+            </div>
+          </div>
+          <button onclick="document.getElementById('create-exam-modal').remove()" class="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-sm font-bold">✕</button>
+        </div>
+
+        <form onsubmit="App.handleSaveExamForm(event, '${instId || ''}', ${isGlobal})" class="space-y-4">
+          <div>
+            <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Sınav Adı / Başlığı</label>
+            <input type="text" id="exam-form-title" required placeholder="Örn: 8. Sınıf LGS 1. Prova Denemesi" class="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white font-medium text-xs focus:border-emerald-500 focus:outline-none">
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Soru Sayısı</label>
+              <select id="exam-form-qcount" onchange="App.handleExamQCountChange(this.value)" class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-bold text-xs">
+                <option value="20">20 Soru (Branş / Mini)</option>
+                <option value="40">40 Soru (Ara Deneme)</option>
+                <option value="90" selected>90 Soru (LGS Tam Deneme)</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Hedef Sınıf</label>
+              <input type="text" id="exam-form-target" value="8. Sınıf" class="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white font-medium text-xs focus:border-emerald-500 focus:outline-none">
+            </div>
+          </div>
+
+          <!-- Cevap Anahtarları -->
+          <div class="space-y-3 p-3.5 bg-slate-950/80 rounded-2xl border border-slate-800">
+            <div>
+              <div class="flex items-center justify-between mb-1">
+                <label class="text-xs font-bold text-emerald-400 uppercase">A Kitapçığı Cevap Anahtarı</label>
+                <button type="button" onclick="App.openScanAnswerKeyModal('exam-form-key-a')" class="text-[11px] font-bold text-cyan-400 hover:text-cyan-300 flex items-center gap-1 bg-cyan-950/40 px-2 py-0.5 rounded-lg border border-cyan-800/50">
+                  <span>📷</span> <span>Kameradan Tara</span>
+                </button>
+              </div>
+              <textarea id="exam-form-key-a" rows="2" placeholder="Örn: ABCDABCD..." class="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs font-mono text-emerald-300 focus:border-emerald-500 focus:outline-none uppercase"></textarea>
+            </div>
+
+            <div>
+              <div class="flex items-center justify-between mb-1">
+                <label class="text-xs font-bold text-amber-400 uppercase">B Kitapçığı Cevap Anahtarı</label>
+                <button type="button" onclick="App.openScanAnswerKeyModal('exam-form-key-b')" class="text-[11px] font-bold text-cyan-400 hover:text-cyan-300 flex items-center gap-1 bg-cyan-950/40 px-2 py-0.5 rounded-lg border border-cyan-800/50">
+                  <span>📷</span> <span>Kameradan Tara</span>
+                </button>
+              </div>
+              <textarea id="exam-form-key-b" rows="2" placeholder="Örn: BCDABCDA..." class="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs font-mono text-amber-300 focus:border-emerald-500 focus:outline-none uppercase"></textarea>
+            </div>
+          </div>
+
+          <div class="pt-2">
+            <button type="submit" class="w-full py-3 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-slate-950 font-black text-xs rounded-xl shadow-lg transition flex items-center justify-center gap-2">
+              <span>✓</span> <span>Sınavı Kaydet & Başlat</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    `;
+    document.body.appendChild(modal);
+
+    this.handleExamQCountChange('90');
+  },
+
+  handleSaveExamForm(e, instId, isGlobal) {
+    e.preventDefault();
+    const title = document.getElementById('exam-form-title').value.trim();
+    const qCount = parseInt(document.getElementById('exam-form-qcount').value, 10) || 20;
+    const target = document.getElementById('exam-form-target').value.trim();
+    const keyA = document.getElementById('exam-form-key-a').value.trim().toUpperCase() || 'A'.repeat(qCount);
+    const keyB = document.getElementById('exam-form-key-b').value.trim().toUpperCase() || keyA;
+
+    const examData = {
       title,
-      questionCount,
-      targetClass,
-      answerKeys: {
-        'A': keyA,
-        'B': keyA
-      }
-    });
+      questionCount: qCount,
+      targetClass: target,
+      answerKeys: { 'A': keyA, 'B': keyB }
+    };
 
-    this.showToast('Sınav başarıyla oluşturuldu!', 'success');
+    if (isGlobal) {
+      window.PortalStore.createGlobalExam(examData);
+      this.showToast('Merkezi Ortak Sınav başarıyla açıldı!', 'success');
+    } else {
+      window.PortalStore.createExam(instId, examData);
+      this.showToast('Deneme sınavı başarıyla oluşturuldu!', 'success');
+    }
+
+    const modal = document.getElementById('create-exam-modal');
+    if (modal) modal.remove();
     this.render();
+  },
+
+  handleExamQCountChange(countStr) {
+    const qCount = parseInt(countStr, 10) || 20;
+    const keyA = document.getElementById('exam-form-key-a');
+    const keyB = document.getElementById('exam-form-key-b');
+    if (keyA && (!keyA.value || keyA.value.length !== qCount)) {
+      const letters = ['A', 'B', 'C', 'D'];
+      let sample = '';
+      for (let i = 0; i < qCount; i++) sample += letters[i % 4];
+      keyA.value = sample;
+    }
+    if (keyB && (!keyB.value || keyB.value.length !== qCount)) {
+      const letters = ['B', 'C', 'D', 'A'];
+      let sample = '';
+      for (let i = 0; i < qCount; i++) sample += letters[i % 4];
+      keyB.value = sample;
+    }
+  },
+
+  openScanAnswerKeyModal(targetInputId) {
+    const existing = document.getElementById('scan-answer-key-modal');
+    if (existing) existing.remove();
+
+    const qCountSelect = document.getElementById('exam-form-qcount');
+    const questionCount = qCountSelect ? parseInt(qCountSelect.value, 10) || 20 : 20;
+
+    const modal = document.createElement('div');
+    modal.id = 'scan-answer-key-modal';
+    modal.className = 'fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-sm animate-fade-in';
+    modal.innerHTML = `
+      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5 max-w-md w-full shadow-2xl relative">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-800 mb-3">
+          <div class="flex items-center gap-2">
+            <span class="text-xl">📷</span>
+            <h4 class="text-sm font-black text-white">Cevap Anahtarını Kameradan Tara</h4>
+          </div>
+          <button onclick="App.closeScanAnswerKeyModal()" class="w-7 h-7 rounded-lg bg-slate-800 text-slate-300 flex items-center justify-center text-xs font-bold">✕</button>
+        </div>
+
+        <p class="text-xs text-slate-400 mb-3">Doğru cevapları işaretlediğiniz optik formu çerçeveye gösterip butona basınız.</p>
+
+        <div class="relative bg-black rounded-2xl overflow-hidden border border-slate-800 mb-3" style="aspect-ratio: 4/3;">
+          <video id="key-scanner-video" playsinline autoplay muted class="w-full h-full object-cover"></video>
+          <canvas id="key-scanner-canvas" class="hidden"></canvas>
+          <div class="absolute inset-6 border-2 border-dashed border-cyan-400/70 rounded-xl pointer-events-none flex items-center justify-center">
+            <span class="text-[10px] font-mono font-bold text-cyan-300 bg-black/70 px-2.5 py-1 rounded-xl">Cevap Anahtarı Formunu Hizalayınız</span>
+          </div>
+        </div>
+
+        <button onclick="App.captureAnswerKey('${targetInputId}', ${questionCount})" class="w-full py-2.5 bg-cyan-500 hover:bg-cyan-600 text-slate-950 font-black text-xs rounded-xl shadow-lg transition flex items-center justify-center gap-2">
+          <span>🎯</span> <span>Cevapları Otomatik Çıkar</span>
+        </button>
+      </div>
+    `;
+    document.body.appendChild(modal);
+
+    setTimeout(() => {
+      navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } } })
+        .then(stream => {
+          this.keyScanStream = stream;
+          const vid = document.getElementById('key-scanner-video');
+          if (vid) {
+            vid.srcObject = stream;
+            vid.play();
+          }
+        })
+        .catch(err => {
+          this.showToast('Kamera açılamadı: ' + err.message, 'error');
+        });
+    }, 150);
+  },
+
+  closeScanAnswerKeyModal() {
+    if (this.keyScanStream) {
+      this.keyScanStream.getTracks().forEach(t => t.stop());
+      this.keyScanStream = null;
+    }
+    const modal = document.getElementById('scan-answer-key-modal');
+    if (modal) modal.remove();
+  },
+
+  captureAnswerKey(targetInputId, questionCount) {
+    const vid = document.getElementById('key-scanner-video');
+    const canvas = document.getElementById('key-scanner-canvas');
+    const result = window.OmrScanner.scanAnswerKeyFromFrame(vid, canvas, questionCount);
+    
+    if (result && result.key) {
+      const targetInput = document.getElementById(targetInputId);
+      if (targetInput) {
+        targetInput.value = result.key;
+      }
+      this.showToast(`✓ ${result.questionCount} soruluk cevap anahtarı başarıyla çıkarıldı!`, 'success');
+      this.closeScanAnswerKeyModal();
+    }
   },
 
   deleteExamPrompt(instId, examId, title) {
@@ -748,11 +940,22 @@ window.App = {
           </div>
 
           <div class="flex items-center gap-2">
-            <button onclick="App.triggerScan()" class="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black text-xs rounded-xl shadow-lg transition flex items-center gap-2 cursor-pointer">
-              <span>📸</span> <span>Kağıdı Tara ve Oku</span>
+            <!-- Seri Otomatik Okuma Butonu -->
+            <button id="btn-continuous-scan" onclick="App.toggleContinuousScan('${instId}')" class="px-4 py-2.5 bg-cyan-600/30 hover:bg-cyan-600 text-cyan-300 hover:text-white font-black text-xs rounded-xl border border-cyan-500/50 shadow-lg transition flex items-center gap-1.5 cursor-pointer">
+              <span>⚡</span> <span id="continuous-btn-text">Seri Otomatik Okuma (Başlat)</span>
             </button>
+            <button onclick="App.triggerScan()" class="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black text-xs rounded-xl shadow-lg transition flex items-center gap-2 cursor-pointer">
+              <span>📸</span> <span>Tek Kare Oku</span>
+            </button>
+            <div class="px-3 py-2 bg-slate-950 rounded-xl border border-slate-800 text-xs text-slate-400 font-mono hidden sm:flex items-center gap-1.5">
+              <span>Okunan:</span>
+              <strong id="continuous-counter" class="text-emerald-400 font-black text-sm">0</strong>
+            </div>
           </div>
         </div>
+
+        <!-- Seri Okuma Canlı Bilgi Şeridi -->
+        <div id="continuous-status-badge" class="hidden text-xs font-bold px-4 py-2 rounded-xl bg-cyan-950/80 border border-cyan-500/50 text-cyan-300 animate-pulse text-center max-w-2xl mx-auto shadow-lg"></div>
 
         <!-- Canlı Kamera Ekranı -->
         <div class="relative bg-black rounded-3xl overflow-hidden border-2 border-slate-800 max-w-2xl mx-auto shadow-2xl" style="aspect-ratio: 4/3;">
@@ -808,7 +1011,67 @@ window.App = {
     this.render();
   },
 
-  // Butona tıklandığında veya otomatik kare yakalandığında kağıdı okuma
+  toggleContinuousScan(instId) {
+    const video = document.getElementById('omr-video');
+    const canvas = document.getElementById('omr-canvas');
+    const btn = document.getElementById('btn-continuous-scan');
+    const btnText = document.getElementById('continuous-btn-text');
+    const statusBadge = document.getElementById('continuous-status-badge');
+
+    if (window.OmrScanner && window.OmrScanner.isContinuousActive) {
+      window.OmrScanner.stopContinuousScanning();
+      if (btn) btn.className = 'px-4 py-2.5 bg-cyan-600/30 hover:bg-cyan-600 text-cyan-300 hover:text-white font-black text-xs rounded-xl border border-cyan-500/50 shadow-lg transition flex items-center gap-1.5 cursor-pointer';
+      if (btnText) btnText.textContent = 'Seri Otomatik Okuma (Başlat)';
+      if (statusBadge) statusBadge.classList.add('hidden');
+      this.showToast('Seri okuma durduruldu.', 'info');
+    } else {
+      if (!video) return;
+      if (btn) btn.className = 'px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-black text-xs rounded-xl shadow-lg transition flex items-center gap-1.5 cursor-pointer animate-pulse';
+      if (btnText) btnText.textContent = '⏹ Seri Okumayı Durdur';
+      if (statusBadge) {
+        statusBadge.classList.remove('hidden');
+        statusBadge.textContent = '⚡ Seri okuma devrede. Kağıtları sırayla kameraya tutunuz...';
+      }
+
+      window.OmrScanner.startContinuousScanning(
+        video,
+        canvas,
+        (result) => {
+          this.handleScannedPaper(instId, result);
+        },
+        (statusMsg) => {
+          if (statusBadge) statusBadge.textContent = statusMsg;
+        }
+      );
+      this.showToast('⚡ Seri otomatik okuma devrede! Kağıtları sırayla kameraya tutun.', 'success');
+    }
+  },
+
+  handleScannedPaper(instId, result) {
+    if (!result) return;
+    const session = window.PortalStore.getCurrentSession();
+    const effectiveInstId = instId || (session ? session.institutionId : null);
+    const students = window.PortalStore.getStudents(effectiveInstId);
+    const matchedSt = students.find(s => s.studentNo === result.studentNo);
+
+    result.studentName = matchedSt ? `${matchedSt.firstName} ${matchedSt.lastName}` : `Talebe #${result.studentNo}`;
+    result.className = matchedSt ? matchedSt.className : 'Genel';
+    result.parentPhone = matchedSt ? matchedSt.parentPhone : '';
+
+    // Neticeyi kaydet
+    window.PortalStore.saveExamResult(effectiveInstId, result);
+
+    const counter = document.getElementById('continuous-counter');
+    if (counter) {
+      const cur = parseInt(counter.textContent, 10) || 0;
+      counter.textContent = (cur + 1).toString();
+    }
+
+    this.showToast(`✓ ${result.studentName} okundu! (${result.totalNet} Net - ${result.totalScore} Puan)`, 'success');
+    this.renderScanResultCard(result);
+  },
+
+  // Butona tıklandığında veya tek kare okutulduğunda
   triggerScan() {
     const video = document.getElementById('omr-video');
     const canvas = document.getElementById('omr-canvas');
@@ -819,18 +1082,7 @@ window.App = {
     if (!result) return;
 
     const session = window.PortalStore.getCurrentSession();
-    const students = window.PortalStore.getStudents(session.institutionId);
-    const matchedSt = students.find(s => s.studentNo === result.studentNo);
-
-    result.studentName = matchedSt ? `${matchedSt.firstName} ${matchedSt.lastName}` : `Talebe #${result.studentNo}`;
-    result.className = matchedSt ? matchedSt.className : 'Genel';
-    result.parentPhone = matchedSt ? matchedSt.parentPhone : '';
-
-    // Neticeyi kaydet
-    window.PortalStore.saveExamResult(session.institutionId, result);
-
-    this.showToast(`✓ ${result.studentName} başarıyla okundu! (${result.totalNet} Net - ${result.totalScore} Puan)`, 'success');
-    this.renderScanResultCard(result);
+    this.handleScannedPaper(session ? session.institutionId : null, result);
   },
 
   renderScanResultCard(result) {
@@ -914,6 +1166,9 @@ window.App = {
             <select onchange="App.handleResultsExamChange(this.value, '${instId}')" class="px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-bold text-xs">
               ${exams.map(e => `<option value="${e.id}" ${e.id === currentExam.id ? 'selected' : ''}>${e.title}</option>`).join('')}
             </select>
+            <button onclick="App.printAllReportCards('${instId}', '${currentExam.id}')" class="px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-slate-950 font-black text-xs rounded-xl shadow-lg transition flex items-center gap-1.5 cursor-pointer">
+              <span>📜</span> <span>Tüm Karneleri Yazdır / PDF</span>
+            </button>
           </div>
         </div>
 
@@ -930,7 +1185,7 @@ window.App = {
                   <th class="p-3 text-center">Yanlış</th>
                   <th class="p-3 text-center">Net</th>
                   <th class="p-3 text-center">Puan</th>
-                  <th class="p-3 text-right">Karne</th>
+                  <th class="p-3 text-right">Karne & Paylaş</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-slate-800/80">
@@ -955,11 +1210,16 @@ window.App = {
                     <td class="p-3 text-center font-mono font-bold text-cyan-400">${r.totalNet}</td>
                     <td class="p-3 text-center font-mono font-black text-amber-400 text-sm">${r.totalScore}</td>
                     <td class="p-3 text-right">
-                      ${r.parentPhone ? `
-                        <button onclick="App.sendWhatsAppCard('${encodeURIComponent(r.parentPhone)}', '${encodeURIComponent(r.studentName)}', '${r.totalNet}', '${r.totalScore}')" class="px-2.5 py-1 bg-emerald-600/30 hover:bg-emerald-600 text-emerald-300 hover:text-white rounded-lg text-[11px] font-bold transition">
-                          WhatsApp 💬
+                      <div class="flex items-center justify-end gap-1.5">
+                        <button onclick="App.printSingleReportCard('${instId}', '${currentExam.id}', '${r.studentNo}')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 rounded-lg text-[11px] font-bold transition flex items-center gap-1 cursor-pointer" title="Renkli & Grafikli A4 Karne Bas">
+                          <span>📜</span> <span>Karne</span>
                         </button>
-                      ` : '-'}
+                        ${r.parentPhone ? `
+                          <button onclick="App.sendWhatsAppCard('${encodeURIComponent(r.parentPhone)}', '${encodeURIComponent(r.studentName)}', '${r.totalNet}', '${r.totalScore}')" class="px-2.5 py-1 bg-emerald-600/30 hover:bg-emerald-600 text-emerald-300 hover:text-white rounded-lg text-[11px] font-bold transition" title="WhatsApp Gönder">
+                            💬
+                          </button>
+                        ` : ''}
+                      </div>
                     </td>
                   </tr>
                 `).join('')}
@@ -980,6 +1240,189 @@ window.App = {
     this.activeExamId = examId;
     this.currentTab = 'neticeler';
     this.render();
+  },
+
+  printSingleReportCard(instId, examId, studentNo) {
+    const exam = window.PortalStore.getExamById(instId, examId);
+    const rankings = window.PortalStore.calculateExamRankings(instId, examId);
+    const result = rankings.find(r => r.studentNo === studentNo);
+    if (!result) {
+      this.showToast('Talebenin sınav kaydı bulunamadı.', 'error');
+      return;
+    }
+    const session = window.PortalStore.getCurrentSession();
+    const instName = session ? session.institutionName : 'Eğitim Kurumu';
+    const cardHtml = window.OpticalSheetGenerator.renderReportCardHtml(result, exam, instName);
+    window.OpticalSheetGenerator.printReportCards(cardHtml);
+  },
+
+  printAllReportCards(instId, examId) {
+    const exam = window.PortalStore.getExamById(instId, examId);
+    const rankings = window.PortalStore.calculateExamRankings(instId, examId);
+    if (rankings.length === 0) {
+      this.showToast('Bu sınavda henüz basılacak sonuç bulunmuyor.', 'warning');
+      return;
+    }
+    const session = window.PortalStore.getCurrentSession();
+    const instName = session ? session.institutionName : 'Eğitim Kurumu';
+    let combinedHtml = '';
+    rankings.forEach(r => {
+      combinedHtml += window.OpticalSheetGenerator.renderReportCardHtml(r, exam, instName);
+    });
+    window.OpticalSheetGenerator.printReportCards(combinedHtml);
+  },
+
+  // 9. SÜPER YÖNETİCİ: MERKEZİ ORTAK SINAVLAR VE LEADERBOARD
+  renderSuperGlobalExams() {
+    const globalExams = window.PortalStore.getGlobalExams();
+    const institutions = window.PortalStore.getInstitutions();
+
+    return `
+      <div class="space-y-6">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-900 border border-slate-800 p-5 rounded-2xl shadow-lg">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="text-2xl">🌐</span>
+              <h2 class="text-xl font-black text-white tracking-tight">Merkezi Ortak Deneme Sınavları</h2>
+            </div>
+            <p class="text-xs text-slate-400 mt-1">Buradan açtığınız sınavlar sisteme kayıtlı tüm kurs ve okulların panellerinde anında görünür. Kurumlar optik formları okuttukça ortak derece sıralaması canlı oluşur.</p>
+          </div>
+          <button onclick="App.showCreateExamModal(null, true)" class="px-4 py-2.5 bg-gradient-to-r from-cyan-500 to-emerald-500 hover:from-cyan-600 hover:to-emerald-600 text-slate-950 font-black text-xs rounded-xl shadow-lg transition flex items-center gap-1.5 cursor-pointer">
+            <span>+</span> <span>Yeni Merkezi Ortak Sınav Aç</span>
+          </button>
+        </div>
+
+        ${globalExams.length === 0 ? `
+          <div class="bg-slate-900 border border-dashed border-slate-800 rounded-2xl p-12 text-center">
+            <span class="text-4xl block mb-2">🌐</span>
+            <h3 class="text-base font-bold text-white">Henüz Ortak Sınav Tanımlanmadı</h3>
+            <p class="text-xs text-slate-400 mt-1 mb-4">Tüm kurumların eşzamanlı katılabileceği ilk genel prova denemesini oluşturun.</p>
+            <button onclick="App.showCreateExamModal(null, true)" class="px-4 py-2 bg-cyan-500 text-slate-950 font-bold text-xs rounded-xl">
+              Merkezi Sınav Oluştur
+            </button>
+          </div>
+        ` : `
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            ${globalExams.map(gExam => {
+              const globalRankings = window.PortalStore.calculateGlobalRankings(gExam.id);
+              const participatingInsts = new Set(globalRankings.map(r => r.institutionId)).size;
+              return `
+                <div class="bg-gradient-to-b from-slate-900 to-cyan-950/30 border-2 border-cyan-500/50 rounded-2xl p-5 shadow-xl flex flex-col justify-between">
+                  <div>
+                    <div class="flex items-center justify-between text-xs text-slate-400 mb-2">
+                      <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-cyan-500/20 text-cyan-300 border border-cyan-500/40">Genel Ortak Sınav</span>
+                      <span class="px-2 py-0.5 rounded bg-slate-800 text-cyan-400 font-bold">${gExam.questionCount} Soru</span>
+                    </div>
+
+                    <h3 class="text-base font-black text-white mb-1">${gExam.title}</h3>
+                    <p class="text-xs text-slate-400">Tarih: <strong class="text-slate-200">${gExam.examDate}</strong> • Hedef: <strong class="text-slate-200">${gExam.targetClass}</strong></p>
+
+                    <div class="grid grid-cols-2 gap-2 my-3 p-2.5 bg-slate-950 rounded-xl border border-slate-800 text-center">
+                      <div>
+                        <span class="block text-[10px] text-slate-500 font-bold uppercase">Katılan Kurum</span>
+                        <span class="text-sm font-black text-cyan-400 font-mono">${participatingInsts} / ${institutions.length}</span>
+                      </div>
+                      <div>
+                        <span class="block text-[10px] text-slate-500 font-bold uppercase">Toplam Talebe</span>
+                        <span class="text-sm font-black text-emerald-400 font-mono">${globalRankings.length}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="mt-4 pt-3 border-t border-slate-800/80 flex items-center gap-2">
+                    <button onclick="App.viewGlobalExamLeaderboard('${gExam.id}')" class="flex-1 py-2 bg-cyan-500 hover:bg-cyan-600 text-slate-950 font-black text-xs rounded-xl shadow transition flex items-center justify-center gap-1.5 cursor-pointer">
+                      <span>🏆</span> <span>Genel Derece Sıralaması</span>
+                    </button>
+                    <button onclick="App.deleteGlobalExamPrompt('${gExam.id}', '${gExam.title}')" class="p-2 text-rose-400 hover:bg-rose-950/40 rounded-xl transition cursor-pointer" title="Ortak Sınavı Sil">
+                      🗑️
+                    </button>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        `}
+      </div>
+    `;
+  },
+
+  deleteGlobalExamPrompt(examId, title) {
+    if (confirm(`"${title}" merkezi ortak sınavını silmek istediğinize emin misiniz? Tüm kurumlardan kaldırılacaktır.`)) {
+      window.PortalStore.deleteGlobalExam(examId);
+      this.showToast('Merkezi ortak sınav silindi.', 'info');
+      this.render();
+    }
+  },
+
+  viewGlobalExamLeaderboard(examId) {
+    const globalExams = window.PortalStore.getGlobalExams();
+    const exam = globalExams.find(e => e.id === examId);
+    if (!exam) return;
+
+    const rankings = window.PortalStore.calculateGlobalRankings(examId);
+
+    const existing = document.getElementById('global-leaderboard-modal');
+    if (existing) existing.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'global-leaderboard-modal';
+    modal.className = 'fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-sm animate-fade-in';
+    modal.innerHTML = `
+      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-7 max-w-4xl w-full shadow-2xl relative max-h-[90vh] flex flex-col">
+        <div class="flex items-center justify-between pb-4 border-b border-slate-800 mb-4">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="text-2xl">🏆</span>
+              <h3 class="text-base sm:text-lg font-black text-white">${exam.title} - Genel Derece Sıralaması</h3>
+            </div>
+            <p class="text-xs text-slate-400 mt-0.5">Tüm kurs ve okulların katılımıyla ortak sıralama tablosu (${rankings.length} Talebe)</p>
+          </div>
+          <button onclick="document.getElementById('global-leaderboard-modal').remove()" class="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-sm font-bold cursor-pointer">✕</button>
+        </div>
+
+        <div class="overflow-y-auto flex-1 rounded-2xl border border-slate-800">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-950 border-b border-slate-800 text-slate-400 font-bold uppercase tracking-wider sticky top-0">
+              <tr>
+                <th class="p-3 text-center">Genel Derece</th>
+                <th class="p-3">Kurum Adı</th>
+                <th class="p-3">No</th>
+                <th class="p-3">Talebe Adı</th>
+                <th class="p-3">Sınıfı</th>
+                <th class="p-3 text-center">Doğru</th>
+                <th class="p-3 text-center">Yanlış</th>
+                <th class="p-3 text-center">Net</th>
+                <th class="p-3 text-center">Puan</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-800/80">
+              ${rankings.length === 0 ? `
+                <tr>
+                  <td colspan="9" class="p-8 text-center text-slate-500">Henüz hiçbir kurum bu sınava ait optik kağıt taratmadı.</td>
+                </tr>
+              ` : rankings.map(r => `
+                <tr class="hover:bg-slate-800/40 transition">
+                  <td class="p-3 text-center">
+                    <span class="w-6 h-6 inline-flex items-center justify-center rounded-full font-black text-xs ${r.globalRank === 1 ? 'bg-amber-400 text-slate-950 shadow-md shadow-amber-400/20' : (r.globalRank === 2 ? 'bg-slate-300 text-slate-950' : (r.globalRank === 3 ? 'bg-amber-700 text-white' : 'bg-slate-800 text-slate-300'))}">
+                      ${r.globalRank}
+                    </span>
+                  </td>
+                  <td class="p-3 font-bold text-cyan-300">${r.institutionName || '-'}</td>
+                  <td class="p-3 font-mono font-bold text-emerald-400">${r.studentNo}</td>
+                  <td class="p-3 font-bold text-white">${r.studentName}</td>
+                  <td class="p-3 font-semibold text-slate-300">${r.className}</td>
+                  <td class="p-3 text-center font-bold text-emerald-400">${r.totalCorrect}</td>
+                  <td class="p-3 text-center font-bold text-rose-400">${r.totalWrong}</td>
+                  <td class="p-3 text-center font-mono font-bold text-cyan-400">${r.totalNet}</td>
+                  <td class="p-3 text-center font-mono font-black text-amber-400 text-sm">${r.totalScore}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
   },
 
   // --- HİBRİT BULUT SENKRONİZASYON PENCERESİ ---

@@ -337,12 +337,69 @@ class MultiTenantStore {
 
   // --- Kurum Bazlı Sınav İşlemleri ---
   getExams(instId) {
-    if (!instId) return [];
+    if (!instId) return this.getGlobalExams();
+    let localExams = [];
     try {
       const raw = localStorage.getItem(STORAGE_PREFIX + instId + '_exams');
+      localExams = raw ? JSON.parse(raw) : [];
+    } catch {
+      localExams = [];
+    }
+    const globals = this.getGlobalExams();
+    const map = new Map();
+    localExams.forEach(e => map.set(e.id, e));
+    globals.forEach(g => {
+      if (!map.has(g.id)) map.set(g.id, g);
+    });
+    return Array.from(map.values());
+  }
+
+  // --- Merkezi Ortak Sınav İşlemleri (Tüm Kurumlar Geneli) ---
+  getGlobalExams() {
+    try {
+      const raw = localStorage.getItem(STORAGE_PREFIX + 'global_exams');
       return raw ? JSON.parse(raw) : [];
     } catch {
       return [];
+    }
+  }
+
+  saveGlobalExams(exams) {
+    if (!Array.isArray(exams)) return;
+    localStorage.setItem(STORAGE_PREFIX + 'global_exams', JSON.stringify(exams));
+  }
+
+  createGlobalExam(examData) {
+    const list = this.getGlobalExams();
+    const newGlobalExam = {
+      id: 'gex_' + Date.now(),
+      title: (examData.title || 'Türkiye Geneli Ortak Deneme Sınavı').trim(),
+      examDate: examData.examDate || new Date().toISOString().split('T')[0],
+      targetClass: (examData.targetClass || 'TÜM KURUMLAR').trim().toUpperCase(),
+      questionCount: parseInt(examData.questionCount, 10) || 20,
+      bookletTypes: examData.bookletTypes || ['A', 'B'],
+      subjects: examData.subjects || [
+        { name: 'Genel', startQ: 1, endQ: parseInt(examData.questionCount, 10) || 20, wrongPenalty: 0.333, coeff: 1 }
+      ],
+      answerKeys: examData.answerKeys || { 'A': '', 'B': '' },
+      createdAt: new Date().toISOString(),
+      status: 'active',
+      isGlobal: true,
+      creatorName: 'Merkez Yönetim'
+    };
+    list.unshift(newGlobalExam);
+    this.saveGlobalExams(list);
+    if (window.CloudSync && typeof window.CloudSync.syncExam === 'function') {
+      window.CloudSync.syncExam('global', newGlobalExam);
+    }
+    return newGlobalExam;
+  }
+
+  deleteGlobalExam(examId) {
+    let list = this.getGlobalExams().filter(e => e.id !== examId);
+    this.saveGlobalExams(list);
+    if (window.CloudSync && typeof window.CloudSync.deleteExam === 'function') {
+      window.CloudSync.deleteExam('global', examId);
     }
   }
 
@@ -357,7 +414,7 @@ class MultiTenantStore {
   }
 
   createExam(instId, examData) {
-    const list = this.getExams(instId);
+    const list = this.getExams(instId).filter(e => !e.isGlobal);
     const newExam = {
       id: 'ex_' + Date.now(),
       title: (examData.title || 'Deneme Sınavı').trim(),
@@ -381,7 +438,7 @@ class MultiTenantStore {
   }
 
   deleteExam(instId, examId) {
-    let list = this.getExams(instId).filter(e => e.id !== examId);
+    let list = this.getExams(instId).filter(e => e.id !== examId && !e.isGlobal);
     this.saveExams(instId, list);
     // Sınavın neticelerini de temizle
     const allResults = this.getAllResults(instId);
@@ -464,6 +521,33 @@ class MultiTenantStore {
     });
 
     return results;
+  }
+
+  // Merkezi Ortak Sınav Derece Sıralaması (Tüm Kurumlar Geneli)
+  calculateGlobalRankings(examId) {
+    const institutions = this.getInstitutions();
+    let allResults = [];
+
+    institutions.forEach(inst => {
+      const list = this.getResultsByExam(inst.id, examId);
+      list.forEach(r => {
+        allResults.push({
+          ...r,
+          institutionId: inst.id,
+          institutionName: inst.name,
+          city: inst.city
+        });
+      });
+    });
+
+    // Puan veya nete göre azalan sırala
+    allResults.sort((a, b) => (b.totalScore || b.totalNet || 0) - (a.totalScore || a.totalNet || 0));
+
+    allResults.forEach((r, idx) => {
+      r.globalRank = idx + 1;
+    });
+
+    return allResults;
   }
 
   // --- Hazır Sınav Şablonları ---
