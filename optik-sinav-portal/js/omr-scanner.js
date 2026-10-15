@@ -110,19 +110,6 @@ window.OmrScanner = {
 
     // Öğrenci cevaplarını tespit et
     const detectedAnswers = [];
-    const subjectsResult = {};
-
-    (exam.subjects || []).forEach(sub => {
-      subjectsResult[sub.name] = {
-        name: sub.name,
-        correct: 0,
-        wrong: 0,
-        empty: 0,
-        net: 0,
-        score: 0
-      };
-    });
-
     for (let q = 1; q <= qCount; q++) {
       const correctOpt = rawKey[q - 1] || 'A';
       
@@ -138,57 +125,50 @@ window.OmrScanner = {
       }
 
       detectedAnswers.push(studentAns);
-
-      const currentSub = (exam.subjects || []).find(s => q >= s.startQ && q <= s.endQ) || {
-        name: 'Genel',
-        wrongPenalty: 0.333,
-        coeff: 1
-      };
-
-      if (!subjectsResult[currentSub.name]) {
-        subjectsResult[currentSub.name] = { name: currentSub.name, correct: 0, wrong: 0, empty: 0, net: 0, score: 0 };
-      }
-
-      const subStat = subjectsResult[currentSub.name];
-      if (!studentAns) {
-        subStat.empty++;
-      } else if (studentAns === correctOpt) {
-        subStat.correct++;
-      } else {
-        subStat.wrong++;
-      }
     }
 
+    const answersString = detectedAnswers.join('');
+    this.playBeep(true);
+
+    if (window.PortalStore && typeof window.PortalStore.scoreStudentAnswers === 'function') {
+      const scored = window.PortalStore.scoreStudentAnswers(answersString, exam, booklet);
+      return {
+        examId: exam.id,
+        examTitle: exam.title,
+        studentNo: studentNoOverride || (100 + Math.floor(Math.random() * 50)).toString(),
+        booklet: booklet,
+        answers: scored.answers,
+        subjectsResult: scored.subjectsResult,
+        totalCorrect: scored.totalCorrect,
+        totalWrong: scored.totalWrong,
+        totalEmpty: scored.totalEmpty,
+        totalNet: scored.totalNet,
+        totalScore: scored.totalScore,
+        scannedAt: new Date().toISOString()
+      };
+    }
+
+    // Yedek hesaplama
     let totalCorrect = 0;
     let totalWrong = 0;
     let totalEmpty = 0;
-    let totalNet = 0;
-    let totalScore = 0;
-
-    Object.values(subjectsResult).forEach(sub => {
-      const penalty = sub.wrong * (0.333);
-      sub.net = Math.max(0, parseFloat((sub.correct - penalty).toFixed(2)));
-      sub.score = parseFloat((sub.net * 5).toFixed(1));
-
-      totalCorrect += sub.correct;
-      totalWrong += sub.wrong;
-      totalEmpty += sub.empty;
-      totalNet += sub.net;
-      totalScore += sub.score;
-    });
-
-    totalNet = parseFloat(totalNet.toFixed(2));
-    totalScore = parseFloat(totalScore.toFixed(1));
-
-    this.playBeep(true);
+    for (let i = 0; i < detectedAnswers.length; i++) {
+      const a = detectedAnswers[i];
+      const k = rawKey[i] || 'A';
+      if (!a) totalEmpty++;
+      else if (a === k) totalCorrect++;
+      else totalWrong++;
+    }
+    const totalNet = Math.max(0, parseFloat((totalCorrect - (totalWrong * 0.333)).toFixed(2)));
+    const totalScore = parseFloat((totalNet * 5).toFixed(1));
 
     return {
       examId: exam.id,
       examTitle: exam.title,
       studentNo: studentNoOverride || (100 + Math.floor(Math.random() * 50)).toString(),
       booklet: booklet,
-      answers: detectedAnswers.join(''),
-      subjectsResult,
+      answers: answersString,
+      subjectsResult: {},
       totalCorrect,
       totalWrong,
       totalEmpty,

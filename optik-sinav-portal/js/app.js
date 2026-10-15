@@ -465,16 +465,25 @@ window.App = {
                       <button onclick="App.startScanForExam('${instId}', '${exam.id}')" class="flex-1 py-2 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black text-xs rounded-xl shadow transition flex items-center justify-center gap-1">
                         <span>📱</span> <span>Kamerayla Oku</span>
                       </button>
-                      <button onclick="App.printExamSheets('${instId}', '${exam.id}')" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl transition" title="Optik Form Yazdır">
+                      <button onclick="App.showManualResultModal('${instId}', '${exam.id}')" class="px-2.5 py-2 bg-cyan-600/20 hover:bg-cyan-600 text-cyan-300 hover:text-white font-bold text-xs rounded-xl border border-cyan-500/40 transition" title="Elle Not / Cevap Gir">
+                        ✍️
+                      </button>
+                      <button onclick="App.printExamSheets('${instId}', '${exam.id}')" class="px-2.5 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl transition" title="Optik Form Yazdır">
                         🖨️
                       </button>
                     </div>
                     <div class="flex gap-2">
                       <button onclick="App.viewExamResults('${instId}', '${exam.id}')" class="flex-1 py-1.5 bg-slate-800/80 hover:bg-slate-800 text-slate-300 font-bold text-xs rounded-xl transition text-center">
-                        Neticeleri Gör 🏆
+                        🏆 Neticeler
+                      </button>
+                      <button onclick="App.showItemAnalysisModal('${instId}', '${exam.id}', ${isGlob})" class="px-2.5 py-1.5 bg-slate-800/80 hover:bg-slate-700 text-amber-300 font-bold text-xs rounded-xl transition" title="Soru & Madde Analizi">
+                        📊
+                      </button>
+                      <button onclick="App.showEditExamModal('${instId}', '${exam.id}', ${isGlob})" class="px-2.5 py-1.5 bg-slate-800/80 hover:bg-slate-700 text-emerald-300 font-bold text-xs rounded-xl transition" title="Sınavı Düzenle & Soru İptali">
+                        ✏️
                       </button>
                       ${!isGlob ? `
-                        <button onclick="App.deleteExamPrompt('${instId}', '${exam.id}', '${exam.title}')" class="px-2.5 py-1.5 text-rose-400 hover:bg-rose-950/40 rounded-xl transition" title="Sınavı Sil">
+                        <button onclick="App.deleteExamPrompt('${instId}', '${exam.id}', '${exam.title}')" class="px-2 py-1.5 text-rose-400 hover:bg-rose-950/40 rounded-xl transition" title="Sınavı Sil">
                           🗑️
                         </button>
                       ` : ''}
@@ -493,68 +502,144 @@ window.App = {
     const existing = document.getElementById('create-exam-modal');
     if (existing) existing.remove();
 
+    const templates = window.PortalStore.getTemplates();
+
     const modal = document.createElement('div');
     modal.id = 'create-exam-modal';
-    modal.className = 'fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-sm animate-fade-in';
+    modal.className = 'fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-sm animate-fade-in';
     modal.innerHTML = `
-      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-7 max-w-lg w-full shadow-2xl relative max-h-[90vh] overflow-y-auto">
+      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-7 max-w-2xl w-full shadow-2xl relative max-h-[92vh] overflow-y-auto">
         <div class="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
           <div class="flex items-center gap-2.5">
-            <span class="text-2xl">${isGlobal ? '🌐' : '📝'}</span>
+            <span class="text-2xl">\${isGlobal ? '🌐' : '📝'}</span>
             <div>
-              <h3 class="text-base font-black text-white">${isGlobal ? 'Merkezi Ortak Deneme Sınavı Oluştur' : 'Yeni Deneme Sınavı Oluştur'}</h3>
-              <p class="text-xs text-slate-400 font-medium">${isGlobal ? 'Tüm kursların katılabileceği genel sınav' : 'Kurumunuza özel deneme sınavı'}</p>
+              <h3 class="text-base font-black text-white">\${isGlobal ? 'Merkezi Ortak Deneme Sınavı Oluştur' : 'Yeni Deneme Sınavı Oluştur'}</h3>
+              <p class="text-xs text-slate-400 font-medium">\${isGlobal ? 'Tüm kursların katılabileceği genel ortak sınav' : 'Kurumunuza özel deneme sınavı'}</p>
             </div>
           </div>
-          <button onclick="document.getElementById('create-exam-modal').remove()" class="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-sm font-bold">✕</button>
+          <button onclick="document.getElementById('create-exam-modal').remove()" class="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-sm font-bold cursor-pointer">✕</button>
         </div>
 
-        <form onsubmit="App.handleSaveExamForm(event, '${instId || ''}', ${isGlobal})" class="space-y-4">
-          <div>
-            <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Sınav Adı / Başlığı</label>
-            <input type="text" id="exam-form-title" required placeholder="Örn: 8. Sınıf LGS 1. Prova Denemesi" class="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white font-medium text-xs focus:border-emerald-500 focus:outline-none">
+        <form onsubmit="App.handleSaveExamForm(event, '\${instId || ''}', \${isGlobal})" class="space-y-4">
+          <!-- Hazır Şablon Seçimi -->
+          <div class="bg-slate-950 p-3 rounded-2xl border border-slate-800">
+            <label class="block text-[11px] font-bold uppercase text-emerald-400 mb-1">⚡ Hazır Sınav Formatı / Şablonu Seçiniz</label>
+            <select id="exam-template-select" onchange="App.handleTemplateChange(this.value)" class="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-white font-bold text-xs focus:border-emerald-500 focus:outline-none">
+              \${templates.map(t => `<option value="\${t.id}">\${t.name}</option>`).join('')}
+              <option value="custom">Özel Ders Dağılımı (Serbest Tanımlama)</option>
+            </select>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div class="sm:col-span-2">
+              <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Sınav Adı / Başlığı</label>
+              <input type="text" id="exam-form-title" required placeholder="Örn: 8. Sınıf LGS 1. Prova Denemesi" class="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white font-medium text-xs focus:border-emerald-500 focus:outline-none">
+            </div>
+            <div>
+              <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Sınav Tarihi</label>
+              <input type="date" id="exam-form-date" value="\${new Date().toISOString().split('T')[0]}" class="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white font-medium text-xs focus:border-emerald-500 focus:outline-none">
+            </div>
           </div>
 
           <div class="grid grid-cols-2 gap-3">
             <div>
-              <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Soru Sayısı</label>
-              <select id="exam-form-qcount" onchange="App.handleExamQCountChange(this.value)" class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-bold text-xs">
-                <option value="20">20 Soru (Branş / Mini)</option>
-                <option value="40">40 Soru (Ara Deneme)</option>
-                <option value="90" selected>90 Soru (LGS Tam Deneme)</option>
-              </select>
+              <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Toplam Soru Sayısı</label>
+              <input type="number" id="exam-form-qcount" min="1" max="300" value="90" onchange="App.handleExamQCountChange(this.value)" class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-bold text-xs focus:border-emerald-500 focus:outline-none">
             </div>
             <div>
-              <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Hedef Sınıf</label>
-              <input type="text" id="exam-form-target" value="8. Sınıf" class="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white font-medium text-xs focus:border-emerald-500 focus:outline-none">
+              <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Hedef Sınıf / Seviye</label>
+              <input type="text" id="exam-form-target" value="8. Sınıf" class="w-full px-3.5 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-medium text-xs focus:border-emerald-500 focus:outline-none">
             </div>
           </div>
 
-          <!-- Cevap Anahtarları -->
+          <!-- Dersler ve Katsayılar Tablosu -->
+          <div class="bg-slate-950/80 p-3.5 rounded-2xl border border-slate-800 space-y-2">
+            <div class="flex items-center justify-between pb-1">
+              <div>
+                <label class="text-xs font-bold uppercase text-slate-300">📚 Ders Bölümleri & Katsayılar</label>
+                <p class="text-[10px] text-slate-500">Her dersin soru aralığını, puan katsayısını ve yanlış götürme oranını belirleyebilirsiniz.</p>
+              </div>
+              <button type="button" onclick="App.addSubjectRow('subject-rows-container')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-emerald-400 text-[11px] font-bold rounded-lg border border-slate-700 transition">
+                + Ders Ekle
+              </button>
+            </div>
+
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-[11px]">
+                <thead class="text-slate-500 uppercase border-b border-slate-800 font-bold">
+                  <tr>
+                    <th class="p-1.5">Ders Adı</th>
+                    <th class="p-1.5 text-center">İlk Soru</th>
+                    <th class="p-1.5 text-center">Son Soru</th>
+                    <th class="p-1.5 text-center">Ceza (Yanlış Götürme)</th>
+                    <th class="p-1.5 text-center">Katsayı</th>
+                    <th class="p-1.5 text-right">Sil</th>
+                  </tr>
+                </thead>
+                <tbody id="subject-rows-container" class="divide-y divide-slate-800/60">
+                  <!-- Dinamik Ders Satırları Buraya Eklenir -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- 4 Kitapçık (A, B, C, D) Cevap Anahtarları -->
           <div class="space-y-3 p-3.5 bg-slate-950/80 rounded-2xl border border-slate-800">
-            <div>
+            <div class="flex items-center justify-between">
+              <label class="text-xs font-bold text-white uppercase flex items-center gap-1.5">
+                <span>🔑</span> <span>Cevap Anahtarları (4 Kitapçık)</span>
+              </label>
+              <div class="flex gap-1" id="booklet-tab-buttons">
+                <button type="button" onclick="App.switchBookletTab('A')" id="btn-tab-A" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-500 text-slate-950 transition">Kitapçık A</button>
+                <button type="button" onclick="App.switchBookletTab('B')" id="btn-tab-B" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 transition">Kitapçık B</button>
+                <button type="button" onclick="App.switchBookletTab('C')" id="btn-tab-C" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 transition">Kitapçık C</button>
+                <button type="button" onclick="App.switchBookletTab('D')" id="btn-tab-D" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 transition">Kitapçık D</button>
+              </div>
+            </div>
+
+            <div id="booklet-pane-A" class="booklet-pane">
               <div class="flex items-center justify-between mb-1">
-                <label class="text-xs font-bold text-emerald-400 uppercase">A Kitapçığı Cevap Anahtarı</label>
-                <button type="button" onclick="App.openScanAnswerKeyModal('exam-form-key-a')" class="text-[11px] font-bold text-cyan-400 hover:text-cyan-300 flex items-center gap-1 bg-cyan-950/40 px-2 py-0.5 rounded-lg border border-cyan-800/50">
+                <span class="text-[11px] font-bold text-emerald-400 uppercase">A Kitapçığı Cevapları:</span>
+                <button type="button" onclick="App.openScanAnswerKeyModal('exam-form-key-a')" class="text-[10px] font-bold text-cyan-400 hover:text-cyan-300 flex items-center gap-1 bg-cyan-950/40 px-2 py-0.5 rounded-lg border border-cyan-800/50 cursor-pointer">
                   <span>📷</span> <span>Kameradan Tara</span>
                 </button>
               </div>
               <textarea id="exam-form-key-a" rows="2" placeholder="Örn: ABCDABCD..." class="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs font-mono text-emerald-300 focus:border-emerald-500 focus:outline-none uppercase"></textarea>
             </div>
 
-            <div>
+            <div id="booklet-pane-B" class="booklet-pane hidden">
               <div class="flex items-center justify-between mb-1">
-                <label class="text-xs font-bold text-amber-400 uppercase">B Kitapçığı Cevap Anahtarı</label>
-                <button type="button" onclick="App.openScanAnswerKeyModal('exam-form-key-b')" class="text-[11px] font-bold text-cyan-400 hover:text-cyan-300 flex items-center gap-1 bg-cyan-950/40 px-2 py-0.5 rounded-lg border border-cyan-800/50">
+                <span class="text-[11px] font-bold text-amber-400 uppercase">B Kitapçığı Cevapları:</span>
+                <button type="button" onclick="App.openScanAnswerKeyModal('exam-form-key-b')" class="text-[10px] font-bold text-cyan-400 hover:text-cyan-300 flex items-center gap-1 bg-cyan-950/40 px-2 py-0.5 rounded-lg border border-cyan-800/50 cursor-pointer">
                   <span>📷</span> <span>Kameradan Tara</span>
                 </button>
               </div>
               <textarea id="exam-form-key-b" rows="2" placeholder="Örn: BCDABCDA..." class="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs font-mono text-amber-300 focus:border-emerald-500 focus:outline-none uppercase"></textarea>
             </div>
+
+            <div id="booklet-pane-C" class="booklet-pane hidden">
+              <div class="flex items-center justify-between mb-1">
+                <span class="text-[11px] font-bold text-cyan-400 uppercase">C Kitapçığı Cevapları:</span>
+                <button type="button" onclick="App.openScanAnswerKeyModal('exam-form-key-c')" class="text-[10px] font-bold text-cyan-400 hover:text-cyan-300 flex items-center gap-1 bg-cyan-950/40 px-2 py-0.5 rounded-lg border border-cyan-800/50 cursor-pointer">
+                  <span>📷</span> <span>Kameradan Tara</span>
+                </button>
+              </div>
+              <textarea id="exam-form-key-c" rows="2" placeholder="Örn: CDABCDAB..." class="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs font-mono text-cyan-300 focus:border-emerald-500 focus:outline-none uppercase"></textarea>
+            </div>
+
+            <div id="booklet-pane-D" class="booklet-pane hidden">
+              <div class="flex items-center justify-between mb-1">
+                <span class="text-[11px] font-bold text-purple-400 uppercase">D Kitapçığı Cevapları:</span>
+                <button type="button" onclick="App.openScanAnswerKeyModal('exam-form-key-d')" class="text-[10px] font-bold text-cyan-400 hover:text-cyan-300 flex items-center gap-1 bg-cyan-950/40 px-2 py-0.5 rounded-lg border border-cyan-800/50 cursor-pointer">
+                  <span>📷</span> <span>Kameradan Tara</span>
+                </button>
+              </div>
+              <textarea id="exam-form-key-d" rows="2" placeholder="Örn: DABCDABC..." class="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs font-mono text-purple-300 focus:border-emerald-500 focus:outline-none uppercase"></textarea>
+            </div>
           </div>
 
           <div class="pt-2">
-            <button type="submit" class="w-full py-3 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-slate-950 font-black text-xs rounded-xl shadow-lg transition flex items-center justify-center gap-2">
+            <button type="submit" class="w-full py-3.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-slate-950 font-black text-xs rounded-xl shadow-lg transition flex items-center justify-center gap-2 cursor-pointer">
               <span>✓</span> <span>Sınavı Kaydet & Başlat</span>
             </button>
           </div>
@@ -563,22 +648,175 @@ window.App = {
     `;
     document.body.appendChild(modal);
 
-    this.handleExamQCountChange('90');
+    this.handleTemplateChange('tpl_lgs_90');
+  },
+
+  // Sınav Şablonu Seçildiğinde Alanları Otomatik Doldur
+  handleTemplateChange(tplId) {
+    const templates = window.PortalStore.getTemplates();
+    const tpl = templates.find(t => t.id === tplId);
+    const titleInput = document.getElementById('exam-form-title');
+    const qCountInput = document.getElementById('exam-form-qcount');
+    const targetInput = document.getElementById('exam-form-target');
+
+    if (tpl) {
+      if (titleInput && (!titleInput.value || titleInput.value.includes('Deneme') || titleInput.value.includes('Prova'))) {
+        titleInput.value = tpl.name;
+      }
+      if (qCountInput) {
+        qCountInput.value = tpl.questionCount;
+      }
+      if (targetInput) {
+        if (tpl.id.includes('lgs')) targetInput.value = '8. Sınıf';
+        else if (tpl.id.includes('tyt')) targetInput.value = '12. Sınıf / Mezun';
+        else targetInput.value = 'Tüm Sınıflar';
+      }
+      this.renderSubjectRows(tpl.subjects || [], 'subject-rows-container');
+      this.handleExamQCountChange(tpl.questionCount.toString());
+    } else {
+      // Özel şablon
+      const currentQ = qCountInput ? parseInt(qCountInput.value, 10) || 20 : 20;
+      this.renderSubjectRows([
+        { name: 'Bölüm 1', startQ: 1, endQ: currentQ, wrongPenalty: 0.333, coeff: 1 }
+      ], 'subject-rows-container');
+    }
+  },
+
+  // Ders Satırlarını Tabloya Basma
+  renderSubjectRows(subjects, containerId = 'subject-rows-container') {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    container.innerHTML = subjects.map((sub, idx) => `
+      <tr class="subject-row">
+        <td class="p-1.5">
+          <input type="text" class="sub-name w-full px-2 py-1 bg-slate-900 border border-slate-800 rounded font-bold text-white text-xs" value="\${sub.name || 'Ders ' + (idx + 1)}">
+        </td>
+        <td class="p-1.5 text-center">
+          <input type="number" class="sub-start w-14 px-1.5 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs text-slate-200" value="\${sub.startQ || 1}">
+        </td>
+        <td class="p-1.5 text-center">
+          <input type="number" class="sub-end w-14 px-1.5 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs text-slate-200" value="\${sub.endQ || 20}">
+        </td>
+        <td class="p-1.5 text-center">
+          <select class="sub-penalty px-1.5 py-1 bg-slate-900 border border-slate-800 rounded text-xs text-slate-200 font-medium">
+            <option value="0.333" \${sub.wrongPenalty === 0.333 ? 'selected' : ''}>3 Yanlış 1 Doğru (0.33)</option>
+            <option value="0.25" \${sub.wrongPenalty === 0.25 ? 'selected' : ''}>4 Yanlış 1 Doğru (0.25)</option>
+            <option value="0" \${sub.wrongPenalty === 0 ? 'selected' : ''}>Ceza Yok (0.00)</option>
+          </select>
+        </td>
+        <td class="p-1.5 text-center">
+          <input type="number" step="0.1" class="sub-coeff w-14 px-1.5 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs text-emerald-400 font-bold" value="\${sub.coeff !== undefined ? sub.coeff : 1}">
+        </td>
+        <td class="p-1.5 text-right">
+          <button type="button" onclick="App.removeSubjectRow(this)" class="p-1 text-rose-400 hover:text-rose-300 text-xs">🗑️</button>
+        </td>
+      </tr>
+    `).join('');
+  },
+
+  addSubjectRow(containerId = 'subject-rows-container') {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    const existingRows = container.querySelectorAll('.subject-row');
+    const nextStart = existingRows.length > 0 ? (parseInt(existingRows[existingRows.length - 1].querySelector('.sub-end').value, 10) + 1) : 1;
+    const nextEnd = nextStart + 19;
+
+    const tr = document.createElement('tr');
+    tr.className = 'subject-row';
+    tr.innerHTML = `
+      <td class="p-1.5">
+        <input type="text" class="sub-name w-full px-2 py-1 bg-slate-900 border border-slate-800 rounded font-bold text-white text-xs" value="Yeni Ders">
+      </td>
+      <td class="p-1.5 text-center">
+        <input type="number" class="sub-start w-14 px-1.5 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs text-slate-200" value="\${nextStart}">
+      </td>
+      <td class="p-1.5 text-center">
+        <input type="number" class="sub-end w-14 px-1.5 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs text-slate-200" value="\${nextEnd}">
+      </td>
+      <td class="p-1.5 text-center">
+        <select class="sub-penalty px-1.5 py-1 bg-slate-900 border border-slate-800 rounded text-xs text-slate-200 font-medium">
+          <option value="0.333">3 Yanlış 1 Doğru (0.33)</option>
+          <option value="0.25">4 Yanlış 1 Doğru (0.25)</option>
+          <option value="0">Ceza Yok (0.00)</option>
+        </select>
+      </td>
+      <td class="p-1.5 text-center">
+        <input type="number" step="0.1" class="sub-coeff w-14 px-1.5 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs text-emerald-400 font-bold" value="1">
+      </td>
+      <td class="p-1.5 text-right">
+        <button type="button" onclick="App.removeSubjectRow(this)" class="p-1 text-rose-400 hover:text-rose-300 text-xs">🗑️</button>
+      </td>
+    `;
+    container.appendChild(tr);
+  },
+
+  removeSubjectRow(btn) {
+    const row = btn.closest('.subject-row');
+    if (row) row.remove();
+  },
+
+  collectSubjectsFromForm(containerId = 'subject-rows-container') {
+    const container = document.getElementById(containerId);
+    if (!container) return [];
+    const rows = container.querySelectorAll('.subject-row');
+    const subjects = [];
+
+    rows.forEach(r => {
+      const name = (r.querySelector('.sub-name').value || 'Genel').trim();
+      const startQ = parseInt(r.querySelector('.sub-start').value, 10) || 1;
+      const endQ = parseInt(r.querySelector('.sub-end').value, 10) || startQ;
+      const wrongPenalty = parseFloat(r.querySelector('.sub-penalty').value) || 0;
+      const coeff = parseFloat(r.querySelector('.sub-coeff').value) || 1;
+
+      subjects.push({ name, startQ, endQ, wrongPenalty, coeff });
+    });
+
+    return subjects;
+  },
+
+  // Kitapçık Sekmesi Değiştirici
+  switchBookletTab(letter) {
+    ['A', 'B', 'C', 'D'].forEach(l => {
+      const pane = document.getElementById('booklet-pane-' + l);
+      const btn = document.getElementById('btn-tab-' + l);
+      if (pane) {
+        if (l === letter) pane.classList.remove('hidden');
+        else pane.classList.add('hidden');
+      }
+      if (btn) {
+        if (l === letter) {
+          btn.className = 'px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-500 text-slate-950 transition';
+        } else {
+          btn.className = 'px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 transition';
+        }
+      }
+    });
   },
 
   handleSaveExamForm(e, instId, isGlobal) {
     e.preventDefault();
     const title = document.getElementById('exam-form-title').value.trim();
+    const examDate = document.getElementById('exam-form-date') ? document.getElementById('exam-form-date').value : new Date().toISOString().split('T')[0];
     const qCount = parseInt(document.getElementById('exam-form-qcount').value, 10) || 20;
     const target = document.getElementById('exam-form-target').value.trim();
-    const keyA = document.getElementById('exam-form-key-a').value.trim().toUpperCase() || 'A'.repeat(qCount);
-    const keyB = document.getElementById('exam-form-key-b').value.trim().toUpperCase() || keyA;
+
+    const keyA = (document.getElementById('exam-form-key-a') ? document.getElementById('exam-form-key-a').value : '').trim().toUpperCase() || 'A'.repeat(qCount);
+    const keyB = (document.getElementById('exam-form-key-b') ? document.getElementById('exam-form-key-b').value : '').trim().toUpperCase() || keyA;
+    const keyC = (document.getElementById('exam-form-key-c') ? document.getElementById('exam-form-key-c').value : '').trim().toUpperCase() || keyA;
+    const keyD = (document.getElementById('exam-form-key-d') ? document.getElementById('exam-form-key-d').value : '').trim().toUpperCase() || keyA;
+
+    const subjects = this.collectSubjectsFromForm('subject-rows-container');
 
     const examData = {
       title,
+      examDate,
       questionCount: qCount,
       targetClass: target,
-      answerKeys: { 'A': keyA, 'B': keyB }
+      bookletTypes: ['A', 'B', 'C', 'D'],
+      subjects: subjects.length > 0 ? subjects : [{ name: 'Genel', startQ: 1, endQ: qCount, wrongPenalty: 0.333, coeff: 1 }],
+      answerKeys: { 'A': keyA, 'B': keyB, 'C': keyC, 'D': keyD },
+      canceledQuestions: []
     };
 
     if (isGlobal) {
@@ -594,21 +832,233 @@ window.App = {
     this.render();
   },
 
+  // --- SINAV DÜZENLEME & CEVAP ANAHTARI GÜNCELLEME & SORU İPTALİ ---
+  showEditExamModal(instId, examId, isGlobal = false) {
+    const existing = document.getElementById('edit-exam-modal');
+    if (existing) existing.remove();
+
+    const exam = isGlobal 
+      ? window.PortalStore.getGlobalExams().find(e => e.id === examId)
+      : window.PortalStore.getExamById(instId, examId);
+
+    if (!exam) {
+      this.showToast('Sınav bulunamadı.', 'error');
+      return;
+    }
+
+    const canceledList = Array.isArray(exam.canceledQuestions) ? exam.canceledQuestions : [];
+
+    const modal = document.createElement('div');
+    modal.id = 'edit-exam-modal';
+    modal.className = 'fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-sm animate-fade-in';
+    modal.innerHTML = `
+      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-7 max-w-2xl w-full shadow-2xl relative max-h-[92vh] overflow-y-auto">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
+          <div class="flex items-center gap-2.5">
+            <span class="text-2xl">✏️</span>
+            <div>
+              <h3 class="text-base font-black text-white">Sınavı Düzenle & Soru İptali</h3>
+              <p class="text-xs text-slate-400 font-medium">\${exam.title}</p>
+            </div>
+          </div>
+          <button onclick="document.getElementById('edit-exam-modal').remove()" class="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-sm font-bold cursor-pointer">✕</button>
+        </div>
+
+        <form onsubmit="App.handleSaveEditExamForm(event, '\${instId || ''}', '\${exam.id}', \${isGlobal})" class="space-y-4">
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div class="sm:col-span-2">
+              <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Sınav Adı / Başlığı</label>
+              <input type="text" id="edit-form-title" required value="\${exam.title}" class="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white font-medium text-xs focus:border-emerald-500 focus:outline-none">
+            </div>
+            <div>
+              <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Sınav Tarihi</label>
+              <input type="date" id="edit-form-date" value="\${exam.examDate || ''}" class="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white font-medium text-xs focus:border-emerald-500 focus:outline-none">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Toplam Soru Sayısı</label>
+              <input type="number" id="edit-form-qcount" value="\${exam.questionCount}" class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-bold text-xs focus:border-emerald-500 focus:outline-none">
+            </div>
+            <div>
+              <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Hedef Sınıf / Seviye</label>
+              <input type="text" id="edit-form-target" value="\${exam.targetClass || ''}" class="w-full px-3.5 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-medium text-xs focus:border-emerald-500 focus:outline-none">
+            </div>
+          </div>
+
+          <!-- Soru İptali Alanı -->
+          <div class="p-3.5 bg-purple-950/30 border border-purple-500/40 rounded-2xl space-y-2">
+            <div class="flex items-center gap-2">
+              <span class="text-lg">⚖️</span>
+              <label class="text-xs font-black text-purple-300 uppercase">Hatalı Soru İptali</label>
+            </div>
+            <p class="text-[11px] text-purple-200/80 leading-relaxed">
+              İptal etmek istediğiniz soru numaralarını virgülle ayırarak giriniz (Örn: <code>14, 25</code>). İptal edilen sorular tüm öğrencilere <strong>tam doğru sayılır</strong> ve tüm sıralama puanları derhal yeniden hesaplanır.
+            </p>
+            <input type="text" id="edit-form-canceled" placeholder="Örn: 14, 25" value="\${canceledList.join(', ')}" class="w-full px-3.5 py-2 bg-slate-950 border border-purple-800/80 rounded-xl text-purple-200 font-mono text-xs focus:border-purple-400 focus:outline-none">
+          </div>
+
+          <!-- Dersler Tablosu -->
+          <div class="bg-slate-950/80 p-3.5 rounded-2xl border border-slate-800 space-y-2">
+            <div class="flex items-center justify-between pb-1">
+              <div>
+                <label class="text-xs font-bold uppercase text-slate-300">📚 Ders Bölümleri & Katsayılar</label>
+                <p class="text-[10px] text-slate-500">Ders aralıklarını, katsayıları ve ceza oranlarını düzenleyin.</p>
+              </div>
+              <button type="button" onclick="App.addSubjectRow('edit-subject-rows-container')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-emerald-400 text-[11px] font-bold rounded-lg border border-slate-700 transition">
+                + Ders Ekle
+              </button>
+            </div>
+
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-[11px]">
+                <thead class="text-slate-500 uppercase border-b border-slate-800 font-bold">
+                  <tr>
+                    <th class="p-1.5">Ders Adı</th>
+                    <th class="p-1.5 text-center">İlk Soru</th>
+                    <th class="p-1.5 text-center">Son Soru</th>
+                    <th class="p-1.5 text-center">Ceza</th>
+                    <th class="p-1.5 text-center">Katsayı</th>
+                    <th class="p-1.5 text-right">Sil</th>
+                  </tr>
+                </thead>
+                <tbody id="edit-subject-rows-container" class="divide-y divide-slate-800/60">
+                  <!-- JS ile doldurulacak -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- 4 Kitapçık Cevap Anahtarları -->
+          <div class="space-y-3 p-3.5 bg-slate-950/80 rounded-2xl border border-slate-800">
+            <div class="flex items-center justify-between">
+              <label class="text-xs font-bold text-white uppercase flex items-center gap-1.5">
+                <span>🔑</span> <span>Cevap Anahtarları</span>
+              </label>
+              <div class="flex gap-1">
+                <button type="button" onclick="App.switchEditBookletTab('A')" id="btn-edit-tab-A" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-500 text-slate-950 transition">Kitapçık A</button>
+                <button type="button" onclick="App.switchEditBookletTab('B')" id="btn-edit-tab-B" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 transition">Kitapçık B</button>
+                <button type="button" onclick="App.switchEditBookletTab('C')" id="btn-edit-tab-C" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 transition">Kitapçık C</button>
+                <button type="button" onclick="App.switchEditBookletTab('D')" id="btn-edit-tab-D" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 transition">Kitapçık D</button>
+              </div>
+            </div>
+
+            <div id="edit-booklet-pane-A" class="edit-booklet-pane">
+              <textarea id="edit-form-key-a" rows="2" class="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs font-mono text-emerald-300 focus:border-emerald-500 focus:outline-none uppercase">\${(exam.answerKeys && exam.answerKeys['A']) || ''}</textarea>
+            </div>
+            <div id="edit-booklet-pane-B" class="edit-booklet-pane hidden">
+              <textarea id="edit-form-key-b" rows="2" class="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs font-mono text-amber-300 focus:border-emerald-500 focus:outline-none uppercase">\${(exam.answerKeys && exam.answerKeys['B']) || ''}</textarea>
+            </div>
+            <div id="edit-booklet-pane-C" class="edit-booklet-pane hidden">
+              <textarea id="edit-form-key-c" rows="2" class="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs font-mono text-cyan-300 focus:border-emerald-500 focus:outline-none uppercase">\${(exam.answerKeys && exam.answerKeys['C']) || ''}</textarea>
+            </div>
+            <div id="edit-booklet-pane-D" class="edit-booklet-pane hidden">
+              <textarea id="edit-form-key-d" rows="2" class="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs font-mono text-purple-300 focus:border-emerald-500 focus:outline-none uppercase">\${(exam.answerKeys && exam.answerKeys['D']) || ''}</textarea>
+            </div>
+          </div>
+
+          <div class="pt-2">
+            <button type="submit" class="w-full py-3.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-slate-950 font-black text-xs rounded-xl shadow-lg transition flex items-center justify-center gap-2 cursor-pointer">
+              <span>💾</span> <span>Değişiklikleri Kaydet & Tüm Sonuçları Yeniden Hesapla</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    `;
+    document.body.appendChild(modal);
+
+    this.renderSubjectRows(exam.subjects || [], 'edit-subject-rows-container');
+  },
+
+  switchEditBookletTab(letter) {
+    ['A', 'B', 'C', 'D'].forEach(l => {
+      const pane = document.getElementById('edit-booklet-pane-' + l);
+      const btn = document.getElementById('btn-edit-tab-' + l);
+      if (pane) {
+        if (l === letter) pane.classList.remove('hidden');
+        else pane.classList.add('hidden');
+      }
+      if (btn) {
+        if (l === letter) {
+          btn.className = 'px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-500 text-slate-950 transition';
+        } else {
+          btn.className = 'px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 transition';
+        }
+      }
+    });
+  },
+
+  handleSaveEditExamForm(e, instId, examId, isGlobal) {
+    e.preventDefault();
+    const title = document.getElementById('edit-form-title').value.trim();
+    const examDate = document.getElementById('edit-form-date').value;
+    const qCount = parseInt(document.getElementById('edit-form-qcount').value, 10) || 20;
+    const target = document.getElementById('edit-form-target').value.trim();
+
+    const keyA = document.getElementById('edit-form-key-a').value.trim().toUpperCase();
+    const keyB = document.getElementById('edit-form-key-b').value.trim().toUpperCase() || keyA;
+    const keyC = document.getElementById('edit-form-key-c').value.trim().toUpperCase() || keyA;
+    const keyD = document.getElementById('edit-form-key-d').value.trim().toUpperCase() || keyA;
+
+    const subjects = this.collectSubjectsFromForm('edit-subject-rows-container');
+
+    const canceledRaw = document.getElementById('edit-form-canceled').value;
+    const canceled = canceledRaw
+      .split(',')
+      .map(s => parseInt(s.trim(), 10))
+      .filter(n => !isNaN(n) && n > 0 && n <= qCount);
+
+    const updatedData = {
+      title,
+      examDate,
+      questionCount: qCount,
+      targetClass: target,
+      subjects: subjects.length > 0 ? subjects : [{ name: 'Genel', startQ: 1, endQ: qCount, wrongPenalty: 0.333, coeff: 1 }],
+      answerKeys: { 'A': keyA, 'B': keyB, 'C': keyC, 'D': keyD },
+      canceledQuestions: canceled
+    };
+
+    if (isGlobal) {
+      window.PortalStore.updateGlobalExam(examId, updatedData);
+      this.showToast('✓ Merkezi ortak sınav ve tüm neticeler başarıyla güncellendi!', 'success');
+    } else {
+      window.PortalStore.updateExam(instId, examId, updatedData);
+      this.showToast('✓ Sınav güncellendi ve tüm öğrenci puanları yeniden hesaplandı!', 'success');
+    }
+
+    const modal = document.getElementById('edit-exam-modal');
+    if (modal) modal.remove();
+    this.render();
+  },
+
   handleExamQCountChange(countStr) {
     const qCount = parseInt(countStr, 10) || 20;
     const keyA = document.getElementById('exam-form-key-a');
     const keyB = document.getElementById('exam-form-key-b');
+    const keyC = document.getElementById('exam-form-key-c');
+    const keyD = document.getElementById('exam-form-key-d');
+
+    const letters = ['A', 'B', 'C', 'D'];
     if (keyA && (!keyA.value || keyA.value.length !== qCount)) {
-      const letters = ['A', 'B', 'C', 'D'];
       let sample = '';
       for (let i = 0; i < qCount; i++) sample += letters[i % 4];
       keyA.value = sample;
     }
     if (keyB && (!keyB.value || keyB.value.length !== qCount)) {
-      const letters = ['B', 'C', 'D', 'A'];
       let sample = '';
-      for (let i = 0; i < qCount; i++) sample += letters[i % 4];
+      for (let i = 0; i < qCount; i++) sample += letters[(i + 1) % 4];
       keyB.value = sample;
+    }
+    if (keyC && (!keyC.value || keyC.value.length !== qCount)) {
+      let sample = '';
+      for (let i = 0; i < qCount; i++) sample += letters[(i + 2) % 4];
+      keyC.value = sample;
+    }
+    if (keyD && (!keyD.value || keyD.value.length !== qCount)) {
+      let sample = '';
+      for (let i = 0; i < qCount; i++) sample += letters[(i + 3) % 4];
+      keyD.value = sample;
     }
   },
 
@@ -1157,17 +1607,29 @@ window.App = {
 
     return `
       <div class="space-y-6">
-        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-900 border border-slate-800 p-5 rounded-2xl shadow-lg">
+        <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 bg-slate-900 border border-slate-800 p-5 rounded-2xl shadow-lg">
           <div>
             <h2 class="text-xl font-black text-white tracking-tight">Sınav Neticeleri & Sıralama</h2>
             <p class="text-xs text-slate-400 mt-0.5">${currentExam.title} (${rankings.length} Talebe Katıldı)</p>
           </div>
-          <div class="flex items-center gap-2">
+          <div class="flex flex-wrap items-center gap-2">
             <select onchange="App.handleResultsExamChange(this.value, '${instId}')" class="px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-bold text-xs">
               ${exams.map(e => `<option value="${e.id}" ${e.id === currentExam.id ? 'selected' : ''}>${e.title}</option>`).join('')}
             </select>
-            <button onclick="App.printAllReportCards('${instId}', '${currentExam.id}')" class="px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-slate-950 font-black text-xs rounded-xl shadow-lg transition flex items-center gap-1.5 cursor-pointer">
-              <span>📜</span> <span>Tüm Karneleri Yazdır / PDF</span>
+            <button onclick="App.showManualResultModal('${instId}', '${currentExam.id}')" class="px-3 py-2 bg-cyan-600/20 hover:bg-cyan-600 text-cyan-300 hover:text-white font-bold text-xs rounded-xl border border-cyan-500/40 transition flex items-center gap-1 cursor-pointer" title="Elle Öğrenci Notu / Cevabı Ekle">
+              <span>✍️</span> <span>Elle Not Gir</span>
+            </button>
+            <button onclick="App.showItemAnalysisModal('${instId}', '${currentExam.id}', false)" class="px-3 py-2 bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-slate-950 font-bold text-xs rounded-xl border border-amber-500/40 transition flex items-center gap-1 cursor-pointer" title="Soru ve Madde Başarı Analizi">
+              <span>📊</span> <span>Soru Analizi</span>
+            </button>
+            <button onclick="App.showBatchWhatsAppModal('${instId}', '${currentExam.id}')" class="px-3 py-2 bg-emerald-600/20 hover:bg-emerald-600 text-emerald-300 hover:text-white font-bold text-xs rounded-xl border border-emerald-500/40 transition flex items-center gap-1 cursor-pointer" title="Sınıfa Toplu WhatsApp Karnesi Gönder">
+              <span>💬</span> <span>Toplu WhatsApp</span>
+            </button>
+            <button onclick="App.downloadResultsCsv('${instId}', '${currentExam.id}', false)" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl border border-slate-700 transition flex items-center gap-1 cursor-pointer" title="Excel / CSV Olarak İndir">
+              <span>📥</span> <span>Excel İndir</span>
+            </button>
+            <button onclick="App.printAllReportCards('${instId}', '${currentExam.id}')" class="px-3 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-slate-950 font-black text-xs rounded-xl shadow-lg transition flex items-center gap-1 cursor-pointer">
+              <span>📜</span> <span>Tüm Karneler</span>
             </button>
           </div>
         </div>
@@ -1192,7 +1654,7 @@ window.App = {
                 ${rankings.length === 0 ? `
                   <tr>
                     <td colspan="9" class="p-8 text-center text-slate-500">
-                      Bu sınava ait henüz taranmış bir optik kağıt bulunmuyor. "Kamera ile Oku" bölümünden kağıtları okutabilirsiniz.
+                      Bu sınava ait henüz taranmış bir optik kağıt bulunmuyor. "Kamera ile Oku" bölümünden kağıtları okutabilir veya "Elle Not Gir" ile manuel sonuç ekleyebilirsiniz.
                     </td>
                   </tr>
                 ` : rankings.map(r => `
@@ -1211,11 +1673,14 @@ window.App = {
                     <td class="p-3 text-center font-mono font-black text-amber-400 text-sm">${r.totalScore}</td>
                     <td class="p-3 text-right">
                       <div class="flex items-center justify-end gap-1.5">
+                        <button onclick="App.showManualResultModal('${instId}', '${currentExam.id}', '${r.studentNo}')" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-amber-300 rounded-lg text-[11px] font-bold transition cursor-pointer" title="Cevapları / Puanı Elle Düzenle">
+                          ✍️
+                        </button>
                         <button onclick="App.printSingleReportCard('${instId}', '${currentExam.id}', '${r.studentNo}')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 rounded-lg text-[11px] font-bold transition flex items-center gap-1 cursor-pointer" title="Renkli & Grafikli A4 Karne Bas">
                           <span>📜</span> <span>Karne</span>
                         </button>
                         ${r.parentPhone ? `
-                          <button onclick="App.sendWhatsAppCard('${encodeURIComponent(r.parentPhone)}', '${encodeURIComponent(r.studentName)}', '${r.totalNet}', '${r.totalScore}')" class="px-2.5 py-1 bg-emerald-600/30 hover:bg-emerald-600 text-emerald-300 hover:text-white rounded-lg text-[11px] font-bold transition" title="WhatsApp Gönder">
+                          <button onclick="App.sendWhatsAppCard('${encodeURIComponent(r.parentPhone)}', '${encodeURIComponent(r.studentName)}', '${r.totalNet}', '${r.totalScore}')" class="px-2.5 py-1 bg-emerald-600/30 hover:bg-emerald-600 text-emerald-300 hover:text-white rounded-lg text-[11px] font-bold transition cursor-pointer" title="WhatsApp Gönder">
                             💬
                           </button>
                         ` : ''}
@@ -1329,13 +1794,24 @@ window.App = {
                     </div>
                   </div>
 
-                  <div class="mt-4 pt-3 border-t border-slate-800/80 flex items-center gap-2">
-                    <button onclick="App.viewGlobalExamLeaderboard('${gExam.id}')" class="flex-1 py-2 bg-cyan-500 hover:bg-cyan-600 text-slate-950 font-black text-xs rounded-xl shadow transition flex items-center justify-center gap-1.5 cursor-pointer">
+                  <div class="mt-4 pt-3 border-t border-slate-800/80 flex flex-col gap-2">
+                    <button onclick="App.viewGlobalExamLeaderboard('${gExam.id}')" class="w-full py-2 bg-cyan-500 hover:bg-cyan-600 text-slate-950 font-black text-xs rounded-xl shadow transition flex items-center justify-center gap-1.5 cursor-pointer">
                       <span>🏆</span> <span>Genel Derece Sıralaması</span>
                     </button>
-                    <button onclick="App.deleteGlobalExamPrompt('${gExam.id}', '${gExam.title}')" class="p-2 text-rose-400 hover:bg-rose-950/40 rounded-xl transition cursor-pointer" title="Ortak Sınavı Sil">
-                      🗑️
-                    </button>
+                    <div class="flex gap-1.5">
+                      <button onclick="App.showItemAnalysisModal(null, '${gExam.id}', true)" class="flex-1 py-1.5 bg-slate-800 hover:bg-slate-700 text-amber-300 font-bold text-xs rounded-xl transition flex items-center justify-center gap-1" title="Madde & Soru Analizi">
+                        <span>📊</span> <span>Analiz</span>
+                      </button>
+                      <button onclick="App.showEditExamModal(null, '${gExam.id}', true)" class="flex-1 py-1.5 bg-slate-800 hover:bg-slate-700 text-emerald-300 font-bold text-xs rounded-xl transition flex items-center justify-center gap-1" title="Sınavı Düzenle & Soru İptali">
+                        <span>✏️</span> <span>Düzenle</span>
+                      </button>
+                      <button onclick="App.downloadResultsCsv(null, '${gExam.id}', true)" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl transition" title="Tüm Kurumları Excel Olarak İndir (CSV)">
+                        📥
+                      </button>
+                      <button onclick="App.deleteGlobalExamPrompt('${gExam.id}', '${gExam.title}')" class="p-1.5 text-rose-400 hover:bg-rose-950/40 rounded-xl transition cursor-pointer" title="Ortak Sınavı Sil">
+                        🗑️
+                      </button>
+                    </div>
                   </div>
                 </div>
               `;
@@ -1369,7 +1845,7 @@ window.App = {
     modal.className = 'fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-sm animate-fade-in';
     modal.innerHTML = `
       <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-7 max-w-4xl w-full shadow-2xl relative max-h-[90vh] flex flex-col">
-        <div class="flex items-center justify-between pb-4 border-b border-slate-800 mb-4">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-4 border-b border-slate-800 mb-4 gap-3">
           <div>
             <div class="flex items-center gap-2">
               <span class="text-2xl">🏆</span>
@@ -1377,7 +1853,15 @@ window.App = {
             </div>
             <p class="text-xs text-slate-400 mt-0.5">Tüm kurs ve okulların katılımıyla ortak sıralama tablosu (${rankings.length} Talebe)</p>
           </div>
-          <button onclick="document.getElementById('global-leaderboard-modal').remove()" class="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-sm font-bold cursor-pointer">✕</button>
+          <div class="flex items-center gap-2">
+            <button onclick="App.showItemAnalysisModal(null, '${exam.id}', true)" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-amber-300 text-xs font-bold rounded-xl border border-slate-700 transition flex items-center gap-1 cursor-pointer">
+              <span>📊</span> <span>Soru Analizi</span>
+            </button>
+            <button onclick="App.downloadResultsCsv(null, '${exam.id}', true)" class="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 text-xs font-black rounded-xl shadow transition flex items-center gap-1 cursor-pointer">
+              <span>📥</span> <span>Excel İndir (CSV)</span>
+            </button>
+            <button onclick="document.getElementById('global-leaderboard-modal').remove()" class="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-sm font-bold cursor-pointer">✕</button>
+          </div>
         </div>
 
         <div class="overflow-y-auto flex-1 rounded-2xl border border-slate-800">
@@ -1423,6 +1907,526 @@ window.App = {
       </div>
     `;
     document.body.appendChild(modal);
+  },
+
+  // ==========================================
+  // 10. ELLE (MANUEL) OPTİK CEVAP VE NOT GİRİŞİ
+  // ==========================================
+  showManualResultModal(instId, examId, studentNoToPreload = null) {
+    const existing = document.getElementById('manual-result-modal');
+    if (existing) existing.remove();
+
+    const session = window.PortalStore.getCurrentSession();
+    const effectiveInstId = instId || (session ? session.institutionId : null);
+    const exam = window.PortalStore.getExamById(effectiveInstId, examId);
+    if (!exam) {
+      this.showToast('Sınav bulunamadı.', 'error');
+      return;
+    }
+
+    const students = window.PortalStore.getStudents(effectiveInstId);
+    const existingResults = window.PortalStore.getResultsByExam(effectiveInstId, examId);
+    const existingResult = studentNoToPreload ? existingResults.find(r => r.studentNo === studentNoToPreload) : null;
+
+    const initialAnswers = existingResult ? existingResult.answers : '';
+    const initialBooklet = existingResult ? (existingResult.booklet || 'A') : 'A';
+    const initialStudentNo = studentNoToPreload || (students[0] ? students[0].studentNo : '');
+    const initialScoreOverride = (existingResult && existingResult.totalScore !== undefined) ? existingResult.totalScore : '';
+
+    const modal = document.createElement('div');
+    modal.id = 'manual-result-modal';
+    modal.className = 'fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-sm animate-fade-in';
+    modal.innerHTML = `
+      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-7 max-w-xl w-full shadow-2xl relative max-h-[92vh] overflow-y-auto">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
+          <div class="flex items-center gap-2.5">
+            <span class="text-2xl">✍️</span>
+            <div>
+              <h3 class="text-base font-black text-white">Elle Optik Cevap & Not Girişi</h3>
+              <p class="text-xs text-slate-400 font-medium">\${exam.title} (\${exam.questionCount} Soru)</p>
+            </div>
+          </div>
+          <button onclick="document.getElementById('manual-result-modal').remove()" class="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-sm font-bold cursor-pointer">✕</button>
+        </div>
+
+        <form onsubmit="App.handleSaveManualResult(event, '\${effectiveInstId}', '\${exam.id}')" class="space-y-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Talebe Seçiniz</label>
+              <select id="manual-student-select" onchange="App.handleManualStudentChange(this.value, '\${effectiveInstId}')" class="w-full px-3 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white font-bold text-xs focus:border-emerald-500 focus:outline-none">
+                <option value="">-- Kayıtlı Listeden Seç --</option>
+                \${students.map(s => `<option value="\${s.studentNo}" \${s.studentNo === initialStudentNo ? 'selected' : ''}>\${s.studentNo} - \${s.firstName} \${s.lastName} (\${s.className})</option>`).join('')}
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Talebe No (Manuel Giriş)</label>
+              <input type="text" id="manual-student-no" required value="\${initialStudentNo}" placeholder="Örn: 105" class="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white font-medium text-xs focus:border-emerald-500 focus:outline-none">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Kitapçık Türü</label>
+              <select id="manual-booklet-select" onchange="App.handleManualAnswersInput('\${exam.id}')" class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-bold text-xs">
+                <option value="A" \${initialBooklet === 'A' ? 'selected' : ''}>A Kitapçığı</option>
+                <option value="B" \${initialBooklet === 'B' ? 'selected' : ''}>B Kitapçığı</option>
+                <option value="C" \${initialBooklet === 'C' ? 'selected' : ''}>C Kitapçığı</option>
+                <option value="D" \${initialBooklet === 'D' ? 'selected' : ''}>D Kitapçığı</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Özel Puan (İsteğe Bağlı)</label>
+              <input type="number" step="0.1" id="manual-score-override" placeholder="Otomatik hesaplanır" value="\${initialScoreOverride}" class="w-full px-3.5 py-2 bg-slate-950 border border-slate-800 rounded-xl text-amber-300 font-mono text-xs focus:border-amber-400 focus:outline-none">
+            </div>
+          </div>
+
+          <!-- Öğrenci Cevapları Girişi -->
+          <div class="space-y-2 p-3.5 bg-slate-950/80 rounded-2xl border border-slate-800">
+            <div class="flex items-center justify-between">
+              <label class="text-xs font-bold text-emerald-400 uppercase">Öğrenci Cevap Dizilimi (\${exam.questionCount} Soru)</label>
+              <span id="manual-char-count" class="text-[11px] font-mono text-slate-400">0 / \${exam.questionCount}</span>
+            </div>
+            <textarea id="manual-answers-input" rows="3" oninput="App.handleManualAnswersInput('\${exam.id}')" placeholder="Örn: ABCDABCD... (Boş sorular için boşluk bırakınız)" class="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs font-mono text-white tracking-widest focus:border-emerald-500 focus:outline-none uppercase">\${initialAnswers}</textarea>
+            <div class="flex gap-2">
+              <button type="button" onclick="App.fillSampleAnswers('\${exam.id}', 'A')" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-[10px] text-slate-300 rounded font-mono">Tümünü 'A' Yap</button>
+              <button type="button" onclick="App.fillSampleAnswers('\${exam.id}', 'key')" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-[10px] text-cyan-300 rounded font-mono">Cevap Anahtarını Kopyala</button>
+              <button type="button" onclick="App.fillSampleAnswers('\${exam.id}', 'clear')" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-[10px] text-rose-300 rounded font-mono">Temizle</button>
+            </div>
+          </div>
+
+          <!-- Canlı Önizleme Kartı -->
+          <div id="manual-preview-card" class="grid grid-cols-5 gap-2 text-center p-3 bg-slate-950 rounded-2xl border border-slate-800">
+            <div>
+              <span class="block text-[10px] text-slate-500 font-bold uppercase">Doğru</span>
+              <span id="manual-prev-correct" class="text-base font-black text-emerald-400 font-mono">0</span>
+            </div>
+            <div>
+              <span class="block text-[10px] text-slate-500 font-bold uppercase">Yanlış</span>
+              <span id="manual-prev-wrong" class="text-base font-black text-rose-400 font-mono">0</span>
+            </div>
+            <div>
+              <span class="block text-[10px] text-slate-500 font-bold uppercase">Boş</span>
+              <span id="manual-prev-empty" class="text-base font-black text-slate-400 font-mono">0</span>
+            </div>
+            <div>
+              <span class="block text-[10px] text-slate-500 font-bold uppercase">Net</span>
+              <span id="manual-prev-net" class="text-base font-black text-cyan-400 font-mono">0.00</span>
+            </div>
+            <div>
+              <span class="block text-[10px] text-slate-500 font-bold uppercase">Hesaplanan Puan</span>
+              <span id="manual-prev-score" class="text-base font-black text-amber-400 font-mono">0.0</span>
+            </div>
+          </div>
+
+          <div class="pt-2">
+            <button type="submit" class="w-full py-3.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-slate-950 font-black text-xs rounded-xl shadow-lg transition flex items-center justify-center gap-2 cursor-pointer">
+              <span>💾</span> <span>Sonucu Kaydet & Sıralamayı Güncelle</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    `;
+    document.body.appendChild(modal);
+
+    this.handleManualAnswersInput(exam.id);
+  },
+
+  handleManualStudentChange(studentNo, instId) {
+    const input = document.getElementById('manual-student-no');
+    if (input && studentNo) {
+      input.value = studentNo;
+    }
+  },
+
+  handleManualAnswersInput(examId) {
+    const session = window.PortalStore.getCurrentSession();
+    const instId = session ? session.institutionId : null;
+    const exam = window.PortalStore.getExamById(instId, examId) || window.PortalStore.getGlobalExams().find(e => e.id === examId);
+    if (!exam) return;
+
+    const answersInput = document.getElementById('manual-answers-input');
+    const bookletSelect = document.getElementById('manual-booklet-select');
+    const charCount = document.getElementById('manual-char-count');
+
+    const answers = answersInput ? answersInput.value.toUpperCase() : '';
+    const booklet = bookletSelect ? bookletSelect.value : 'A';
+
+    if (charCount) {
+      charCount.textContent = `\${answers.length} / \${exam.questionCount}`;
+    }
+
+    const scored = window.PortalStore.scoreStudentAnswers(answers, exam, booklet);
+    if (!scored) return;
+
+    const elC = document.getElementById('manual-prev-correct');
+    const elW = document.getElementById('manual-prev-wrong');
+    const elE = document.getElementById('manual-prev-empty');
+    const elN = document.getElementById('manual-prev-net');
+    const elS = document.getElementById('manual-prev-score');
+
+    if (elC) elC.textContent = scored.totalCorrect;
+    if (elW) elW.textContent = scored.totalWrong;
+    if (elE) elE.textContent = scored.totalEmpty;
+    if (elN) elN.textContent = scored.totalNet;
+    if (elS) elS.textContent = scored.totalScore;
+  },
+
+  fillSampleAnswers(examId, type) {
+    const session = window.PortalStore.getCurrentSession();
+    const instId = session ? session.institutionId : null;
+    const exam = window.PortalStore.getExamById(instId, examId) || window.PortalStore.getGlobalExams().find(e => e.id === examId);
+    if (!exam) return;
+
+    const answersInput = document.getElementById('manual-answers-input');
+    const bookletSelect = document.getElementById('manual-booklet-select');
+    const booklet = bookletSelect ? bookletSelect.value : 'A';
+    const qCount = parseInt(exam.questionCount, 10) || 20;
+
+    if (!answersInput) return;
+
+    if (type === 'clear') {
+      answersInput.value = '';
+    } else if (type === 'A') {
+      answersInput.value = 'A'.repeat(qCount);
+    } else if (type === 'key') {
+      const key = (exam.answerKeys && exam.answerKeys[booklet]) ? exam.answerKeys[booklet] : 'A'.repeat(qCount);
+      answersInput.value = key;
+    }
+
+    this.handleManualAnswersInput(examId);
+  },
+
+  handleSaveManualResult(e, instId, examId) {
+    e.preventDefault();
+    const studentNo = document.getElementById('manual-student-no').value.trim();
+    if (!studentNo) {
+      this.showToast('Lütfen talebe numarasını giriniz.', 'warning');
+      return;
+    }
+
+    const booklet = document.getElementById('manual-booklet-select').value;
+    const answers = document.getElementById('manual-answers-input').value.trim().toUpperCase();
+    const scoreOverride = document.getElementById('manual-score-override').value;
+
+    const res = window.PortalStore.saveManualExamResult(instId, {
+      examId,
+      studentNo,
+      booklet,
+      answers,
+      scoreOverride: scoreOverride !== '' ? parseFloat(scoreOverride) : undefined
+    });
+
+    if (res && res.success) {
+      this.showToast(`✓ #\${studentNo} için optik cevaplar ve not başarıyla kaydedildi!`, 'success');
+      const modal = document.getElementById('manual-result-modal');
+      if (modal) modal.remove();
+      this.render();
+    } else {
+      this.showToast('Kayıt başarısız: ' + (res ? res.message : ''), 'error');
+    }
+  },
+
+  // ==========================================
+  // 11. SORU VE MADDE BAŞARI ANALİZİ (Item Analysis)
+  // ==========================================
+  showItemAnalysisModal(instId, examId, isGlobal = false) {
+    const existing = document.getElementById('item-analysis-modal');
+    if (existing) existing.remove();
+
+    const exam = isGlobal 
+      ? window.PortalStore.getGlobalExams().find(e => e.id === examId)
+      : window.PortalStore.getExamById(instId, examId);
+
+    if (!exam) {
+      this.showToast('Sınav bulunamadı.', 'error');
+      return;
+    }
+
+    const items = isGlobal 
+      ? window.PortalStore.getGlobalItemAnalysis(examId)
+      : window.PortalStore.getItemAnalysis(instId, examId);
+
+    const totalStudents = items[0] ? items[0].totalStudents : 0;
+    const easyCount = items.filter(i => i.difficulty === 'Kolay').length;
+    const mediumCount = items.filter(i => i.difficulty === 'Orta').length;
+    const hardCount = items.filter(i => i.difficulty === 'Zor').length;
+    const canceledCount = items.filter(i => i.isCanceled).length;
+
+    const subjects = exam.subjects || [{ name: 'Genel' }];
+
+    const modal = document.createElement('div');
+    modal.id = 'item-analysis-modal';
+    modal.className = 'fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-sm animate-fade-in';
+    modal.innerHTML = `
+      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-7 max-w-4xl w-full shadow-2xl relative max-h-[92vh] flex flex-col">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-4 border-b border-slate-800 mb-4 gap-3">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="text-2xl">📊</span>
+              <h3 class="text-base sm:text-lg font-black text-white">\${exam.title} - Soru & Madde Başarı Analizi</h3>
+            </div>
+            <p class="text-xs text-slate-400 mt-0.5">
+              \${isGlobal ? 'Türkiye Geneli Tüm Kurumların Ortak Katılımı' : 'Kurumunuza Ait Sonuçlar'} (\${totalStudents} Talebe Değerlendirildi)
+            </p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button onclick="App.downloadResultsCsv('\${instId || ''}', '\${exam.id}', \${isGlobal})" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl border border-slate-700 transition flex items-center gap-1 cursor-pointer">
+              <span>📥</span> <span>Excel İndir</span>
+            </button>
+            <button onclick="document.getElementById('item-analysis-modal').remove()" class="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-sm font-bold cursor-pointer">✕</button>
+          </div>
+        </div>
+
+        <!-- Özet İstatistik Kartları -->
+        <div class="grid grid-cols-2 sm:grid-cols-5 gap-2.5 mb-4">
+          <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800 text-center">
+            <span class="block text-[10px] text-slate-500 font-bold uppercase">Toplam Soru</span>
+            <span class="text-lg font-black text-white font-mono">\${items.length}</span>
+          </div>
+          <div class="bg-slate-950 p-2.5 rounded-xl border border-emerald-950/50 text-center">
+            <span class="block text-[10px] text-emerald-400 font-bold uppercase">Kolay Soru (%70+)</span>
+            <span class="text-lg font-black text-emerald-400 font-mono">\${easyCount}</span>
+          </div>
+          <div class="bg-slate-950 p-2.5 rounded-xl border border-amber-950/50 text-center">
+            <span class="block text-[10px] text-amber-400 font-bold uppercase">Orta Soru (%40-%69)</span>
+            <span class="text-lg font-black text-amber-400 font-mono">\${mediumCount}</span>
+          </div>
+          <div class="bg-slate-950 p-2.5 rounded-xl border border-rose-950/50 text-center">
+            <span class="block text-[10px] text-rose-400 font-bold uppercase">Zor Soru (<%40)</span>
+            <span class="text-lg font-black text-rose-400 font-mono">\${hardCount}</span>
+          </div>
+          <div class="bg-slate-950 p-2.5 rounded-xl border border-purple-950/50 text-center">
+            <span class="block text-[10px] text-purple-400 font-bold uppercase">İptal Edilen Soru</span>
+            <span class="text-lg font-black text-purple-400 font-mono">\${canceledCount}</span>
+          </div>
+        </div>
+
+        <!-- Ders Filtresi -->
+        <div class="flex items-center gap-2 mb-3">
+          <span class="text-xs text-slate-400 font-bold">Ders Filtrele:</span>
+          <select id="item-subject-filter" onchange="App.filterItemAnalysisTable(this.value)" class="px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white font-bold">
+            <option value="all">Tüm Dersler (\${items.length} Soru)</option>
+            \${subjects.map(s => `<option value="\${s.name}">\${s.name} (\${s.startQ}-\${s.endQ}. Sorular)</option>`).join('')}
+          </select>
+        </div>
+
+        <!-- Madde Analiz Tablosu -->
+        <div class="overflow-y-auto flex-1 rounded-2xl border border-slate-800">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-950 border-b border-slate-800 text-slate-400 font-bold uppercase tracking-wider sticky top-0">
+              <tr>
+                <th class="p-2.5 text-center w-14">Soru No</th>
+                <th class="p-2.5">Ders</th>
+                <th class="p-2.5 text-center w-14">Cevap (A)</th>
+                <th class="p-2.5">Başarı Oranı</th>
+                <th class="p-2.5 text-center">Zorluk Seviyesi</th>
+                <th class="p-2.5 text-center">Şık Dağılımı (A - B - C - D - E - Boş)</th>
+                <th class="p-2.5 text-right w-24">Soru İptali</th>
+              </tr>
+            </thead>
+            <tbody id="item-analysis-tbody" class="divide-y divide-slate-800/80">
+              \${items.map(item => `
+                <tr class="item-analysis-row hover:bg-slate-800/40 transition" data-subject="\${item.subjectName}">
+                  <td class="p-2.5 text-center font-mono font-bold \${item.isCanceled ? 'text-purple-400 line-through' : 'text-emerald-400'}">
+                    #\${item.questionNo}
+                  </td>
+                  <td class="p-2.5 font-bold text-white">\${item.subjectName}</td>
+                  <td class="p-2.5 text-center font-mono font-black text-amber-300">
+                    \${item.isCanceled ? '*' : item.correctKeyA}
+                  </td>
+                  <td class="p-2.5">
+                    <div class="flex items-center gap-2">
+                      <div class="w-24 bg-slate-800 h-2 rounded-full overflow-hidden">
+                        <div class="h-full rounded-full \${item.isCanceled ? 'bg-purple-500' : (item.successRate >= 70 ? 'bg-emerald-500' : (item.successRate >= 40 ? 'bg-amber-500' : 'bg-rose-500'))}" style="width: \${item.successRate}%"></div>
+                      </div>
+                      <span class="font-mono font-bold text-[11px] text-slate-300">\${item.successRate}%</span>
+                    </div>
+                  </td>
+                  <td class="p-2.5 text-center">
+                    <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase \${item.isCanceled ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40' : (item.difficulty === 'Kolay' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : (item.difficulty === 'Orta' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'))}">
+                      \${item.difficulty}
+                    </span>
+                  </td>
+                  <td class="p-2.5 text-center font-mono text-[11px] text-slate-300">
+                    <span class="\${item.correctKeyA === 'A' ? 'text-emerald-400 font-black' : ''}">A:\${item.distribution.A || 0}</span> •
+                    <span class="\${item.correctKeyA === 'B' ? 'text-emerald-400 font-black' : ''}">B:\${item.distribution.B || 0}</span> •
+                    <span class="\${item.correctKeyA === 'C' ? 'text-emerald-400 font-black' : ''}">C:\${item.distribution.C || 0}</span> •
+                    <span class="\${item.correctKeyA === 'D' ? 'text-emerald-400 font-black' : ''}">D:\${item.distribution.D || 0}</span> •
+                    <span class="text-slate-500">Boş:\${item.distribution.empty || 0}</span>
+                  </td>
+                  <td class="p-2.5 text-right">
+                    <button onclick="App.toggleCancelQuestionFromModal('\${instId || ''}', '\${exam.id}', \${item.questionNo}, \${isGlobal})" class="px-2 py-1 rounded text-[10px] font-bold transition cursor-pointer \${item.isCanceled ? 'bg-purple-600 hover:bg-purple-500 text-white' : 'bg-slate-800 hover:bg-rose-950/60 hover:text-rose-300 text-slate-400 border border-slate-700'}">
+                      \${item.isCanceled ? 'İptali Kaldır' : 'İptal Et'}
+                    </button>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+  },
+
+  filterItemAnalysisTable(subjectName) {
+    const rows = document.querySelectorAll('.item-analysis-row');
+    rows.forEach(r => {
+      if (subjectName === 'all' || r.getAttribute('data-subject') === subjectName) {
+        r.classList.remove('hidden');
+      } else {
+        r.classList.add('hidden');
+      }
+    });
+  },
+
+  toggleCancelQuestionFromModal(instId, examId, qNum, isGlobal) {
+    window.PortalStore.cancelQuestion(instId, examId, qNum, isGlobal);
+    this.showToast(`✓ #\${qNum}. soru iptal durumu güncellendi ve tüm sonuçlar baştan hesaplandı!`, 'success');
+    this.showItemAnalysisModal(instId, examId, isGlobal);
+  },
+
+  // ==========================================
+  // 12. TOPLU VELİ WHATSAPP GÖNDERİM MODÜLÜ
+  // ==========================================
+  showBatchWhatsAppModal(instId, examId) {
+    const existing = document.getElementById('batch-whatsapp-modal');
+    if (existing) existing.remove();
+
+    const session = window.PortalStore.getCurrentSession();
+    const effectiveInstId = instId || (session ? session.institutionId : null);
+    const exam = window.PortalStore.getExamById(effectiveInstId, examId);
+    if (!exam) return;
+
+    const rankings = window.PortalStore.calculateExamRankings(effectiveInstId, examId);
+    const classes = [...new Set(rankings.map(r => r.className || 'Genel'))];
+
+    const modal = document.createElement('div');
+    modal.id = 'batch-whatsapp-modal';
+    modal.className = 'fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-sm animate-fade-in';
+    modal.innerHTML = `
+      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-7 max-w-3xl w-full shadow-2xl relative max-h-[92vh] flex flex-col">
+        <div class="flex items-center justify-between pb-4 border-b border-slate-800 mb-4">
+          <div class="flex items-center gap-2.5">
+            <span class="text-2xl">💬</span>
+            <div>
+              <h3 class="text-base sm:text-lg font-black text-white">Sınıfa Toplu WhatsApp Karnesi Gönder</h3>
+              <p class="text-xs text-slate-400 font-medium">\${exam.title} (\${rankings.length} Talebe)</p>
+            </div>
+          </div>
+          <button onclick="document.getElementById('batch-whatsapp-modal').remove()" class="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-sm font-bold cursor-pointer">✕</button>
+        </div>
+
+        <div class="flex items-center justify-between mb-3 bg-slate-950 p-3 rounded-2xl border border-slate-800">
+          <div class="flex items-center gap-2">
+            <label class="text-xs font-bold text-slate-300">Şube / Sınıf Seçiniz:</label>
+            <select id="batch-whatsapp-class" onchange="App.filterBatchWhatsAppClass(this.value)" class="px-3 py-1.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white font-bold">
+              <option value="all">Tüm Sınıflar (\${rankings.length} Talebe)</option>
+              \${classes.map(c => `<option value="\${c}">\${c}</option>`).join('')}
+            </select>
+          </div>
+          <div class="text-[11px] text-slate-400">
+            Telefonu kayıtlı: <strong class="text-emerald-400">\${rankings.filter(r => !!r.parentPhone).length}</strong> / \${rankings.length}
+          </div>
+        </div>
+
+        <div class="overflow-y-auto flex-1 rounded-2xl border border-slate-800 mb-4">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-950 border-b border-slate-800 text-slate-400 font-bold uppercase tracking-wider sticky top-0">
+              <tr>
+                <th class="p-2.5 text-center w-12">Sıra</th>
+                <th class="p-2.5">No & Talebe Adı</th>
+                <th class="p-2.5">Sınıf</th>
+                <th class="p-2.5 font-mono">Veli Telefonu</th>
+                <th class="p-2.5 text-center">Net</th>
+                <th class="p-2.5 text-center">Puan</th>
+                <th class="p-2.5 text-right w-36">İşlem</th>
+              </tr>
+            </thead>
+            <tbody id="batch-whatsapp-tbody" class="divide-y divide-slate-800/80">
+              \${rankings.map((r, idx) => `
+                <tr class="batch-wa-row hover:bg-slate-800/40 transition" data-class="\${r.className || 'Genel'}" id="wa-row-\${r.studentNo}">
+                  <td class="p-2.5 text-center font-bold text-slate-400">\${idx + 1}</td>
+                  <td class="p-2.5">
+                    <strong class="text-white block">\${r.studentName}</strong>
+                    <span class="text-[10px] text-slate-500 font-mono">#\${r.studentNo}</span>
+                  </td>
+                  <td class="p-2.5 font-semibold text-slate-300">\${r.className}</td>
+                  <td class="p-2.5 font-mono \${r.parentPhone ? 'text-emerald-400' : 'text-slate-600'}">
+                    \${r.parentPhone || 'Kayıtsız'}
+                  </td>
+                  <td class="p-2.5 text-center font-mono font-bold text-cyan-400">\${r.totalNet}</td>
+                  <td class="p-2.5 text-center font-mono font-black text-amber-400">\${r.totalScore}</td>
+                  <td class="p-2.5 text-right">
+                    \${r.parentPhone ? `
+                      <button onclick="App.markWhatsAppSent('wa-row-\${r.studentNo}', '\${encodeURIComponent(r.parentPhone)}', '\${encodeURIComponent(r.studentName)}', '\${r.totalNet}', '\${r.totalScore}')" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] rounded-xl shadow transition flex items-center gap-1.5 ml-auto cursor-pointer">
+                        <span>💬</span> <span>Gönder</span>
+                      </button>
+                    ` : `
+                      <span class="text-[10px] text-slate-500 italic">Telefon Yok</span>
+                    `}
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+  },
+
+  filterBatchWhatsAppClass(className) {
+    const rows = document.querySelectorAll('.batch-wa-row');
+    rows.forEach(r => {
+      if (className === 'all' || r.getAttribute('data-class') === className) {
+        r.classList.remove('hidden');
+      } else {
+        r.classList.add('hidden');
+      }
+    });
+  },
+
+  markWhatsAppSent(rowId, phone, name, net, score) {
+    this.sendWhatsAppCard(phone, name, net, score);
+    const row = document.getElementById(rowId);
+    if (row) {
+      const btn = row.querySelector('button');
+      if (btn) {
+        btn.className = 'px-3 py-1.5 bg-slate-800 text-emerald-400 border border-emerald-500/50 font-bold text-[11px] rounded-xl shadow transition flex items-center gap-1 ml-auto cursor-pointer';
+        btn.innerHTML = '<span>✓</span> <span>Gönderildi</span>';
+      }
+    }
+  },
+
+  // ==========================================
+  // 13. EXCEL / CSV TOPLU İNDİRME TETİKLEYİCİ
+  // ==========================================
+  downloadResultsCsv(instId, examId, isGlobal = false) {
+    const exam = isGlobal 
+      ? window.PortalStore.getGlobalExams().find(e => e.id === examId)
+      : window.PortalStore.getExamById(instId, examId);
+
+    if (!exam) {
+      this.showToast('Sınav bulunamadı.', 'error');
+      return;
+    }
+
+    const results = isGlobal 
+      ? window.PortalStore.calculateGlobalRankings(examId)
+      : window.PortalStore.calculateExamRankings(instId, examId);
+
+    if (results.length === 0) {
+      this.showToast('Bu sınava ait henüz indirilmeye hazır bir sonuç kaydı bulunmuyor.', 'warning');
+      return;
+    }
+
+    const ok = window.PortalStore.downloadResultsCsv(results, exam, isGlobal);
+    if (ok) {
+      this.showToast('✓ Sınav sonuçları Excel (CSV) olarak indirildi.', 'success');
+    } else {
+      this.showToast('Dosya indirilemedi.', 'error');
+    }
   },
 
   // --- HİBRİT BULUT SENKRONİZASYON PENCERESİ ---
