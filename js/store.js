@@ -99,13 +99,17 @@ class MultiTenantStore {
   }
 
   init() {
-    // Kurumlar listesi kontrolü
-    if (!localStorage.getItem(STORAGE_PREFIX + 'institutions')) {
-      localStorage.setItem(STORAGE_PREFIX + 'institutions', JSON.stringify(DEFAULT_INSTITUTIONS));
-    }
-    // Sınav şablonları kontrolü
-    if (!localStorage.getItem(STORAGE_PREFIX + 'templates')) {
-      localStorage.setItem(STORAGE_PREFIX + 'templates', JSON.stringify(DEFAULT_EXAM_TEMPLATES));
+    try {
+      // Kurumlar listesi kontrolü
+      if (!localStorage.getItem(STORAGE_PREFIX + 'institutions')) {
+        localStorage.setItem(STORAGE_PREFIX + 'institutions', JSON.stringify(DEFAULT_INSTITUTIONS));
+      }
+      // Sınav şablonları kontrolü
+      if (!localStorage.getItem(STORAGE_PREFIX + 'templates')) {
+        localStorage.setItem(STORAGE_PREFIX + 'templates', JSON.stringify(DEFAULT_EXAM_TEMPLATES));
+      }
+    } catch (e) {
+      console.warn('Store init localStorage bildirimi:', e);
     }
   }
 
@@ -186,7 +190,8 @@ class MultiTenantStore {
         userId: DEFAULT_SUPERADMIN.id,
         name: DEFAULT_SUPERADMIN.name,
         institutionId: null,
-        institutionName: 'Tüm Kurumlar (Merkez)'
+        institutionName: 'Tüm Kurumlar (Merkez)',
+        username: 'admin'
       };
       this.setSession(session);
       return { success: true, session };

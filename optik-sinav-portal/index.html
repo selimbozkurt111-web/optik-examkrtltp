@@ -200,7 +200,14 @@
 <body class="bg-slate-950 text-slate-100 min-h-screen antialiased selection:bg-emerald-500 selection:text-slate-950">
 
   <!-- Ana Uygulama Kapsayıcısı -->
-  <div id="app-root"></div>
+  <div id="app-root">
+    <div class="min-h-screen bg-slate-950 text-white flex items-center justify-center p-4">
+      <div class="text-center">
+        <div class="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+        <p class="text-xs text-slate-400 font-bold uppercase tracking-wider">Portala Bağlanılıyor...</p>
+      </div>
+    </div>
+  </div>
 
   <!-- Firebase SDK (Compat - CDN) -->
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
@@ -213,5 +220,10 @@
   <script src="js/optical-sheet-generator.js"></script>
   <script src="js/omr-scanner.js"></script>
   <script src="js/app.js"></script>
+  <script>
+    if (window.App && typeof window.App.init === 'function') {
+      window.App.init();
+    }
+  </script>
 </body>
 </html>

@@ -9,20 +9,34 @@ window.App = {
   currentTheme: 'dark',
 
   init() {
-    this.initTheme();
-    const session = window.PortalStore.getCurrentSession();
-    if (session) {
-      if (session.role === 'superadmin') {
-        this.currentTab = 'kurumlar';
+    try {
+      this.initTheme();
+    } catch (e) {
+      console.warn('initTheme hatası:', e);
+    }
+
+    try {
+      const session = window.PortalStore ? window.PortalStore.getCurrentSession() : null;
+      if (session) {
+        if (session.role === 'superadmin') {
+          this.currentTab = 'kurumlar';
+        } else {
+          this.currentTab = 'sinavlar';
+        }
       } else {
-        this.currentTab = 'sinavlar';
+        this.currentTab = 'login';
       }
-    } else {
+    } catch (e) {
+      console.warn('Oturum okuma hatası:', e);
       this.currentTab = 'login';
     }
 
     if (window.CloudSync && typeof window.CloudSync.init === 'function') {
-      window.CloudSync.init();
+      try {
+        window.CloudSync.init();
+      } catch (e) {
+        console.warn('Bulut başlatma hatası:', e);
+      }
     }
 
     this.render();
@@ -115,35 +129,46 @@ window.App = {
   },
 
   render() {
-    const session = window.PortalStore.getCurrentSession();
-    const appContainer = document.getElementById('app-root');
-    if (!appContainer) return;
+    try {
+      const session = window.PortalStore ? window.PortalStore.getCurrentSession() : null;
+      const appContainer = document.getElementById('app-root');
+      if (!appContainer) return;
 
-    if (!session || this.currentTab === 'login') {
-      appContainer.innerHTML = this.renderLoginView();
+      if (!session || this.currentTab === 'login') {
+        appContainer.innerHTML = this.renderLoginView();
+        if (window.CloudSync && typeof window.CloudSync.updateStatusBadge === 'function') {
+          window.CloudSync.updateStatusBadge();
+        }
+        return;
+      }
+
+      appContainer.innerHTML = `
+        <div class="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
+          ${this.renderHeader(session)}
+          <main class="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-6">
+            ${this.renderTabContent(session)}
+          </main>
+          ${this.renderFooter()}
+        </div>
+      `;
+
+      // Sekmeye özel başlatıcılar
+      if (this.currentTab === 'kamera_tara') {
+        this.initCameraScanner();
+      }
+
       if (window.CloudSync && typeof window.CloudSync.updateStatusBadge === 'function') {
         window.CloudSync.updateStatusBadge();
       }
-      return;
-    }
-
-    appContainer.innerHTML = `
-      <div class="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
-        ${this.renderHeader(session)}
-        <main class="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-6">
-          ${this.renderTabContent(session)}
-        </main>
-        ${this.renderFooter()}
-      </div>
-    `;
-
-    // Sekmeye özel başlatıcılar
-    if (this.currentTab === 'kamera_tara') {
-      this.initCameraScanner();
-    }
-
-    if (window.CloudSync && typeof window.CloudSync.updateStatusBadge === 'function') {
-      window.CloudSync.updateStatusBadge();
+    } catch (err) {
+      console.error('App render hatası:', err);
+      const appContainer = document.getElementById('app-root');
+      if (appContainer) {
+        this.currentTab = 'login';
+        try {
+          appContainer.innerHTML = this.renderLoginView();
+        } catch (e) {}
+      }
     }
   },
 
@@ -355,7 +380,7 @@ window.App = {
                   <button onclick="App.impersonateInstitution('${inst.id}')" class="flex-1 py-2 bg-emerald-500/20 hover:bg-emerald-500 text-emerald-300 hover:text-slate-950 font-bold text-xs rounded-xl border border-emerald-500/40 transition">
                     Panele Gir →
                   </button>
-                  <button onclick="App.showResetInstPasswordModal('${inst.id}', '${inst.name.replace(/'/g, "\\'")}')" class="p-2 text-amber-300 hover:bg-amber-950/40 rounded-xl transition cursor-pointer" title="Kurum Şifresini Değiştir">
+                  <button onclick="App.showResetInstPasswordModal('${inst.id}')" class="p-2 text-amber-300 hover:bg-amber-950/40 rounded-xl transition cursor-pointer" title="Kurum Şifresini Değiştir">
                     🔑
                   </button>
                   <button onclick="App.deleteInstitutionPrompt('${inst.id}', '${inst.name}')" class="p-2 text-rose-400 hover:bg-rose-950/40 rounded-xl transition" title="Sil">
@@ -2451,18 +2476,32 @@ window.App = {
 
   // --- TEMA VE GÖRÜNÜM YÖNETİMİ ---
   initTheme() {
-    const saved = localStorage.getItem('optik_portal_theme') || 'dark';
-    this.applyTheme(saved);
+    try {
+      const saved = localStorage.getItem('optik_portal_theme') || 'dark';
+      this.applyTheme(saved);
+    } catch (e) {
+      this.applyTheme('dark');
+    }
   },
 
   applyTheme(themeId) {
-    this.currentTheme = themeId;
+    this.currentTheme = themeId || 'dark';
     const root = document.documentElement;
-    root.classList.remove('theme-light', 'theme-navy', 'theme-emerald');
-    if (themeId !== 'dark') {
-      root.classList.add(`theme-${themeId}`);
+    if (root) {
+      root.classList.remove('theme-light', 'theme-navy', 'theme-emerald');
+      if (this.currentTheme === 'light') {
+        root.classList.remove('dark');
+        root.classList.add('theme-light');
+      } else {
+        root.classList.add('dark');
+        if (this.currentTheme !== 'dark') {
+          root.classList.add(`theme-${this.currentTheme}`);
+        }
+      }
     }
-    localStorage.setItem('optik_portal_theme', themeId);
+    try {
+      localStorage.setItem('optik_portal_theme', this.currentTheme);
+    } catch (e) {}
   },
 
   showThemeModal() {
@@ -2632,7 +2671,7 @@ window.App = {
     }
   },
 
-  showResetInstPasswordModal(instId, instName) {
+  showResetInstPasswordModal(instId) {
     const existing = document.getElementById('reset-inst-modal');
     if (existing) existing.remove();
 
@@ -2860,6 +2899,11 @@ window.App = {
   }
 };
 
-window.addEventListener('DOMContentLoaded', () => {
+// Güvenli Otomatik Başlatıcı: Sayfa hazırsa hemen çalıştır, yükleniyorsa DOMContentLoaded'da çalıştır
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => {
+    window.App.init();
+  });
+} else {
   window.App.init();
-});
+}
