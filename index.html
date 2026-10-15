@@ -50,7 +50,153 @@
     .animate-fade-in {
       animation: fadeIn 0.25s ease-out forwards;
     }
+
+    /* ==========================================
+       TEMA SİSTEMİ (DARK / LIGHT / NAVY / EMERALD)
+       ========================================== */
+    /* 1. Açık Tema (Gündüz Modu) */
+    html.theme-light body,
+    html.theme-light #app-root,
+    html.theme-light .bg-slate-950 {
+      background-color: #f8fafc !important;
+      color: #0f172a !important;
+    }
+    html.theme-light .bg-slate-900 {
+      background-color: #ffffff !important;
+      color: #0f172a !important;
+      border-color: #e2e8f0 !important;
+      box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05) !important;
+    }
+    html.theme-light .bg-slate-950\/80,
+    html.theme-light .bg-slate-950\/70,
+    html.theme-light .bg-slate-950\/60 {
+      background-color: #f1f5f9 !important;
+    }
+    html.theme-light .border-slate-800,
+    html.theme-light .border-slate-800\/80,
+    html.theme-light .border-slate-800\/60,
+    html.theme-light .border-slate-800\/50,
+    html.theme-light .divide-slate-800,
+    html.theme-light .divide-slate-800\/80,
+    html.theme-light .divide-slate-800\/60 {
+      border-color: #e2e8f0 !important;
+    }
+    html.theme-light .text-white,
+    html.theme-light .text-slate-100 {
+      color: #0f172a !important;
+    }
+    html.theme-light .text-slate-200 {
+      color: #1e293b !important;
+    }
+    html.theme-light .text-slate-300 {
+      color: #334155 !important;
+    }
+    html.theme-light .text-slate-400,
+    html.theme-light .text-slate-500 {
+      color: #64748b !important;
+    }
+    html.theme-light input,
+    html.theme-light select,
+    html.theme-light textarea {
+      background-color: #ffffff !important;
+      color: #0f172a !important;
+      border-color: #cbd5e1 !important;
+    }
+    html.theme-light input:focus,
+    html.theme-light select:focus,
+    html.theme-light textarea:focus {
+      border-color: #10b981 !important;
+    }
+    html.theme-light .bg-slate-800 {
+      background-color: #e2e8f0 !important;
+      color: #0f172a !important;
+    }
+    html.theme-light .bg-slate-800\/80,
+    html.theme-light .bg-slate-800\/60 {
+      background-color: #e2e8f0 !important;
+    }
+    html.theme-light .hover\:bg-slate-800:hover,
+    html.theme-light .hover\:bg-slate-700:hover {
+      background-color: #cbd5e1 !important;
+      color: #0f172a !important;
+    }
+    html.theme-light .hover\:bg-slate-800\/40:hover {
+      background-color: #f1f5f9 !important;
+    }
+    html.theme-light thead.bg-slate-950 {
+      background-color: #f1f5f9 !important;
+    }
+
+    /* 2. Gece Mavisi (Ocean Navy) */
+    html.theme-navy body,
+    html.theme-navy #app-root,
+    html.theme-navy .bg-slate-950 {
+      background-color: #060b17 !important;
+    }
+    html.theme-navy .bg-slate-900 {
+      background-color: #0c162d !important;
+      border-color: #1a2c54 !important;
+    }
+    html.theme-navy .border-slate-800,
+    html.theme-navy .border-slate-800\/80,
+    html.theme-navy .border-slate-800\/60,
+    html.theme-navy .divide-slate-800,
+    html.theme-navy .divide-slate-800\/80 {
+      border-color: #1a2c54 !important;
+    }
+    html.theme-navy .bg-slate-800 {
+      background-color: #16254a !important;
+    }
+    html.theme-navy input,
+    html.theme-navy select,
+    html.theme-navy textarea {
+      background-color: #070e22 !important;
+      border-color: #1a2c54 !important;
+      color: #f1f5f9 !important;
+    }
+
+    /* 3. Zümrüt Yeşili (Emerald Orman) */
+    html.theme-emerald body,
+    html.theme-emerald #app-root,
+    html.theme-emerald .bg-slate-950 {
+      background-color: #041009 !important;
+    }
+    html.theme-emerald .bg-slate-900 {
+      background-color: #092014 !important;
+      border-color: #123824 !important;
+    }
+    html.theme-emerald .border-slate-800,
+    html.theme-emerald .border-slate-800\/80,
+    html.theme-emerald .border-slate-800\/60,
+    html.theme-emerald .divide-slate-800,
+    html.theme-emerald .divide-slate-800\/80 {
+      border-color: #123824 !important;
+    }
+    html.theme-emerald .bg-slate-800 {
+      background-color: #0f2e1d !important;
+    }
+    html.theme-emerald input,
+    html.theme-emerald select,
+    html.theme-emerald textarea {
+      background-color: #05160d !important;
+      border-color: #123824 !important;
+      color: #f1f5f9 !important;
+    }
   </style>
+  <script>
+    (function(){
+      try {
+        const t = localStorage.getItem('optik_portal_theme') || 'dark';
+        if (t === 'light') {
+          document.documentElement.classList.remove('dark');
+          document.documentElement.classList.add('theme-light');
+        } else {
+          document.documentElement.classList.add('dark');
+          if (t !== 'dark') document.documentElement.classList.add('theme-' + t);
+        }
+      } catch(e){}
+    })();
+  </script>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen antialiased selection:bg-emerald-500 selection:text-slate-950">
 

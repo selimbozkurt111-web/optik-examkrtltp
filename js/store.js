@@ -127,6 +127,48 @@ class MultiTenantStore {
     }
   }
 
+  getSuperadminPassword() {
+    return localStorage.getItem(STORAGE_PREFIX + 'superadmin_password') || DEFAULT_SUPERADMIN.password;
+  },
+
+  setSuperadminPassword(newPass) {
+    localStorage.setItem(STORAGE_PREFIX + 'superadmin_password', newPass);
+  },
+
+  changePassword(session, oldPass, newPass) {
+    if (!session) return { success: false, message: 'Oturum bulunamadı.' };
+    const cleanNew = (newPass || '').trim();
+    if (cleanNew.length < 3) {
+      return { success: false, message: 'Yeni şifre en az 3 karakter olmalıdır.' };
+    }
+
+    if (session.role === 'superadmin') {
+      const currentPass = this.getSuperadminPassword();
+      if ((oldPass || '').trim() !== currentPass) {
+        return { success: false, message: 'Mevcut şifreniz hatalı.' };
+      }
+      this.setSuperadminPassword(cleanNew);
+      return { success: true, message: 'Yönetici şifreniz başarıyla değiştirildi!' };
+    } else {
+      const inst = this.getInstitutions().find(i => i.id === session.institutionId);
+      if (!inst) return { success: false, message: 'Kurum kaydı bulunamadı.' };
+      if ((oldPass || '').trim() !== (inst.password || '123').toString().trim()) {
+        return { success: false, message: 'Mevcut şifreniz hatalı.' };
+      }
+      this.updateInstitution(session.institutionId, { password: cleanNew });
+      return { success: true, message: 'Kurum şifreniz başarıyla değiştirildi!' };
+    }
+  },
+
+  resetInstitutionPassword(instId, newPass) {
+    const cleanNew = (newPass || '').trim();
+    if (cleanNew.length < 3) {
+      return { success: false, message: 'Yeni şifre en az 3 karakter olmalıdır.' };
+    }
+    this.updateInstitution(instId, { password: cleanNew });
+    return { success: true, message: 'Kurum şifresi başarıyla güncellendi!' };
+  },
+
   logout() {
     sessionStorage.removeItem(STORAGE_PREFIX + 'session');
     localStorage.removeItem(STORAGE_PREFIX + 'session');
@@ -137,7 +179,8 @@ class MultiTenantStore {
     const p = (passwordInput || '').trim();
 
     // 1. Süper Yönetici Kontrolü
-    if (u === DEFAULT_SUPERADMIN.username && p === DEFAULT_SUPERADMIN.password) {
+    const superPass = this.getSuperadminPassword();
+    if (u === DEFAULT_SUPERADMIN.username && p === superPass) {
       const session = {
         role: 'superadmin',
         userId: DEFAULT_SUPERADMIN.id,

@@ -6,8 +6,10 @@ window.App = {
   currentTab: 'login',
   activeExamId: null,
   activeScanResult: null,
+  currentTheme: 'dark',
 
   init() {
+    this.initTheme();
     const session = window.PortalStore.getCurrentSession();
     if (session) {
       if (session.role === 'superadmin') {
@@ -166,6 +168,18 @@ window.App = {
           </div>
 
           <div class="flex items-center gap-2">
+            <!-- Tema Değiştir Butonu -->
+            <button onclick="App.showThemeModal()" title="Görünüm ve Tema Seçimi" class="px-2.5 py-1.5 rounded-xl text-xs font-bold border transition flex items-center gap-1.5 bg-slate-800 text-slate-300 border-slate-700 hover:text-white cursor-pointer">
+              <span>🎨</span>
+              <span class="hidden sm:inline">Tema</span>
+            </button>
+
+            <!-- Şifre Değiştir Butonu -->
+            <button onclick="App.showChangePasswordModal()" title="Şifre Değiştir" class="px-2.5 py-1.5 rounded-xl text-xs font-bold border transition flex items-center gap-1.5 bg-slate-800 text-amber-300 border-slate-700 hover:text-amber-200 cursor-pointer">
+              <span>🔑</span>
+              <span class="hidden sm:inline">Şifre</span>
+            </button>
+
             <!-- Bulut Senkronizasyon Rozeti -->
             <button id="cloud-sync-badge" onclick="App.showCloudSyncModal()" title="Bulut Senkronizasyon Ayarları" class="px-2.5 py-1.5 rounded-xl text-xs font-bold border transition flex items-center gap-1.5 bg-slate-800 text-slate-300 border-slate-700">
               <span class="w-2 h-2 rounded-full bg-slate-400"></span>
@@ -237,7 +251,10 @@ window.App = {
     return `
       <div class="min-h-screen bg-slate-950 text-white flex items-center justify-center p-4">
         <div class="bg-slate-900 border border-slate-800 rounded-3xl p-7 sm:p-9 max-w-md w-full shadow-2xl relative overflow-hidden">
-          <div class="absolute top-4 right-4">
+          <div class="absolute top-4 right-4 flex items-center gap-1.5">
+            <button onclick="App.showThemeModal()" title="Görünüm ve Tema Seçimi" class="px-2 py-1 rounded-xl text-[11px] font-bold border transition flex items-center gap-1 bg-slate-800/80 text-slate-300 border-slate-700 hover:text-white cursor-pointer">
+              <span>🎨</span>
+            </button>
             <button id="cloud-sync-badge" onclick="App.showCloudSyncModal()" title="Bulut Senkronizasyon Ayarları" class="px-2.5 py-1 rounded-xl text-[11px] font-bold border transition flex items-center gap-1.5 bg-slate-800/80 text-slate-300 border-slate-700">
               <span class="w-2 h-2 rounded-full bg-slate-400"></span>
               <span>Bulut</span>
@@ -337,6 +354,9 @@ window.App = {
                 <div class="mt-4 pt-3 border-t border-slate-800/80 flex items-center gap-2">
                   <button onclick="App.impersonateInstitution('${inst.id}')" class="flex-1 py-2 bg-emerald-500/20 hover:bg-emerald-500 text-emerald-300 hover:text-slate-950 font-bold text-xs rounded-xl border border-emerald-500/40 transition">
                     Panele Gir →
+                  </button>
+                  <button onclick="App.showResetInstPasswordModal('${inst.id}', '${inst.name.replace(/'/g, "\\'")}')" class="p-2 text-amber-300 hover:bg-amber-950/40 rounded-xl transition cursor-pointer" title="Kurum Şifresini Değiştir">
+                    🔑
                   </button>
                   <button onclick="App.deleteInstitutionPrompt('${inst.id}', '${inst.name}')" class="p-2 text-rose-400 hover:bg-rose-950/40 rounded-xl transition" title="Sil">
                     🗑️
@@ -2426,6 +2446,268 @@ window.App = {
       this.showToast('✓ Sınav sonuçları Excel (CSV) olarak indirildi.', 'success');
     } else {
       this.showToast('Dosya indirilemedi.', 'error');
+    }
+  },
+
+  // --- TEMA VE GÖRÜNÜM YÖNETİMİ ---
+  initTheme() {
+    const saved = localStorage.getItem('optik_portal_theme') || 'dark';
+    this.applyTheme(saved);
+  },
+
+  applyTheme(themeId) {
+    this.currentTheme = themeId;
+    const root = document.documentElement;
+    root.classList.remove('theme-light', 'theme-navy', 'theme-emerald');
+    if (themeId !== 'dark') {
+      root.classList.add(`theme-${themeId}`);
+    }
+    localStorage.setItem('optik_portal_theme', themeId);
+  },
+
+  showThemeModal() {
+    const existing = document.getElementById('theme-modal');
+    if (existing) existing.remove();
+
+    const themes = [
+      { id: 'dark', name: 'Klasik Gece (Koyu)', desc: 'Gözü yormayan modern koyu tema', icon: '🌙' },
+      { id: 'light', name: 'Aydınlık (Gündüz)', desc: 'Gündüz kullanımı için ferah açık tema', icon: '☀️' },
+      { id: 'navy', name: 'Derin Okyanus (Mavi)', desc: 'Asil gece mavisi ve lacivert tonları', icon: '🌊' },
+      { id: 'emerald', name: 'Zümrüt Yeşili (Orman)', desc: 'Doğal koyu yeşil ve ferah tonlar', icon: '🌲' }
+    ];
+
+    const current = localStorage.getItem('optik_portal_theme') || 'dark';
+
+    const modal = document.createElement('div');
+    modal.id = 'theme-modal';
+    modal.className = 'fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in';
+    modal.innerHTML = `
+      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-7 max-w-md w-full shadow-2xl relative">
+        <div class="flex items-center justify-between pb-4 border-b border-slate-800 mb-5">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-indigo-500 flex items-center justify-center text-xl shadow-lg">
+              🎨
+            </div>
+            <div>
+              <h3 class="text-base sm:text-lg font-black text-white">Görünüm & Tema Seçimi</h3>
+              <p class="text-xs text-slate-400 font-medium">Sistem renk temasını dilediğiniz gibi belirleyin</p>
+            </div>
+          </div>
+          <button onclick="document.getElementById('theme-modal').remove()" class="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-sm font-bold transition cursor-pointer">
+            ✕
+          </button>
+        </div>
+
+        <div class="space-y-3 mb-6">
+          ${themes.map(t => `
+            <div onclick="App.selectTheme('${t.id}')" class="p-3.5 rounded-2xl border cursor-pointer transition flex items-center justify-between ${current === t.id ? 'border-emerald-500 bg-emerald-500/10' : 'border-slate-800 hover:border-slate-700 bg-slate-950/50'}">
+              <div class="flex items-center gap-3">
+                <span class="text-2xl">${t.icon}</span>
+                <div>
+                  <h4 class="text-sm font-bold text-white flex items-center gap-2">
+                    ${t.name}
+                    ${current === t.id ? '<span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500 text-slate-950 font-black">Aktif</span>' : ''}
+                  </h4>
+                  <p class="text-xs text-slate-400">${t.desc}</p>
+                </div>
+              </div>
+              <div class="w-5 h-5 rounded-full border-2 flex items-center justify-center ${current === t.id ? 'border-emerald-400 bg-emerald-400' : 'border-slate-600'}">
+                ${current === t.id ? '<span class="text-[10px] text-slate-950 font-black">✓</span>' : ''}
+              </div>
+            </div>
+          `).join('')}
+        </div>
+
+        <div class="flex justify-end">
+          <button onclick="document.getElementById('theme-modal').remove()" class="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs rounded-xl transition cursor-pointer">
+            Kapat
+          </button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+  },
+
+  selectTheme(themeId) {
+    this.applyTheme(themeId);
+    const modal = document.getElementById('theme-modal');
+    if (modal) modal.remove();
+    this.showToast('Görünüm teması başarıyla güncellendi.', 'success');
+  },
+
+  // --- ŞİFRE YÖNETİMİ ---
+  showChangePasswordModal() {
+    const session = window.PortalStore.getCurrentSession();
+    if (!session) return;
+
+    const existing = document.getElementById('password-modal');
+    if (existing) existing.remove();
+
+    const isSuper = session.role === 'superadmin';
+    const roleTitle = isSuper ? 'Süper Yönetici Şifresi' : 'Kurum Şifresi';
+
+    const modal = document.createElement('div');
+    modal.id = 'password-modal';
+    modal.className = 'fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in';
+    modal.innerHTML = `
+      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-7 max-w-md w-full shadow-2xl relative">
+        <div class="flex items-center justify-between pb-4 border-b border-slate-800 mb-5">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-rose-500 flex items-center justify-center text-xl shadow-lg">
+              🔑
+            </div>
+            <div>
+              <h3 class="text-base sm:text-lg font-black text-white">Şifre Değiştir</h3>
+              <p class="text-xs text-slate-400 font-medium">${roleTitle} (${session.username})</p>
+            </div>
+          </div>
+          <button onclick="document.getElementById('password-modal').remove()" class="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-sm font-bold transition cursor-pointer">
+            ✕
+          </button>
+        </div>
+
+        <form onsubmit="App.handleSaveNewPassword(event)" class="space-y-4">
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Mevcut Şifre</label>
+            <input type="password" id="old-password-input" required placeholder="Şu anki şifreniz"
+              class="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200 focus:border-amber-400 focus:outline-none transition">
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Yeni Şifre</label>
+            <input type="password" id="new-password-input" required placeholder="En az 3 karakter"
+              class="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200 focus:border-amber-400 focus:outline-none transition">
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Yeni Şifre (Tekrar)</label>
+            <input type="password" id="new-password-confirm" required placeholder="Yeni şifrenizi tekrar yazın"
+              class="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200 focus:border-amber-400 focus:outline-none transition">
+          </div>
+
+          <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
+            <button type="button" onclick="document.getElementById('password-modal').remove()" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl transition cursor-pointer">
+              Vazgeç
+            </button>
+            <button type="submit" class="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs rounded-xl shadow-md transition cursor-pointer">
+              Şifreyi Güncelle
+            </button>
+          </div>
+        </form>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+    setTimeout(() => {
+      const inp = document.getElementById('old-password-input');
+      if (inp) inp.focus();
+    }, 50);
+  },
+
+  handleSaveNewPassword(e) {
+    e.preventDefault();
+    const oldPass = document.getElementById('old-password-input').value;
+    const newPass = document.getElementById('new-password-input').value;
+    const confirmPass = document.getElementById('new-password-confirm').value;
+
+    if (!newPass || newPass.length < 3) {
+      this.showToast('Yeni şifre en az 3 karakter olmalıdır.', 'warning');
+      return;
+    }
+    if (newPass !== confirmPass) {
+      this.showToast('Yeni şifreler birbiriyle uyuşmuyor.', 'error');
+      return;
+    }
+
+    const session = window.PortalStore.getCurrentSession();
+    const res = window.PortalStore.changePassword(session, oldPass, newPass);
+    if (res.success) {
+      this.showToast('Şifreniz başarıyla değiştirildi!', 'success');
+      const modal = document.getElementById('password-modal');
+      if (modal) modal.remove();
+      this.render();
+    } else {
+      this.showToast(res.message || 'Mevcut şifre hatalı.', 'error');
+    }
+  },
+
+  showResetInstPasswordModal(instId, instName) {
+    const existing = document.getElementById('reset-inst-modal');
+    if (existing) existing.remove();
+
+    const inst = window.PortalStore.getInstitutions().find(i => i.id === instId);
+    if (!inst) {
+      this.showToast('Kurum bulunamadı.', 'error');
+      return;
+    }
+
+    const modal = document.createElement('div');
+    modal.id = 'reset-inst-modal';
+    modal.className = 'fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in';
+    modal.innerHTML = `
+      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-7 max-w-md w-full shadow-2xl relative">
+        <div class="flex items-center justify-between pb-4 border-b border-slate-800 mb-5">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-indigo-500 flex items-center justify-center text-xl shadow-lg">
+              🔑
+            </div>
+            <div>
+              <h3 class="text-base sm:text-lg font-black text-white">Kurum Şifresini Belirle</h3>
+              <p class="text-xs text-slate-400 font-medium">${inst.name} (${inst.username})</p>
+            </div>
+          </div>
+          <button onclick="document.getElementById('reset-inst-modal').remove()" class="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-sm font-bold transition cursor-pointer">
+            ✕
+          </button>
+        </div>
+
+        <form onsubmit="App.handleSaveInstResetPassword(event, '${inst.id}')" class="space-y-4">
+          <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 text-xs text-slate-300">
+            Mevcut Şifre: <strong class="text-amber-400 font-mono">${inst.password || '123'}</strong>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Yeni Şifre</label>
+            <input type="text" id="reset-inst-password-input" required placeholder="Yeni şifreyi giriniz"
+              class="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200 focus:border-amber-400 focus:outline-none transition">
+          </div>
+
+          <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
+            <button type="button" onclick="document.getElementById('reset-inst-modal').remove()" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl transition cursor-pointer">
+              Vazgeç
+            </button>
+            <button type="submit" class="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs rounded-xl shadow-md transition cursor-pointer">
+              Şifreyi Kaydet
+            </button>
+          </div>
+        </form>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+    setTimeout(() => {
+      const inp = document.getElementById('reset-inst-password-input');
+      if (inp) inp.focus();
+    }, 50);
+  },
+
+  handleSaveInstResetPassword(e, instId) {
+    e.preventDefault();
+    const newPass = document.getElementById('reset-inst-password-input').value.trim();
+    if (!newPass) {
+      this.showToast('Lütfen geçerli bir şifre giriniz.', 'warning');
+      return;
+    }
+
+    const res = window.PortalStore.resetInstitutionPassword(instId, newPass);
+    if (res.success) {
+      this.showToast('Kurum şifresi başarıyla güncellendi.', 'success');
+      const modal = document.getElementById('reset-inst-modal');
+      if (modal) modal.remove();
+      this.render();
+    } else {
+      this.showToast(res.message || 'Şifre güncellenemedi.', 'error');
     }
   },
 
