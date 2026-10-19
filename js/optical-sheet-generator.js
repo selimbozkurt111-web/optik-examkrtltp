@@ -50,7 +50,7 @@ window.OpticalSheetGenerator = {
     `;
   },
 
-  // Tek bir öğrenciye özel veya boş optik form HTML'i üretme
+  // Tek bir öğrenciye özel veya boş optik form HTML'i üretme (Yatay A4 / Landscape)
   renderSheetHtml(options = {}) {
     const institutionName = options.institutionName || 'ÖMER AVNİYEL AKADEMİ';
     const examTitle = options.examTitle || 'LGS GENEL DENEME SINAVI';
@@ -70,13 +70,13 @@ window.OpticalSheetGenerator = {
       let html = '';
       for (let q = startQ; q <= endQ; q++) {
         html += `
-          <div class="flex items-center justify-between py-0.5 border-b border-gray-200 text-xs font-mono select-none">
-            <span class="w-6 font-bold text-gray-700 text-right pr-1">${q}</span>
-            <div class="flex items-center gap-1.5">
-              <span class="bubble-circle w-4 h-4 rounded-full border border-black flex items-center justify-center text-[10px] font-bold text-black" data-q="${q}" data-opt="A">A</span>
-              <span class="bubble-circle w-4 h-4 rounded-full border border-black flex items-center justify-center text-[10px] font-bold text-black" data-q="${q}" data-opt="B">B</span>
-              <span class="bubble-circle w-4 h-4 rounded-full border border-black flex items-center justify-center text-[10px] font-bold text-black" data-q="${q}" data-opt="C">C</span>
-              <span class="bubble-circle w-4 h-4 rounded-full border border-black flex items-center justify-center text-[10px] font-bold text-black" data-q="${q}" data-opt="D">D</span>
+          <div class="flex items-center justify-between py-[1.5px] border-b border-gray-200 text-[10px] font-mono select-none">
+            <span class="w-5 font-bold text-gray-700 text-right pr-1">${q}</span>
+            <div class="flex items-center gap-1">
+              <span class="bubble-circle w-3.5 h-3.5 rounded-full border border-black flex items-center justify-center text-[8.5px] font-black text-black" data-q="${q}" data-opt="A">A</span>
+              <span class="bubble-circle w-3.5 h-3.5 rounded-full border border-black flex items-center justify-center text-[8.5px] font-black text-black" data-q="${q}" data-opt="B">B</span>
+              <span class="bubble-circle w-3.5 h-3.5 rounded-full border border-black flex items-center justify-center text-[8.5px] font-black text-black" data-q="${q}" data-opt="C">C</span>
+              <span class="bubble-circle w-3.5 h-3.5 rounded-full border border-black flex items-center justify-center text-[8.5px] font-black text-black" data-q="${q}" data-opt="D">D</span>
             </div>
           </div>
         `;
@@ -84,121 +84,187 @@ window.OpticalSheetGenerator = {
       return html;
     };
 
-    // Konulara göre sütunları böl
-    let subjectsHtml = '';
+    // Sütunları 20'şer soruluk bloklara böl (Yatay A4 yüksekliğini korumak için)
+    const columns = [];
     subjects.forEach((subj) => {
-      subjectsHtml += `
-        <div class="border border-black p-2 rounded bg-white flex-1 min-w-[130px]">
-          <div class="bg-gray-100 border-b border-black text-center py-0.5 mb-1">
-            <span class="text-xs font-black uppercase text-black">${subj.name}</span>
+      const qNum = (subj.endQ - subj.startQ + 1);
+      if (qNum <= 20) {
+        columns.push({
+          name: subj.name,
+          startQ: subj.startQ,
+          endQ: subj.endQ,
+          count: qNum
+        });
+      } else {
+        let cur = subj.startQ;
+        while (cur <= subj.endQ) {
+          const nextEnd = Math.min(cur + 19, subj.endQ);
+          columns.push({
+            name: `${subj.name} (${cur}-${nextEnd})`,
+            startQ: cur,
+            endQ: nextEnd,
+            count: nextEnd - cur + 1
+          });
+          cur = nextEnd + 1;
+        }
+      }
+    });
+
+    let columnsHtml = '';
+    columns.forEach((col) => {
+      columnsHtml += `
+        <div class="border border-black p-1 rounded bg-white flex-1 min-w-[95px] max-w-[160px] shadow-sm">
+          <div class="bg-gray-100 border-b border-black text-center py-0.5 mb-1 rounded-sm">
+            <span class="text-[10px] font-black uppercase text-black block truncate" title="${col.name}">${col.name}</span>
           </div>
           <div>
-            ${renderBubbles(subj.startQ, subj.endQ)}
+            ${renderBubbles(col.startQ, col.endQ)}
           </div>
         </div>
       `;
     });
 
     return `
-      <div class="optical-sheet-page bg-white text-black p-6 border-2 border-black max-w-[800px] mx-auto my-4 shadow-xl relative font-sans" style="aspect-ratio: 1 / 1.414;">
+      <div class="optical-sheet-page bg-white text-black p-4 sm:p-5 border-2 border-black relative font-sans flex flex-col justify-between">
         
         <!-- 4 KÖŞE KAMERA HİZALAMA NİŞANLARI (FIDUCIAL MARKERS) -->
-        <div class="corner-marker absolute top-2 left-2 w-5 h-5 bg-black"></div>
-        <div class="corner-marker absolute top-2 right-2 w-5 h-5 bg-black"></div>
-        <div class="corner-marker absolute bottom-2 left-2 w-5 h-5 bg-black"></div>
-        <div class="corner-marker absolute bottom-2 right-2 w-5 h-5 bg-black"></div>
+        <div class="corner-marker absolute top-1.5 left-1.5 w-5 h-5 bg-black"></div>
+        <div class="corner-marker absolute top-1.5 right-1.5 w-5 h-5 bg-black"></div>
+        <div class="corner-marker absolute bottom-1.5 left-1.5 w-5 h-5 bg-black"></div>
+        <div class="corner-marker absolute bottom-1.5 right-1.5 w-5 h-5 bg-black"></div>
 
-        <!-- ÜST BAŞLIK VE QR KOD ALANI -->
-        <div class="flex items-start justify-between border-b-2 border-black pb-3 mb-3">
-          <div class="flex-1 pr-4">
-            <h1 class="text-lg font-black tracking-tight uppercase">${institutionName}</h1>
-            <h2 class="text-sm font-bold text-gray-800 uppercase mt-0.5">${examTitle}</h2>
-            <div class="flex items-center gap-4 text-xs text-gray-600 mt-1">
+        <!-- ÜST BİLGİ VE KİMLİK ALANI -->
+        <div class="flex items-center justify-between border-b-2 border-black pb-2 mb-1.5 gap-3">
+          <!-- Sol: Kurum & Sınav Bilgisi -->
+          <div class="w-1/3 pr-2">
+            <h1 class="text-sm sm:text-base font-black tracking-tight uppercase leading-tight text-black truncate">${institutionName}</h1>
+            <h2 class="text-xs font-black text-gray-800 uppercase mt-0.5 truncate">${examTitle}</h2>
+            <div class="flex items-center gap-3 text-[10px] text-gray-700 mt-1">
               <span><strong>Tarih:</strong> ${examDate}</span>
-              <span><strong>Kitapçık:</strong> <span class="px-1.5 py-0.5 border border-black font-black font-mono text-sm">${booklet}</span></span>
+              <span><strong>Kitapçık:</strong> <span class="px-1.5 py-0.2 border border-black font-black font-mono text-xs bg-gray-100">${booklet}</span></span>
             </div>
           </div>
 
-          <!-- QR KOD BÖLÜMÜ -->
-          <div class="text-center flex-shrink-0">
-            ${this.generateQrSvg(qrPayload, 80)}
-            <div class="text-[9px] font-mono font-bold mt-0.5">${student ? student.studentNo : 'GENEL'}</div>
+          <!-- Orta: Öğrenci Bilgi & Uyarı Kutusu -->
+          <div class="flex-1">
+            <div class="grid grid-cols-3 gap-2 border border-black p-1.5 bg-gray-50 rounded text-xs mb-1">
+              <div>
+                <span class="text-gray-500 block text-[9px] font-bold">ÖĞRENCİ ADI SOYADI:</span>
+                <span class="font-black text-xs uppercase block text-black truncate">${student ? (student.firstName + ' ' + student.lastName) : '...........................................'}</span>
+              </div>
+              <div>
+                <span class="text-gray-500 block text-[9px] font-bold">OKUL / KURUM NUMARASI:</span>
+                <span class="font-black text-xs font-mono text-black block">${student ? student.studentNo : '....................'}</span>
+              </div>
+              <div>
+                <span class="text-gray-500 block text-[9px] font-bold">SINIFI / ŞUBESİ:</span>
+                <span class="font-black text-xs uppercase block text-black">${student ? student.className : '..........'}</span>
+              </div>
+            </div>
+            <div class="bg-gray-100 border border-gray-300 px-2 py-0.5 text-[9px] text-gray-700 flex items-center justify-between rounded">
+              <span>⚠️ <strong>DİKKAT:</strong> Cevaplarınızı kutucuğun dışına taşırmadan kurşun kalemle doldurunuz.</span>
+              <span class="font-mono font-bold">Doğru: <span class="w-2.5 h-2.5 inline-block bg-black rounded-full align-middle mx-0.5"></span> | Yanlış: ✕ / ✓</span>
+            </div>
+          </div>
+
+          <!-- Sağ: QR Kod -->
+          <div class="text-center flex-shrink-0 pl-1">
+            ${this.generateQrSvg(qrPayload, 62)}
+            <div class="text-[9px] font-mono font-black mt-0.5 tracking-wider">${student ? student.studentNo : 'GENEL'}</div>
           </div>
         </div>
 
-        <!-- ÖĞRENCİ BİLGİ KUTUSU -->
-        <div class="grid grid-cols-3 gap-2 border border-black p-2 bg-gray-50 rounded mb-3 text-xs">
-          <div>
-            <span class="text-gray-500 block text-[10px] font-bold">ÖĞRENCİ ADI SOYADI:</span>
-            <span class="font-bold text-sm uppercase">${student ? (student.firstName + ' ' + student.lastName) : '...........................................'}</span>
-          </div>
-          <div>
-            <span class="text-gray-500 block text-[10px] font-bold">OKUL / KURUM NUMARASI:</span>
-            <span class="font-bold text-sm font-mono">${student ? student.studentNo : '....................'}</span>
-          </div>
-          <div>
-            <span class="text-gray-500 block text-[10px] font-bold">SINIFI / ŞUBESİ:</span>
-            <span class="font-bold text-sm uppercase">${student ? student.className : '....................'}</span>
-          </div>
+        <!-- CEVAP ALANLARI (YATAY A4 DERS SÜTUNLARI) -->
+        <div class="flex gap-2 justify-between items-start flex-1 my-1 overflow-hidden">
+          ${columnsHtml}
         </div>
 
-        <!-- UYARI TALİMATI -->
-        <div class="bg-gray-100 border border-gray-300 px-2 py-1 text-[10px] text-gray-700 flex items-center justify-between mb-3 rounded">
-          <span>⚠️ <strong>DİKKAT:</strong> Cevaplarınızı kutucuğun dışına taşırmadan kurşun kalemle net olarak doldurunuz.</span>
-          <span class="font-mono">Doğru Kodlama: <span class="w-3.5 h-3.5 inline-block bg-black rounded-full align-middle mx-1"></span> | Yanlış: ✕ / ✓</span>
-        </div>
-
-        <!-- CEVAP ALANLARI (DERS DERS SÜTUNLAR) -->
-        <div class="flex gap-2 justify-between items-start">
-          ${subjectsHtml}
-        </div>
-
-        <!-- ALT BİLGİ ÇİZGİSİ -->
-        <div class="absolute bottom-4 left-8 right-8 text-center border-t border-gray-300 pt-1 text-[10px] text-gray-500 font-mono">
-          Mobil Optik Sınav Okuma Platformu • Kağıdı düz bir zemine koyup telefon kamerasını 4 köşeyi kapsayacak şekilde tutunuz.
+        <!-- ALT BİLGİ ŞERİDİ -->
+        <div class="text-center border-t border-gray-300 pt-1 text-[9px] text-gray-500 font-mono mt-1">
+          Mobil Optik Sınav Okuma Platformu • Kağıdı düz bir zemine koyup telefon kamerasını 4 köşeyi kapsayacak şekilde (Yatay A4) tutunuz.
         </div>
       </div>
     `;
   },
 
-  // Yazdırma Penceresini Açma
+  // Yazdırma Penceresini Açma (Yatay A4 Garantili Sıfır Taşma)
   printSheets(sheetsHtml) {
     const printWindow = window.open('', '_blank');
     printWindow.document.write(`
       <!DOCTYPE html>
-      <html>
+      <html lang="tr">
       <head>
-        <title>Optik Cevap Kağıtları - Yazdır</title>
+        <title>Optik Cevap Kağıtları - Yatay A4 Yazdır</title>
         <meta charset="UTF-8">
         <script src="https://cdn.tailwindcss.com"></script>
         <style>
           @page {
-            size: A4 portrait;
-            margin: 5mm;
+            size: A4 landscape;
+            margin: 0;
           }
           @media print {
-            body { background: white; -webkit-print-color-adjust: exact; }
+            html, body {
+              width: 297mm;
+              height: 210mm;
+              margin: 0 !important;
+              padding: 0 !important;
+              background: white !important;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
             .optical-sheet-page {
-              page-break-after: always;
+              width: 297mm !important;
+              height: 210mm !important;
+              max-width: 297mm !important;
+              max-height: 210mm !important;
+              box-sizing: border-box !important;
+              page-break-after: always !important;
+              break-after: page !important;
+              page-break-inside: avoid !important;
+              break-inside: avoid !important;
               box-shadow: none !important;
-              margin: 0 auto !important;
+              margin: 0 !important;
+              padding: 6mm 10mm 4mm 10mm !important;
               border: 2px solid black !important;
+              overflow: hidden !important;
+              display: flex !important;
+              flex-direction: column !important;
+              justify-content: space-between !important;
             }
             .no-print { display: none !important; }
+          }
+          @media screen {
+            body {
+              background: #1e293b;
+              padding: 20px;
+            }
+            .optical-sheet-page {
+              width: 287mm;
+              height: 202mm;
+              margin: 15px auto;
+              padding: 6mm 10mm 4mm 10mm;
+              box-sizing: border-box;
+              box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+              border: 2px solid black;
+              background: white;
+              overflow: hidden;
+            }
           }
           .bubble-circle {
             border-color: #000000 !important;
           }
         </style>
       </head>
-      <body class="bg-gray-200 p-4">
-        <div class="no-print max-w-[800px] mx-auto mb-4 bg-emerald-600 text-white p-3 rounded-xl flex items-center justify-between shadow-lg">
+      <body>
+        <div class="no-print max-w-[287mm] mx-auto mb-4 bg-emerald-600 text-white p-3.5 rounded-2xl flex items-center justify-between shadow-2xl">
           <div>
-            <h3 class="font-black text-sm">Yazdırmaya Hazır</h3>
-            <p class="text-xs text-emerald-100">Lütfen yazıcı ayarlarından "Kenar Boşlukları: Yok" veya "Varsayılan" seçiniz.</p>
+            <h3 class="font-black text-sm flex items-center gap-2">
+              <span>📄</span> <span>Yatay A4 Optik Formlar Baskıya Hazır</span>
+            </h3>
+            <p class="text-xs text-emerald-100 mt-0.5">Yazıcı ayarlarından <strong>Yön: Yatay (Landscape)</strong> ve <strong>Kenar Boşlukları: Yok / Sıfır</strong> seçiniz. Her form tam 1 sayfaya sığar, asla taşma yapmaz.</p>
           </div>
-          <button onclick="window.print()" class="px-4 py-2 bg-white text-emerald-800 font-bold rounded-lg shadow hover:bg-emerald-50">
-            Hemen Yazdır 🖨️
+          <button onclick="window.print()" class="px-5 py-2.5 bg-white text-emerald-950 font-black text-xs rounded-xl shadow-lg hover:bg-emerald-50 transition cursor-pointer flex items-center gap-1.5">
+            <span>🖨️</span> <span>Hemen Yazdır (Ctrl+P)</span>
           </button>
         </div>
         ${sheetsHtml}

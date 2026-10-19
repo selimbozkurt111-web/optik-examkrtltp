@@ -1335,17 +1335,24 @@ window.App = {
           </div>
         </div>
 
-        <!-- Örnek Önizleme -->
-        <div class="border border-slate-800 rounded-2xl p-4 bg-slate-900/60 text-center">
-          <h4 class="text-xs font-bold text-slate-400 uppercase mb-3">Optik Kağıt Örneği</h4>
-          <div class="overflow-hidden max-h-[500px] border border-gray-400 rounded shadow-2xl inline-block bg-white text-black p-4 text-left scale-90 origin-top">
-            ${window.OpticalSheetGenerator.renderSheetHtml({
-              institutionName: session.institutionName,
-              examTitle: exams[0] ? exams[0].title : 'LGS DENEME SINAVI',
-              student: students[0] || { firstName: 'ÖRNEK', lastName: 'TALEBE', studentNo: '101', className: '8-A' },
-              questionCount: exams[0] ? exams[0].questionCount : 20,
-              subjects: exams[0] ? exams[0].subjects : [{ name: 'Genel', startQ: 1, endQ: 20 }]
-            })}
+        <!-- Örnek Önizleme (Yatay A4) -->
+        <div class="border border-slate-800 rounded-2xl p-4 bg-slate-900/60">
+          <div class="flex items-center justify-between mb-3 px-1">
+            <h4 class="text-xs font-bold text-slate-400 uppercase flex items-center gap-1.5">
+              <span>📄</span> <span>Yatay A4 Optik Form Canlı Önizleme</span>
+            </h4>
+            <span class="text-[11px] text-emerald-400 font-mono">297mm × 210mm (Sıfır Taşma Formatı)</span>
+          </div>
+          <div class="overflow-x-auto pb-4">
+            <div class="min-w-[950px] max-w-[1050px] mx-auto border border-gray-400 rounded-xl shadow-2xl bg-white text-black p-2 text-left">
+              ${window.OpticalSheetGenerator.renderSheetHtml({
+                institutionName: session.institutionName,
+                examTitle: exams[0] ? exams[0].title : 'LGS DENEME SINAVI',
+                student: students[0] || { firstName: 'ÖRNEK', lastName: 'TALEBE', studentNo: '101', className: '8-A' },
+                questionCount: exams[0] ? exams[0].questionCount : 20,
+                subjects: exams[0] ? exams[0].subjects : [{ name: 'Genel', startQ: 1, endQ: 20 }]
+              })}
+            </div>
           </div>
         </div>
       </div>
