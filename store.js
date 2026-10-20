@@ -53,7 +53,7 @@ const DEFAULT_EXAM_TEMPLATES = [
     bookletTypes: ['A', 'B', 'C', 'D'],
     subjects: [
       { name: 'Türkçe', startQ: 1, endQ: 20, wrongPenalty: 0.333, coeff: 4 },
-      { name: 'T.C. İnkılap', startQ: 21, endQ: 30, wrongPenalty: 0.333, coeff: 1 },
+      { name: 'İnkılap Tarihi', startQ: 21, endQ: 30, wrongPenalty: 0.333, coeff: 1 },
       { name: 'Din Kültürü', startQ: 31, endQ: 40, wrongPenalty: 0.333, coeff: 1 },
       { name: 'İngilizce', startQ: 41, endQ: 50, wrongPenalty: 0.333, coeff: 1 },
       { name: 'Matematik', startQ: 51, endQ: 70, wrongPenalty: 0.333, coeff: 4 },
@@ -120,7 +120,7 @@ class MultiTenantStore {
           bookletTypes: ['A', 'B', 'C', 'D'],
           subjects: [
             { name: 'Türkçe', startQ: 1, endQ: 20, wrongPenalty: 0.333, coeff: 4 },
-            { name: 'T.C. İnkılap', startQ: 21, endQ: 30, wrongPenalty: 0.333, coeff: 1 },
+            { name: 'İnkılap Tarihi', startQ: 21, endQ: 30, wrongPenalty: 0.333, coeff: 1 },
             { name: 'Din Kültürü', startQ: 31, endQ: 40, wrongPenalty: 0.333, coeff: 1 },
             { name: 'İngilizce', startQ: 41, endQ: 50, wrongPenalty: 0.333, coeff: 1 },
             { name: 'Matematik', startQ: 51, endQ: 70, wrongPenalty: 0.333, coeff: 4 },
@@ -139,6 +139,7 @@ class MultiTenantStore {
       const oayStudentsKey = STORAGE_PREFIX + 'inst_oay_students';
       if (!localStorage.getItem(oayStudentsKey)) {
         const defaultStudents = [
+          { id: 'st_100', studentNo: '29828977800', firstName: 'ADAR', lastName: 'GÖZE', className: 'ORTAOKUL 8 - ORTAOKUL SEVİYE 1', parentPhone: '05551112233', notes: 'LGS' },
           { id: 'st_101', studentNo: '101', firstName: 'AHMET', lastName: 'YILMAZ', className: '8-A', parentPhone: '05551112233', notes: 'LGS Grubu' },
           { id: 'st_102', studentNo: '102', firstName: 'MEHMET', lastName: 'KAYA', className: '8-A', parentPhone: '05552223344', notes: 'LGS Grubu' },
           { id: 'st_103', studentNo: '103', firstName: 'AYŞE', lastName: 'DEMİR', className: '8-B', parentPhone: '05553334455', notes: 'LGS Grubu' },

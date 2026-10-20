@@ -1381,11 +1381,18 @@ window.App = {
           <div class="overflow-x-auto pb-4">
             <div class="min-w-[950px] max-w-[1050px] mx-auto border border-gray-400 rounded-xl shadow-2xl bg-white text-black p-2 text-left">
               ${window.OpticalSheetGenerator.renderSheetHtml({
-                institutionName: session.institutionName,
-                examTitle: exams[0] ? exams[0].title : 'LGS DENEME SINAVI',
-                student: students[0] || { firstName: 'ÖRNEK', lastName: 'TALEBE', studentNo: '101', className: '8-A' },
-                questionCount: exams[0] ? exams[0].questionCount : 20,
-                subjects: exams[0] ? exams[0].subjects : [{ name: 'Genel', startQ: 1, endQ: 20 }]
+                institutionName: session.institutionName || 'TABAKÇILAR B BLOK',
+                examTitle: exams[0] ? exams[0].title : 'İsabet Ortaokul 8. Sınıf Deneme 3 (23-28 Ara)',
+                student: students[0] || { firstName: 'ADAR', lastName: 'GÖZE', studentNo: '29828977800', className: 'ORTAOKUL 8 - ORTAOKUL SEVİYE 1' },
+                questionCount: exams[0] ? exams[0].questionCount : 90,
+                subjects: (exams[0] && exams[0].subjects && exams[0].subjects.length > 0) ? exams[0].subjects : [
+                  { name: 'Türkçe', startQ: 1, endQ: 20 },
+                  { name: 'İnkılap Tarihi', startQ: 21, endQ: 30 },
+                  { name: 'Din Kültürü', startQ: 31, endQ: 40 },
+                  { name: 'İngilizce', startQ: 41, endQ: 50 },
+                  { name: 'Matematik', startQ: 51, endQ: 70 },
+                  { name: 'Fen Bilimleri', startQ: 71, endQ: 90 }
+                ]
               })}
             </div>
           </div>
