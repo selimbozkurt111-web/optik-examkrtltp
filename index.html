@@ -236,13 +236,13 @@
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 
-  <!-- JavaScript Modülleri -->
-  <script src="js/firebase-config.js" onerror="this.onerror=null;this.src='firebase-config.js';"></script>
-  <script src="js/cloud-sync.js" onerror="this.onerror=null;this.src='cloud-sync.js';"></script>
-  <script src="js/store.js" onerror="this.onerror=null;this.src='store.js';"></script>
-  <script src="js/optical-sheet-generator.js" onerror="this.onerror=null;this.src='optical-sheet-generator.js';"></script>
-  <script src="js/omr-scanner.js" onerror="this.onerror=null;this.src='omr-scanner.js';"></script>
-  <script src="js/app.js" onerror="this.onerror=null;this.src='app.js';"></script>
+  <!-- JavaScript Modülleri (Önbellek Korumalı & Çift Dizin Destekli) -->
+  <script src="firebase-config.js?v=20261020" onerror="this.onerror=null;this.src='js/firebase-config.js?v=20261020';"></script>
+  <script src="cloud-sync.js?v=20261020" onerror="this.onerror=null;this.src='js/cloud-sync.js?v=20261020';"></script>
+  <script src="store.js?v=20261020" onerror="this.onerror=null;this.src='js/store.js?v=20261020';"></script>
+  <script src="optical-sheet-generator.js?v=20261020" onerror="this.onerror=null;this.src='js/optical-sheet-generator.js?v=20261020';"></script>
+  <script src="omr-scanner.js?v=20261020" onerror="this.onerror=null;this.src='js/omr-scanner.js?v=20261020';"></script>
+  <script src="app.js?v=20261020" onerror="this.onerror=null;this.src='js/app.js?v=20261020';"></script>
   <script>
     if (window.App && typeof window.App.init === 'function') {
       try {
