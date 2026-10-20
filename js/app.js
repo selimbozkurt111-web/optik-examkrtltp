@@ -60,7 +60,7 @@ window.App = {
   },
 
   handleLogin(e) {
-    e.preventDefault();
+    if (e && typeof e.preventDefault === 'function') e.preventDefault();
     if (!window.PortalStore) {
       this.showToast('Veri ambarı (store.js) hazırlanıyor, lütfen sayfayı yenileyiniz (Ctrl + F5).', 'warning');
       return;
@@ -78,6 +78,27 @@ window.App = {
       this.render();
     } else {
       this.showToast(res.message, 'error');
+    }
+  },
+
+  quickLogin(username, password) {
+    const uInput = document.getElementById('login-username');
+    const pInput = document.getElementById('login-password');
+    if (uInput) uInput.value = username;
+    if (pInput) pInput.value = password;
+    this.handleLogin({ preventDefault: () => {} });
+  },
+
+  togglePasswordVisibility(inputId, btnId) {
+    const input = document.getElementById(inputId);
+    const btn = document.getElementById(btnId);
+    if (!input) return;
+    if (input.type === 'password') {
+      input.type = 'text';
+      if (btn) btn.textContent = '🙈';
+    } else {
+      input.type = 'password';
+      if (btn) btn.textContent = '👁️';
     }
   },
 
@@ -238,6 +259,9 @@ window.App = {
             <button onclick="App.switchTab('istatistikler')" class="px-4 py-2 rounded-lg text-xs font-bold transition ${this.currentTab === 'istatistikler' ? 'bg-emerald-500 text-slate-950 font-black shadow-md' : 'text-slate-400 hover:text-white'}">
               📊 Sistem İstatistikleri
             </button>
+            <button onclick="App.impersonateInstitution('inst_oay'); setTimeout(() => App.switchTab('kamera_tara'), 50);" class="px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 text-emerald-400 hover:text-emerald-300 border border-emerald-500/30 bg-emerald-500/10 cursor-pointer" title="Doğrudan Mobil Optik Okumayı Başlat">
+              <span>📱</span> <span>Kamera ile Oku</span>
+            </button>
           ` : `
             <button onclick="App.switchTab('sinavlar')" class="px-3 sm:px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${this.currentTab === 'sinavlar' ? 'bg-emerald-500 text-slate-950 font-black shadow-md' : 'text-slate-400 hover:text-white'}">
               <span>📝</span> <span>Sınavlar</span>
@@ -301,12 +325,19 @@ window.App = {
             <div>
               <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Kullanıcı Adı</label>
               <input type="text" id="login-username" required placeholder="admin veya kurs adınız"
+                autocapitalize="none" autocorrect="off" autocomplete="username" spellcheck="false"
                 class="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-white font-medium focus:border-emerald-500 focus:outline-none transition">
             </div>
 
             <div>
-              <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Şifre</label>
+              <div class="flex items-center justify-between mb-1.5">
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-400">Şifre</label>
+                <button type="button" id="toggle-pass-btn" onclick="App.togglePasswordVisibility('login-password', 'toggle-pass-btn')" class="text-xs text-slate-400 hover:text-white transition">
+                  👁️ Göster
+                </button>
+              </div>
               <input type="password" id="login-password" required placeholder="••••••••"
+                autocapitalize="none" autocorrect="off" autocomplete="current-password"
                 class="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-white font-medium focus:border-emerald-500 focus:outline-none transition">
             </div>
 
@@ -317,11 +348,15 @@ window.App = {
             </button>
           </form>
 
-          <div class="mt-6 pt-4 border-t border-slate-800/80 text-center">
-            <p class="text-[11px] text-slate-500">
-              💡 <strong>Ana Yönetici Girişi:</strong> Kullanıcı Adı: <code>admin</code> • Şifre: <code>123</code><br>
-              💡 <strong>Örnek Kurs Girişi:</strong> Kullanıcı Adı: <code>oay</code> • Şifre: <code>123</code>
-            </p>
+          <!-- Mobilde Tek Tıkla Hızlı Giriş Butonları -->
+          <div class="mt-4 pt-3 border-t border-slate-800/80 space-y-2">
+            <span class="block text-[10px] text-slate-400 font-bold uppercase tracking-wider text-center">⚡ Telefonda Tek Dokunuşla Hızlı Giriş</span>
+            <button type="button" onclick="App.quickLogin('admin', '123')" class="w-full py-2 px-3 bg-slate-800 hover:bg-slate-700 active:scale-95 text-amber-300 font-bold text-xs rounded-xl border border-amber-500/30 transition flex items-center justify-center gap-2 cursor-pointer shadow">
+              <span>👑</span> <span>Ana Yönetici Girişi (admin / 123)</span>
+            </button>
+            <button type="button" onclick="App.quickLogin('oay', '123')" class="w-full py-2 px-3 bg-slate-800 hover:bg-slate-700 active:scale-95 text-emerald-300 font-bold text-xs rounded-xl border border-emerald-500/30 transition flex items-center justify-center gap-2 cursor-pointer shadow">
+              <span>🏫</span> <span>Örnek Kurs Girişi (oay / 123)</span>
+            </button>
           </div>
         </div>
       </div>
@@ -1346,11 +1381,18 @@ window.App = {
           <div class="overflow-x-auto pb-4">
             <div class="min-w-[950px] max-w-[1050px] mx-auto border border-gray-400 rounded-xl shadow-2xl bg-white text-black p-2 text-left">
               ${window.OpticalSheetGenerator.renderSheetHtml({
-                institutionName: session.institutionName,
-                examTitle: exams[0] ? exams[0].title : 'LGS DENEME SINAVI',
-                student: students[0] || { firstName: 'ÖRNEK', lastName: 'TALEBE', studentNo: '101', className: '8-A' },
-                questionCount: exams[0] ? exams[0].questionCount : 20,
-                subjects: exams[0] ? exams[0].subjects : [{ name: 'Genel', startQ: 1, endQ: 20 }]
+                institutionName: session.institutionName || 'TABAKÇILAR B BLOK',
+                examTitle: exams[0] ? exams[0].title : 'İsabet Ortaokul 8. Sınıf Deneme 3 (23-28 Ara)',
+                student: students[0] || { firstName: 'ADAR', lastName: 'GÖZE', studentNo: '29828977800', className: 'ORTAOKUL 8 - ORTAOKUL SEVİYE 1' },
+                questionCount: exams[0] ? exams[0].questionCount : 90,
+                subjects: (exams[0] && exams[0].subjects && exams[0].subjects.length > 0) ? exams[0].subjects : [
+                  { name: 'Türkçe', startQ: 1, endQ: 20 },
+                  { name: 'İnkılap Tarihi', startQ: 21, endQ: 30 },
+                  { name: 'Din Kültürü', startQ: 31, endQ: 40 },
+                  { name: 'İngilizce', startQ: 41, endQ: 50 },
+                  { name: 'Matematik', startQ: 51, endQ: 70 },
+                  { name: 'Fen Bilimleri', startQ: 71, endQ: 90 }
+                ]
               })}
             </div>
           </div>
@@ -1465,16 +1507,29 @@ window.App = {
 
         <!-- Canlı Kamera Ekranı -->
         <div class="relative bg-black rounded-3xl overflow-hidden border-2 border-slate-800 max-w-2xl mx-auto shadow-2xl" style="aspect-ratio: 4/3;">
-          <video id="omr-video" playsinline autoplay muted class="w-full h-full object-cover"></video>
+          <video id="omr-video" playsinline webkit-playsinline autoplay muted class="w-full h-full object-cover"></video>
           <canvas id="omr-canvas" class="hidden"></canvas>
+
+          <!-- Kamera Başlatma / İzin İsteme Katmanı (Mobil Uyumlu) -->
+          <div id="camera-start-prompt" class="absolute inset-0 bg-slate-950/85 backdrop-blur-sm flex flex-col items-center justify-center p-4 text-center z-20 transition-all">
+            <div class="w-14 h-14 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-3xl mb-2.5 border border-emerald-500/40 shadow-lg animate-pulse">
+              📷
+            </div>
+            <h4 class="text-sm font-black text-white mb-1">Kamerayı Başlat</h4>
+            <p class="text-xs text-slate-300 max-w-xs mb-3">Telefonunuzun kamerasını açarak sınav kağıtlarını canlı okutabilirsiniz.</p>
+            <button onclick="App.startCameraExplicitly('${instId}')" class="px-6 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black text-xs rounded-xl shadow-lg transition flex items-center gap-2 cursor-pointer active:scale-95">
+              <span>📸</span> <span>Kamerayı Aç ve İzin Ver</span>
+            </button>
+            <p class="text-[10px] text-slate-400 mt-2">Tarayıcınız izin isterse lütfen <strong>"İzin Ver"</strong> seçeneğine dokununuz.</p>
+          </div>
 
           <!-- Nişangah Çerçevesi (Kağıt Hizalama Rehberi) -->
           <div class="absolute inset-8 sm:inset-12 border-2 border-dashed border-emerald-400/70 rounded-2xl pointer-events-none flex flex-col justify-between p-3">
             <div class="flex justify-between items-center text-[11px] font-mono font-bold text-emerald-400 bg-black/60 px-2 py-0.5 rounded backdrop-blur-sm w-fit">
-              <span>[+] Optik Kağıdı Bu Çerçeveye Hizalayınız</span>
+              <span>[+] Yatay A4 Kağıdı Bu Çerçeveye Hizalayınız</span>
             </div>
             <div class="text-center text-[10px] text-emerald-300 font-bold bg-black/60 py-1 rounded backdrop-blur-sm">
-              4 Köşe Noktasını ve QR Kodu Kameraya Gösteriniz
+              4 Köşe Noktası ve QR Kod Çerçeve İçinde Olmalıdır
             </div>
           </div>
         </div>
@@ -1487,20 +1542,65 @@ window.App = {
 
   initCameraScanner() {
     const session = window.PortalStore.getCurrentSession();
-    if (!session || !session.institutionId) return;
+    const effectiveInstId = (session && session.institutionId) ? session.institutionId : 'inst_oay';
 
-    const exams = window.PortalStore.getExams(session.institutionId);
-    if (exams.length === 0) {
-      this.showToast('Önce bir deneme sınavı tanımlamalısınız.', 'warning');
-      return;
+    let exams = window.PortalStore.getExams(effectiveInstId);
+    if (!exams || exams.length === 0) {
+      const defaultExam = {
+        id: 'exam_lgs_auto',
+        title: '8. Sınıf LGS 1. Prova Denemesi',
+        examDate: new Date().toISOString().split('T')[0],
+        questionCount: 90,
+        targetClass: '8. Sınıf',
+        bookletTypes: ['A', 'B', 'C', 'D'],
+        subjects: [
+          { name: 'Türkçe', startQ: 1, endQ: 20, wrongPenalty: 0.333, coeff: 4 },
+          { name: 'T.C. İnkılap', startQ: 21, endQ: 30, wrongPenalty: 0.333, coeff: 1 },
+          { name: 'Din Kültürü', startQ: 31, endQ: 40, wrongPenalty: 0.333, coeff: 1 },
+          { name: 'İngilizce', startQ: 41, endQ: 50, wrongPenalty: 0.333, coeff: 1 },
+          { name: 'Matematik', startQ: 51, endQ: 70, wrongPenalty: 0.333, coeff: 4 },
+          { name: 'Fen Bilimleri', startQ: 71, endQ: 90, wrongPenalty: 0.333, coeff: 4 }
+        ],
+        answerKeys: {
+          'A': 'ABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCD',
+          'B': 'BCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDA'
+        },
+        canceledQuestions: [],
+        createdAt: new Date().toISOString()
+      };
+      window.PortalStore.saveExams(effectiveInstId, [defaultExam]);
+      exams = [defaultExam];
     }
 
     const currentExam = exams.find(e => e.id === this.activeExamId) || exams[0];
     this.activeExamId = currentExam.id;
 
     setTimeout(() => {
-      window.OmrScanner.startCamera('omr-video', currentExam, session.institutionId);
-    }, 150);
+      this.startCameraExplicitly(effectiveInstId, currentExam);
+    }, 120);
+  },
+
+  async startCameraExplicitly(instId, exam) {
+    const session = window.PortalStore.getCurrentSession();
+    const effectiveInstId = instId || (session ? session.institutionId : null) || 'inst_oay';
+    const effectiveExam = exam || (this.activeExamId ? window.PortalStore.getExamById(effectiveInstId, this.activeExamId) : null) || (window.PortalStore.getExams(effectiveInstId)[0]);
+
+    if (!effectiveExam) {
+      this.showToast('Lütfen önce bir sınav seçiniz.', 'warning');
+      return;
+    }
+
+    const promptEl = document.getElementById('camera-start-prompt');
+    const res = await window.OmrScanner.startCamera('omr-video', effectiveExam, effectiveInstId);
+    if (res && res.success) {
+      if (promptEl) promptEl.classList.add('hidden');
+      this.showToast('✓ Kamera başarıyla açıldı. Kağıdı çerçeveye tutunuz.', 'success');
+    } else {
+      if (promptEl) promptEl.classList.remove('hidden');
+      if (res && res.message) {
+        this.showToast(res.message, 'warning');
+      }
+    }
   },
 
   handleScannerExamChange(instId) {

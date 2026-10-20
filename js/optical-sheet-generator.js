@@ -2,187 +2,459 @@
  * optical-sheet-generator.js - Standart Yazıcı Uyumlu A4 Optik Form Üreticisi
  * 
  * Özellikler:
- * 1. 4 Köşe Hizalama Noktaları (Fiducial Markers): Telefon kamerasının kağıdı anında yakalamasını sağlar.
- * 2. Dinamik QR Kod: Öğrenci ve Sınav kimliğini tek taramada çözer.
- * 3. Talebeye Özel Baskı (Ad, Soyad, Okul No basılı) veya Boş Genel Form.
- * 4. A4 Tek Sayfa Sıfır Taşma Formatı.
+ * 1. 4 Köşe L-Biçimli Kamera Hizalama Nişanları (Fiducial Corner Brackets): 
+ *    Telefon kamerasının kağıdı perspektif bozulması olmadan anında yakalamasını sağlar.
+ * 2. Dinamik Gerçek QR Kod: Saf JavaScript ile üretilen, harici kütüphane gerektirmeyen gerçek QR kod.
+ * 3. Yatay A4 Sıfır Taşma Formatı (297mm x 210mm): 
+ *    Tek sayfaya milimetrik oturan, MEB ve kurumsal deneme sınavları standartlarında 6 sütunlu optik form.
+ * 4. Talebeye Özel Baskı veya Boş Form Desteği.
  */
 
-window.OpticalSheetGenerator = {
-  // Basit ve hafif QR kod SVG üreticisi (Harici kütüphane gerektirmez)
-  // QR Kod yerine yüksek kontrastlı 2D Data Matrix / Barkod & QR SVG çizici
-  generateQrSvg(text, size = 90) {
+// Saf JavaScript QR Kod SVG Üreticisi (Model 2, Byte Modu, Hata Düzeltme Seviyesi M)
+const PureQrEngine = (() => {
+  const EXP = new Uint8Array(512);
+  const LOG = new Uint8Array(256);
+  let x = 1;
+  for (let i = 0; i < 255; i++) {
+    EXP[i] = x;
+    EXP[i + 255] = x;
+    LOG[x] = i;
+    x <<= 1;
+    if (x & 256) x ^= 0x11d;
+  }
+  function gfMul(a, b) {
+    return (a === 0 || b === 0) ? 0 : EXP[LOG[a] + LOG[b]];
+  }
+  function rsPolyMul(p1, p2) {
+    const res = new Uint8Array(p1.length + p2.length - 1);
+    for (let i = 0; i < p1.length; i++) {
+      for (let j = 0; j < p2.length; j++) {
+        res[i + j] ^= gfMul(p1[i], p2[j]);
+      }
+    }
+    return res;
+  }
+  function rsGenPoly(n) {
+    let g = new Uint8Array([1]);
+    for (let i = 0; i < n; i++) {
+      g = rsPolyMul(g, new Uint8Array([1, EXP[i]]));
+    }
+    return g;
+  }
+  function rsCalculate(data, ecCount) {
+    const gen = rsGenPoly(ecCount);
+    const msg = new Uint8Array(data.length + ecCount);
+    msg.set(data);
+    for (let i = 0; i < data.length; i++) {
+      const coef = msg[i];
+      if (coef !== 0) {
+        for (let j = 0; j < gen.length; j++) {
+          msg[i + j] ^= gfMul(gen[j], coef);
+        }
+      }
+    }
+    return msg.slice(data.length);
+  }
+
+  const VERSIONS = [
+    { v: 1, n: 21, total: 26, ec: 10, blocks: 1, data: 16, align: null },
+    { v: 2, n: 25, total: 44, ec: 16, blocks: 1, data: 28, align: 18 },
+    { v: 3, n: 29, total: 70, ec: 26, blocks: 1, data: 44, align: 22 },
+    { v: 4, n: 33, total: 100, ec: 36, blocks: 2, data: 64, align: 26 },
+    { v: 5, n: 37, total: 134, ec: 48, blocks: 2, data: 86, align: 30 }
+  ];
+
+  function generateSvg(text, size = 105) {
     const safeText = encodeURIComponent(text);
+    let rawBytes = [];
+    try {
+      const utf8 = unescape(encodeURIComponent(text));
+      for (let i = 0; i < utf8.length; i++) rawBytes.push(utf8.charCodeAt(i));
+    } catch (e) {
+      for (let i = 0; i < text.length; i++) rawBytes.push(text.charCodeAt(i) & 0xff);
+    }
+
+    let ver = null;
+    for (const spec of VERSIONS) {
+      if (rawBytes.length <= spec.data - 2) {
+        ver = spec;
+        break;
+      }
+    }
+    if (!ver) ver = VERSIONS[VERSIONS.length - 1];
+
+    let bits = '0100'; // Byte mode
+    let len = Math.min(rawBytes.length, ver.data - 2);
+    bits += len.toString(2).padStart(8, '0');
+    for (let i = 0; i < len; i++) {
+      bits += rawBytes[i].toString(2).padStart(8, '0');
+    }
+
+    const totalDataBits = ver.data * 8;
+    const termLen = Math.min(4, totalDataBits - bits.length);
+    bits += '0'.repeat(termLen);
+    if (bits.length % 8 !== 0) {
+      bits += '0'.repeat(8 - (bits.length % 8));
+    }
+    const padBytes = [0xEC, 0x11];
+    let padIdx = 0;
+    while (bits.length < totalDataBits) {
+      bits += padBytes[padIdx % 2].toString(2).padStart(8, '0');
+      padIdx++;
+    }
+
+    const dataBytes = new Uint8Array(ver.data);
+    for (let i = 0; i < ver.data; i++) {
+      dataBytes[i] = parseInt(bits.substr(i * 8, 8), 2);
+    }
+
+    const blockSize = Math.floor(ver.data / ver.blocks);
+    const ecBlockSize = Math.floor(ver.ec / ver.blocks);
+    const dataBlocks = [];
+    const ecBlocks = [];
+
+    for (let b = 0; b < ver.blocks; b++) {
+      const bData = dataBytes.slice(b * blockSize, (b + 1) * blockSize);
+      dataBlocks.push(bData);
+      ecBlocks.push(rsCalculate(bData, ecBlockSize));
+    }
+
+    const finalBytes = [];
+    for (let i = 0; i < blockSize; i++) {
+      for (let b = 0; b < ver.blocks; b++) finalBytes.push(dataBlocks[b][i]);
+    }
+    for (let i = 0; i < ecBlockSize; i++) {
+      for (let b = 0; b < ver.blocks; b++) finalBytes.push(ecBlocks[b][i]);
+    }
+
+    const N = ver.n;
+    const modules = Array.from({ length: N }, () => new Array(N).fill(null));
+    const isReserved = Array.from({ length: N }, () => new Array(N).fill(false));
+
+    function setModule(r, c, val, reserved = true) {
+      if (r >= 0 && r < N && c >= 0 && c < N) {
+        modules[r][c] = val;
+        if (reserved) isReserved[r][c] = true;
+      }
+    }
+
+    function addFinder(r0, c0) {
+      for (let r = -1; r <= 7; r++) {
+        for (let c = -1; c <= 7; c++) {
+          const rAbs = r0 + r;
+          const cAbs = c0 + c;
+          if (rAbs >= 0 && rAbs < N && cAbs >= 0 && cAbs < N) {
+            let val = false;
+            if (r >= 0 && r <= 6 && c >= 0 && c <= 6) {
+              if (r === 0 || r === 6 || c === 0 || c === 6 || (r >= 2 && r <= 4 && c >= 2 && c <= 4)) {
+                val = true;
+              }
+            }
+            setModule(rAbs, cAbs, val, true);
+          }
+        }
+      }
+    }
+    addFinder(0, 0);
+    addFinder(0, N - 7);
+    addFinder(N - 7, 0);
+
+    if (ver.align) {
+      const ar = ver.align;
+      const ac = ver.align;
+      for (let r = -2; r <= 2; r++) {
+        for (let c = -2; c <= 2; c++) {
+          const val = (r === -2 || r === 2 || c === -2 || c === 2 || (r === 0 && c === 0));
+          setModule(ar + r, ac + c, val, true);
+        }
+      }
+    }
+
+    for (let i = 8; i < N - 8; i++) {
+      const val = (i % 2 === 0);
+      if (!isReserved[6][i]) setModule(6, i, val, true);
+      if (!isReserved[i][6]) setModule(i, 6, val, true);
+    }
+
+    setModule(N - 8, 8, true, true);
+
+    const formatBits = [1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0];
+    for (let i = 0; i <= 5; i++) setModule(8, i, formatBits[i] === 1, true);
+    setModule(8, 7, formatBits[6] === 1, true);
+    setModule(8, 8, formatBits[7] === 1, true);
+    setModule(7, 8, formatBits[8] === 1, true);
+    for (let i = 9; i <= 14; i++) setModule(14 - i, 8, formatBits[i] === 1, true);
+
+    for (let i = 0; i <= 7; i++) setModule(8, N - 1 - i, formatBits[i] === 1, true);
+    for (let i = 8; i <= 14; i++) setModule(N - 15 + i, 8, formatBits[i] === 1, true);
+
+    let bitIdx = 0;
+    const finalBits = [];
+    for (const b of finalBytes) {
+      for (let s = 7; s >= 0; s--) finalBits.push((b >> s) & 1);
+    }
+
+    let up = true;
+    for (let c = N - 1; c > 0; c -= 2) {
+      if (c === 6) c--;
+      const rows = up ? Array.from({ length: N }, (_, i) => N - 1 - i) : Array.from({ length: N }, (_, i) => i);
+      for (const r of rows) {
+        for (const col of [c, c - 1]) {
+          if (!isReserved[r][col]) {
+            let bit = bitIdx < finalBits.length ? finalBits[bitIdx++] : 0;
+            if ((r + col) % 2 === 0) bit ^= 1;
+            modules[r][col] = (bit === 1);
+          }
+        }
+      }
+      up = !up;
+    }
+
+    const border = 2;
+    const viewBoxSize = N + border * 2;
+    let rects = '';
+    for (let r = 0; r < N; r++) {
+      for (let c = 0; c < N; c++) {
+        if (modules[r][c]) {
+          rects += `<rect x="${c + border}" y="${r + border}" width="1" height="1" fill="#000000"/>`;
+        }
+      }
+    }
+
     return `
-      <div class="qr-box border-2 border-black p-1 bg-white inline-block text-center" style="width:${size}px; height:${size}px;">
-        <svg viewBox="0 0 100 100" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
-          <!-- 4 Köşe Konumlandırma Kareleri -->
-          <rect x="5" y="5" width="28" height="28" fill="black" />
-          <rect x="9" y="9" width="20" height="20" fill="white" />
-          <rect x="13" y="13" width="12" height="12" fill="black" />
-
-          <rect x="67" y="5" width="28" height="28" fill="black" />
-          <rect x="71" y="9" width="20" height="20" fill="white" />
-          <rect x="75" y="13" width="12" height="12" fill="black" />
-
-          <rect x="5" y="67" width="28" height="28" fill="black" />
-          <rect x="9" y="71" width="20" height="20" fill="white" />
-          <rect x="13" y="75" width="12" height="12" fill="black" />
-
-          <!-- Veri Izgarası (Hash tabanlı deterministik desen) -->
-          <circle cx="50" cy="50" r="8" fill="black" />
-          <rect x="38" y="10" width="8" height="8" fill="black" />
-          <rect x="54" y="10" width="8" height="8" fill="black" />
-          <rect x="38" y="26" width="8" height="8" fill="black" />
-          <rect x="10" y="38" width="8" height="8" fill="black" />
-          <rect x="26" y="38" width="8" height="8" fill="black" />
-          <rect x="10" y="54" width="8" height="8" fill="black" />
-          <rect x="66" y="38" width="8" height="8" fill="black" />
-          <rect x="82" y="38" width="8" height="8" fill="black" />
-          <rect x="38" y="66" width="8" height="8" fill="black" />
-          <rect x="54" y="66" width="8" height="8" fill="black" />
-          <rect x="38" y="82" width="8" height="8" fill="black" />
-          <rect x="66" y="66" width="8" height="8" fill="black" />
-          <rect x="82" y="82" width="8" height="8" fill="black" />
-        </svg>
-        <span class="sr-only">${safeText}</span>
-      </div>
+      <svg viewBox="0 0 ${viewBoxSize} ${viewBoxSize}" width="${size}px" height="${size}px" shape-rendering="crispEdges" xmlns="http://www.w3.org/2000/svg" class="block mx-auto">
+        <rect width="${viewBoxSize}" height="${viewBoxSize}" fill="#ffffff"/>
+        ${rects}
+      </svg>
     `;
+  }
+
+  return { generateSvg };
+})();
+
+window.OpticalSheetGenerator = {
+  // Gerçek QR Kod SVG Üretimi
+  generateQrSvg(text, size = 105) {
+    try {
+      return PureQrEngine.generateSvg(text, size);
+    } catch (e) {
+      return `
+        <div class="border-2 border-black p-1 bg-white inline-block text-center" style="width:${size}px; height:${size}px;">
+          <svg viewBox="0 0 100 100" width="100%" height="100%">
+            <rect x="5" y="5" width="28" height="28" fill="black" />
+            <rect x="9" y="9" width="20" height="20" fill="white" />
+            <rect x="13" y="13" width="12" height="12" fill="black" />
+            <rect x="67" y="5" width="28" height="28" fill="black" />
+            <rect x="71" y="9" width="20" height="20" fill="white" />
+            <rect x="75" y="13" width="12" height="12" fill="black" />
+            <rect x="5" y="67" width="28" height="28" fill="black" />
+            <rect x="9" y="71" width="20" height="20" fill="white" />
+            <rect x="13" y="75" width="12" height="12" fill="black" />
+            <circle cx="50" cy="50" r="10" fill="black" />
+          </svg>
+        </div>
+      `;
+    }
   },
 
-  // Tek bir öğrenciye özel veya boş optik form HTML'i üretme (Yatay A4 / Landscape)
+  // Tek bir öğrenciye özel veya boş optik form HTML'i üretme (Yatay A4 Birebir Format)
   renderSheetHtml(options = {}) {
-    const institutionName = options.institutionName || 'ÖMER AVNİYEL AKADEMİ';
-    const examTitle = options.examTitle || 'LGS GENEL DENEME SINAVI';
-    const examDate = options.examDate || new Date().toISOString().split('T')[0];
+    const institutionName = options.institutionName || 'TABAKÇILAR B BLOK';
+    const examTitle = options.examTitle || 'İsabet Ortaokul 8. Sınıf Deneme 3 (23-28 Ara)';
     const student = options.student || null;
-    const questionCount = options.questionCount || 20;
-    const subjects = options.subjects || [{ name: 'Genel', startQ: 1, endQ: questionCount }];
     const booklet = options.booklet || 'A';
     const examId = options.examId || 'ex_sample';
 
+    const studentName = student ? `${student.firstName} ${student.lastName}` : '';
+    const targetClass = student ? (student.className || 'ORTAOKUL 8 - ORTAOKUL SEVİYE 1') : (options.targetClass || 'ORTAOKUL 8 - ORTAOKUL SEVİYE 1');
+    const studentNo = student ? (student.studentNo || '29828977800') : '';
+
     const qrPayload = student 
-      ? `EXAM:${examId}|ST:${student.studentNo}|BK:${booklet}`
+      ? `EXAM:${examId}|ST:${studentNo}|BK:${booklet}`
       : `EXAM:${examId}|BLANK|BK:${booklet}`;
 
-    // Soru kabarcık sütunlarını oluştur
-    const renderBubbles = (startQ, endQ) => {
-      let html = '';
-      for (let q = startQ; q <= endQ; q++) {
-        html += `
-          <div class="flex items-center justify-between py-[1.5px] border-b border-gray-200 text-[10px] font-mono select-none">
-            <span class="w-5 font-bold text-gray-700 text-right pr-1">${q}</span>
-            <div class="flex items-center gap-1">
-              <span class="bubble-circle w-3.5 h-3.5 rounded-full border border-black flex items-center justify-center text-[8.5px] font-black text-black" data-q="${q}" data-opt="A">A</span>
-              <span class="bubble-circle w-3.5 h-3.5 rounded-full border border-black flex items-center justify-center text-[8.5px] font-black text-black" data-q="${q}" data-opt="B">B</span>
-              <span class="bubble-circle w-3.5 h-3.5 rounded-full border border-black flex items-center justify-center text-[8.5px] font-black text-black" data-q="${q}" data-opt="C">C</span>
-              <span class="bubble-circle w-3.5 h-3.5 rounded-full border border-black flex items-center justify-center text-[8.5px] font-black text-black" data-q="${q}" data-opt="D">D</span>
+    const qrSvg = this.generateQrSvg(qrPayload, 102);
+
+    // Ders Sütunları Konfigürasyonu
+    // Örnek şablondaki 6 standart LGS dersi: Türkçe(20), İnkılap(10), Din(10), İngilizce(10), Matematik(20), Fen(20)
+    let subjects = options.subjects;
+    if (!subjects || subjects.length === 0) {
+      subjects = [
+        { name: 'Türkçe', startQ: 1, endQ: 20 },
+        { name: 'İnkılap Tarihi', startQ: 21, endQ: 30 },
+        { name: 'Din Kültürü', startQ: 31, endQ: 40 },
+        { name: 'İngilizce', startQ: 41, endQ: 50 },
+        { name: 'Matematik', startQ: 51, endQ: 70 },
+        { name: 'Fen Bilimleri', startQ: 71, endQ: 90 }
+      ];
+    }
+
+    // Her ders sütunu için HTML üret
+    const renderSubjectColumn = (subj) => {
+      const qCount = (subj.endQ - subj.startQ + 1);
+      let rowsHtml = '';
+
+      for (let q = 1; q <= qCount; q++) {
+        const globalQ = subj.startQ + q - 1;
+        // Örnek görseldeki gibi 1, 10 ve 19. satırlarda siyah senkronizasyon karesi yer alır
+        const hasSyncMark = (q === 1 || q === 10 || q === 19);
+
+        rowsHtml += `
+          <div class="flex items-center justify-end py-[1.2px] h-[19px]">
+            <!-- Senkron Markörü (1, 10, 19) -->
+            ${hasSyncMark 
+              ? '<span class="w-[9px] h-[9px] bg-black inline-block mr-1 flex-shrink-0"></span>' 
+              : '<span class="w-[9px] h-[9px] inline-block mr-1 flex-shrink-0"></span>'}
+            
+            <!-- Soru Numarası -->
+            <span class="w-4 text-right font-bold text-[11px] text-gray-800 mr-1 leading-none select-none">${q}</span>
+            
+            <!-- Seçenek Kabarcıkları (A, B, C, D) -->
+            <div class="flex items-center gap-[3px] pr-[1px]">
+              <span class="w-[14px] h-[14px] rounded-full border border-gray-400 bg-white flex items-center justify-center text-[8.5px] text-gray-400 font-sans leading-none select-none" data-q="${globalQ}" data-opt="A">A</span>
+              <span class="w-[14px] h-[14px] rounded-full border border-gray-400 bg-white flex items-center justify-center text-[8.5px] text-gray-400 font-sans leading-none select-none" data-q="${globalQ}" data-opt="B">B</span>
+              <span class="w-[14px] h-[14px] rounded-full border border-gray-400 bg-white flex items-center justify-center text-[8.5px] text-gray-400 font-sans leading-none select-none" data-q="${globalQ}" data-opt="C">C</span>
+              <span class="w-[14px] h-[14px] rounded-full border border-gray-400 bg-white flex items-center justify-center text-[8.5px] text-gray-400 font-sans leading-none select-none" data-q="${globalQ}" data-opt="D">D</span>
             </div>
           </div>
         `;
       }
-      return html;
-    };
 
-    // Sütunları 20'şer soruluk bloklara böl (Yatay A4 yüksekliğini korumak için)
-    const columns = [];
-    subjects.forEach((subj) => {
-      const qNum = (subj.endQ - subj.startQ + 1);
-      if (qNum <= 20) {
-        columns.push({
-          name: subj.name,
-          startQ: subj.startQ,
-          endQ: subj.endQ,
-          count: qNum
-        });
-      } else {
-        let cur = subj.startQ;
-        while (cur <= subj.endQ) {
-          const nextEnd = Math.min(cur + 19, subj.endQ);
-          columns.push({
-            name: `${subj.name} (${cur}-${nextEnd})`,
-            startQ: cur,
-            endQ: nextEnd,
-            count: nextEnd - cur + 1
-          });
-          cur = nextEnd + 1;
-        }
-      }
-    });
-
-    let columnsHtml = '';
-    columns.forEach((col) => {
-      columnsHtml += `
-        <div class="border border-black p-1 rounded bg-white flex-1 min-w-[95px] max-w-[160px] shadow-sm">
-          <div class="bg-gray-100 border-b border-black text-center py-0.5 mb-1 rounded-sm">
-            <span class="text-[10px] font-black uppercase text-black block truncate" title="${col.name}">${col.name}</span>
+      return `
+        <div class="flex-1 min-w-[85px] max-w-[125px] flex flex-col">
+          <!-- Ders Başlık Şeridi -->
+          <div class="bg-[#4f5154] text-white text-[11px] font-bold text-center py-1 rounded-t-md px-1 truncate leading-tight tracking-tight shadow-sm">
+            ${subj.name}
           </div>
-          <div>
-            ${renderBubbles(col.startQ, col.endQ)}
+
+          <!-- Seçenek Harfleri Üst Barı (A B C D) -->
+          <div class="border border-gray-300 bg-white text-gray-700 text-[10px] font-bold py-0.5 mb-1 flex items-center justify-end">
+            <span class="w-[9px] mr-1"></span>
+            <span class="w-4 mr-1 text-right opacity-0">#</span>
+            <div class="flex items-center gap-[3px] pr-[1px]">
+              <span class="w-[14px] text-center">A</span>
+              <span class="w-[14px] text-center">B</span>
+              <span class="w-[14px] text-center">C</span>
+              <span class="w-[14px] text-center">D</span>
+            </div>
+          </div>
+
+          <!-- Soru Satırları -->
+          <div class="flex flex-col">
+            ${rowsHtml}
           </div>
         </div>
       `;
-    });
+    };
+
+    // 6 ders varsa Sözel (ilk 4) ve Sayısal (son 2) olarak şık bir boşlukla ayır
+    let columnsHtml = '';
+    if (subjects.length >= 6) {
+      const sozelCols = subjects.slice(0, 4).map(s => renderSubjectColumn(s)).join('');
+      const sayisalCols = subjects.slice(4, 6).map(s => renderSubjectColumn(s)).join('');
+
+      columnsHtml = `
+        <div class="flex items-start gap-2.5 sm:gap-3 flex-1 justify-between">
+          ${sozelCols}
+        </div>
+        <div class="w-4 sm:w-6 flex-shrink-0"></div>
+        <div class="flex items-start gap-2.5 sm:gap-3 justify-end" style="flex: 0.52;">
+          ${sayisalCols}
+        </div>
+      `;
+    } else {
+      columnsHtml = `
+        <div class="flex items-start gap-3 flex-1 justify-between">
+          ${subjects.map(s => renderSubjectColumn(s)).join('')}
+        </div>
+      `;
+    }
 
     return `
-      <div class="optical-sheet-page bg-white text-black p-4 sm:p-5 border-2 border-black relative font-sans flex flex-col justify-between">
+      <div class="optical-sheet-page bg-white text-black relative select-none font-sans" style="width: 287mm; height: 202mm; max-height: 202mm; box-sizing: border-box; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-start; padding: 7mm 8mm 6mm 8mm;">
         
-        <!-- 4 KÖŞE KAMERA HİZALAMA NİŞANLARI (FIDUCIAL MARKERS) -->
-        <div class="corner-marker absolute top-1.5 left-1.5 w-5 h-5 bg-black"></div>
-        <div class="corner-marker absolute top-1.5 right-1.5 w-5 h-5 bg-black"></div>
-        <div class="corner-marker absolute bottom-1.5 left-1.5 w-5 h-5 bg-black"></div>
-        <div class="corner-marker absolute bottom-1.5 right-1.5 w-5 h-5 bg-black"></div>
+        <!-- 4 KÖŞE L-BİÇİMLİ KAMERA HİZALAMA NİŞANLARI (FIDUCIAL CORNER BRACKETS) -->
+        <div class="corner-bracket-tl absolute top-[4mm] left-[4mm] w-[44px] h-[44px] border-t-[8px] border-l-[8px] border-black"></div>
+        <div class="corner-bracket-tr absolute top-[4mm] right-[4mm] w-[44px] h-[44px] border-t-[8px] border-r-[8px] border-black"></div>
+        <div class="corner-bracket-bl absolute bottom-[4mm] left-[4mm] w-[44px] h-[44px] border-b-[8px] border-l-[8px] border-black"></div>
+        <div class="corner-bracket-br absolute bottom-[4mm] right-[4mm] w-[44px] h-[44px] border-b-[8px] border-r-[8px] border-black"></div>
 
-        <!-- ÜST BİLGİ VE KİMLİK ALANI -->
-        <div class="flex items-center justify-between border-b-2 border-black pb-2 mb-1.5 gap-3">
-          <!-- Sol: Kurum & Sınav Bilgisi -->
-          <div class="w-1/3 pr-2">
-            <h1 class="text-sm sm:text-base font-black tracking-tight uppercase leading-tight text-black truncate">${institutionName}</h1>
-            <h2 class="text-xs font-black text-gray-800 uppercase mt-0.5 truncate">${examTitle}</h2>
-            <div class="flex items-center gap-3 text-[10px] text-gray-700 mt-1">
-              <span><strong>Tarih:</strong> ${examDate}</span>
-              <span><strong>Kitapçık:</strong> <span class="px-1.5 py-0.2 border border-black font-black font-mono text-xs bg-gray-100">${booklet}</span></span>
-            </div>
+        <!-- ÜST BİLGİ ALANI (Geniş Açık Gri Kutu) -->
+        <div class="bg-[#f4f4f5] border border-gray-200/70 rounded-xl p-2.5 pt-2 pb-2 mb-3.5 mx-auto w-full">
+          <!-- Koyu Başlık Şeridi -->
+          <div class="bg-[#4f5154] text-white font-bold text-center text-xs sm:text-[13px] py-1 px-4 rounded-md tracking-wide mb-2 shadow-sm">
+            ${examTitle}
           </div>
 
-          <!-- Orta: Öğrenci Bilgi & Uyarı Kutusu -->
-          <div class="flex-1">
-            <div class="grid grid-cols-3 gap-2 border border-black p-1.5 bg-gray-50 rounded text-xs mb-1">
-              <div>
-                <span class="text-gray-500 block text-[9px] font-bold">ÖĞRENCİ ADI SOYADI:</span>
-                <span class="font-black text-xs uppercase block text-black truncate">${student ? (student.firstName + ' ' + student.lastName) : '...........................................'}</span>
-              </div>
-              <div>
-                <span class="text-gray-500 block text-[9px] font-bold">OKUL / KURUM NUMARASI:</span>
-                <span class="font-black text-xs font-mono text-black block">${student ? student.studentNo : '....................'}</span>
-              </div>
-              <div>
-                <span class="text-gray-500 block text-[9px] font-bold">SINIFI / ŞUBESİ:</span>
-                <span class="font-black text-xs uppercase block text-black">${student ? student.className : '..........'}</span>
-              </div>
+          <!-- 3 Satırlı Bilgi Alanı -->
+          <div class="space-y-1.5 px-1">
+            <div class="flex items-center text-xs">
+              <span class="text-gray-800 font-semibold whitespace-nowrap min-w-[72px]">Adı Soyadı :</span>
+              <span class="font-bold text-black uppercase ml-1 whitespace-nowrap">${studentName}</span>
+              <div class="flex-1 ml-2 border-b border-dotted border-gray-400 h-[10px]"></div>
             </div>
-            <div class="bg-gray-100 border border-gray-300 px-2 py-0.5 text-[9px] text-gray-700 flex items-center justify-between rounded">
-              <span>⚠️ <strong>DİKKAT:</strong> Cevaplarınızı kutucuğun dışına taşırmadan kurşun kalemle doldurunuz.</span>
-              <span class="font-mono font-bold">Doğru: <span class="w-2.5 h-2.5 inline-block bg-black rounded-full align-middle mx-0.5"></span> | Yanlış: ✕ / ✓</span>
-            </div>
-          </div>
 
-          <!-- Sağ: QR Kod -->
-          <div class="text-center flex-shrink-0 pl-1">
-            ${this.generateQrSvg(qrPayload, 62)}
-            <div class="text-[9px] font-mono font-black mt-0.5 tracking-wider">${student ? student.studentNo : 'GENEL'}</div>
+            <div class="flex items-center text-xs">
+              <span class="text-gray-800 font-semibold whitespace-nowrap min-w-[72px]">Seviyeleri :</span>
+              <span class="font-bold text-black uppercase ml-1 whitespace-nowrap">${targetClass}</span>
+              <div class="flex-1 ml-2 border-b border-dotted border-gray-400 h-[10px]"></div>
+            </div>
+
+            <div class="flex items-center text-xs justify-between">
+              <div class="flex items-center flex-1 mr-4">
+                <span class="text-gray-800 font-semibold whitespace-nowrap min-w-[72px]">Kurum Adı :</span>
+                <span class="font-bold text-black uppercase ml-1 whitespace-nowrap">${institutionName}</span>
+                <div class="flex-1 ml-2 border-b border-dotted border-gray-400 h-[10px]"></div>
+              </div>
+              <span class="text-[10px] text-gray-700 font-mono whitespace-nowrap font-medium">T.Kodu: ${studentNo}</span>
+            </div>
           </div>
         </div>
 
-        <!-- CEVAP ALANLARI (YATAY A4 DERS SÜTUNLARI) -->
-        <div class="flex gap-2 justify-between items-start flex-1 my-1 overflow-hidden">
-          ${columnsHtml}
+        <!-- ANA GÖVDE: SOLDA QR & KİTAPÇIK, SAĞDA 6 DERS SÜTUNU -->
+        <div class="flex items-start justify-between flex-1 gap-3.5 w-full">
+          
+          <!-- SOL SÜTUN: Karekodu Okutun & Kitapçık Türü -->
+          <div class="w-[130px] flex-shrink-0 flex flex-col">
+            <!-- Karekod Kutusu -->
+            <div class="bg-[#4f5154] text-white text-[11px] font-bold text-center py-1 rounded-t-md tracking-wide shadow-sm">
+              Karekodu Okutun
+            </div>
+            <div class="border border-gray-300 rounded-b-md p-1.5 bg-white flex items-center justify-center shadow-sm">
+              <div class="w-[102px] h-[102px] flex items-center justify-center">
+                ${qrSvg}
+              </div>
+            </div>
+
+            <!-- Kitapçık Türü Kutusu -->
+            <div class="mt-3">
+              <div class="bg-[#4f5154] text-white text-[11px] font-bold text-center py-1 rounded-t-md tracking-wide shadow-sm">
+                Kitapçık Türü
+              </div>
+              <div class="border border-gray-300 rounded-b-md p-2 bg-white shadow-sm">
+                <div class="grid grid-cols-2 border border-gray-300 rounded text-center text-xs font-bold text-gray-700 py-0.5 mb-1.5 bg-gray-50/50">
+                  <div>A</div>
+                  <div>B</div>
+                </div>
+                <div class="grid grid-cols-2 text-center">
+                  <div class="flex justify-center">
+                    <span class="w-[16px] h-[16px] rounded-full border border-gray-400 flex items-center justify-center text-[9px] ${booklet === 'A' ? 'bg-black text-white font-black' : 'text-gray-400 font-normal'}">A</span>
+                  </div>
+                  <div class="flex justify-center">
+                    <span class="w-[16px] h-[16px] rounded-full border border-gray-400 flex items-center justify-center text-[9px] ${booklet === 'B' ? 'bg-black text-white font-black' : 'text-gray-400 font-normal'}">B</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- SAĞ ALAN: DERS SÜTUNLARI -->
+          <div class="flex-1 flex items-start justify-between">
+            ${columnsHtml}
+          </div>
+
         </div>
 
-        <!-- ALT BİLGİ ŞERİDİ -->
-        <div class="text-center border-t border-gray-300 pt-1 text-[9px] text-gray-500 font-mono mt-1">
-          Mobil Optik Sınav Okuma Platformu • Kağıdı düz bir zemine koyup telefon kamerasını 4 köşeyi kapsayacak şekilde (Yatay A4) tutunuz.
-        </div>
       </div>
     `;
   },
@@ -222,36 +494,31 @@ window.OpticalSheetGenerator = {
               break-after: page !important;
               page-break-inside: avoid !important;
               break-inside: avoid !important;
-              box-shadow: none !important;
               margin: 0 !important;
-              padding: 6mm 10mm 4mm 10mm !important;
-              border: 2px solid black !important;
+              padding: 7mm 8mm 6mm 8mm !important;
               overflow: hidden !important;
               display: flex !important;
               flex-direction: column !important;
-              justify-content: space-between !important;
+              justify-content: flex-start !important;
+              background: white !important;
             }
             .no-print { display: none !important; }
           }
           @media screen {
             body {
-              background: #1e293b;
-              padding: 20px;
+              background: #0f172a;
+              padding: 24px;
             }
             .optical-sheet-page {
               width: 287mm;
               height: 202mm;
-              margin: 15px auto;
-              padding: 6mm 10mm 4mm 10mm;
+              margin: 20px auto;
+              padding: 7mm 8mm 6mm 8mm;
               box-sizing: border-box;
-              box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
-              border: 2px solid black;
+              box-shadow: 0 15px 35px rgba(0, 0, 0, 0.45);
               background: white;
               overflow: hidden;
             }
-          }
-          .bubble-circle {
-            border-color: #000000 !important;
           }
         </style>
       </head>
@@ -287,7 +554,6 @@ window.OpticalSheetGenerator = {
     const classRank = result.classRank || 1;
     const generalRank = result.generalRank || 1;
 
-    // Dersler Tablosu ve Renkli Başarı Barları
     let subjectsRows = '';
     subjects.forEach((sub, idx) => {
       const qCount = (sub.correct || 0) + (sub.wrong || 0) + (sub.empty || 0) || 1;
@@ -374,7 +640,7 @@ window.OpticalSheetGenerator = {
           </div>
         </div>
 
-        <!-- Ders Bazlı Başarı Tablosu ve Grafikler -->
+        <!-- Ders Bazlı Başarı Tablosu -->
         <div class="border border-slate-300 rounded-xl overflow-hidden mb-6">
           <div class="bg-slate-900 text-white px-3.5 py-2 font-bold text-xs uppercase flex items-center justify-between">
             <span>Ders Değerlendirme ve Başarı Analizi</span>
@@ -422,7 +688,7 @@ window.OpticalSheetGenerator = {
     `;
   },
 
-  // Karneleri Yazdırma / PDF Çıkarma Penceresi
+  // Karneleri Yazdırma Penceresi
   printReportCards(cardsHtml) {
     const printWindow = window.open('', '_blank');
     printWindow.document.write(`
