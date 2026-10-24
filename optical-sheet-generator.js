@@ -262,16 +262,20 @@ window.OpticalSheetGenerator = {
     const institutionName = options.institutionName || 'TABAKÇILAR B BLOK';
     const examTitle = options.examTitle || 'İsabet Ortaokul 8. Sınıf Deneme 3 (23-28 Ara)';
     const student = options.student || null;
-    const booklet = options.booklet || 'A';
+    const booklet = options.booklet || '';
     const examId = options.examId || 'ex_sample';
+    const activeBooklets = (Array.isArray(options.bookletTypes) && options.bookletTypes.length > 0)
+      ? options.bookletTypes
+      : (options.bookletCount ? ['A', 'B', 'C', 'D'].slice(0, options.bookletCount) : ['A', 'B', 'C', 'D']);
+    const bCount = Math.max(1, Math.min(4, activeBooklets.length));
 
     const studentName = student ? `${student.firstName} ${student.lastName}` : '';
     const targetClass = student ? (student.className || 'ORTAOKUL 8 - ORTAOKUL SEVİYE 1') : (options.targetClass || 'ORTAOKUL 8 - ORTAOKUL SEVİYE 1');
     const studentNo = student ? (student.studentNo || '29828977800') : '';
 
     const qrPayload = student 
-      ? `EXAM:${examId}|ST:${studentNo}|BK:${booklet}`
-      : `EXAM:${examId}|BLANK|BK:${booklet}`;
+      ? `EXAM:${examId}|ST:${studentNo}${booklet ? `|BK:${booklet}` : ''}`
+      : `EXAM:${examId}|BLANK${booklet ? `|BK:${booklet}` : ''}`;
 
     const qrSvg = this.generateQrSvg(qrPayload, 102);
 
@@ -426,23 +430,23 @@ window.OpticalSheetGenerator = {
               </div>
             </div>
 
-            <!-- Kitapçık Türü Kutusu -->
+            <!-- Kitapçık Türü Kutusu (Öğrencinin Dolduracağı Boş Kabarcıklar) -->
             <div class="mt-3">
               <div class="bg-[#4f5154] text-white text-[11px] font-bold text-center py-1 rounded-t-md tracking-wide shadow-sm">
                 Kitapçık Türü
               </div>
               <div class="border border-gray-300 rounded-b-md p-2 bg-white shadow-sm">
-                <div class="grid grid-cols-2 border border-gray-300 rounded text-center text-xs font-bold text-gray-700 py-0.5 mb-1.5 bg-gray-50/50">
-                  <div>A</div>
-                  <div>B</div>
+                <div class="grid grid-cols-${bCount} border border-gray-300 rounded text-center text-xs font-bold text-gray-700 py-0.5 mb-1.5 bg-gray-50/50">
+                  ${activeBooklets.map(b => `<div>${b}</div>`).join('')}
                 </div>
-                <div class="grid grid-cols-2 text-center">
-                  <div class="flex justify-center">
-                    <span class="w-[16px] h-[16px] rounded-full border border-gray-400 flex items-center justify-center text-[9px] ${booklet === 'A' ? 'bg-black text-white font-black' : 'text-gray-400 font-normal'}">A</span>
-                  </div>
-                  <div class="flex justify-center">
-                    <span class="w-[16px] h-[16px] rounded-full border border-gray-400 flex items-center justify-center text-[9px] ${booklet === 'B' ? 'bg-black text-white font-black' : 'text-gray-400 font-normal'}">B</span>
-                  </div>
+                <div class="grid grid-cols-${bCount} text-center">
+                  ${activeBooklets.map(b => `
+                    <div class="flex justify-center">
+                      <span class="w-[16px] h-[16px] rounded-full border border-gray-400 bg-white flex items-center justify-center text-[9px] text-gray-600 font-bold leading-none select-none">
+                        ${b}
+                      </span>
+                    </div>
+                  `).join('')}
                 </div>
               </div>
             </div>
