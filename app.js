@@ -1662,20 +1662,24 @@ window.App = {
     const students = window.PortalStore.getStudents(effectiveInstId);
     const matchedSt = students.find(s => s.studentNo === result.studentNo);
 
-    result.studentName = matchedSt ? `${matchedSt.firstName} ${matchedSt.lastName}` : `Talebe #${result.studentNo}`;
+    result.studentName = matchedSt ? `${matchedSt.firstName} ${matchedSt.lastName}` : (result.studentNo ? `Talebe #${result.studentNo}` : 'Boş Form');
     result.className = matchedSt ? matchedSt.className : 'Genel';
     result.parentPhone = matchedSt ? matchedSt.parentPhone : '';
 
-    // Neticeyi kaydet
-    window.PortalStore.saveExamResult(effectiveInstId, result);
+    if (result.isBlank) {
+      this.showToast('ℹ️ Boş optik form algılandı: Kağıt üzerinde işaretleme tespit edilemedi (0 Net).', 'warning');
+    } else {
+      // Neticeyi kaydet
+      window.PortalStore.saveExamResult(effectiveInstId, result);
 
-    const counter = document.getElementById('continuous-counter');
-    if (counter) {
-      const cur = parseInt(counter.textContent, 10) || 0;
-      counter.textContent = (cur + 1).toString();
+      const counter = document.getElementById('continuous-counter');
+      if (counter) {
+        const cur = parseInt(counter.textContent, 10) || 0;
+        counter.textContent = (cur + 1).toString();
+      }
+
+      this.showToast(`✓ ${result.studentName} okundu! (${result.totalNet} Net - ${result.totalScore} Puan)`, 'success');
     }
-
-    this.showToast(`✓ ${result.studentName} okundu! (${result.totalNet} Net - ${result.totalScore} Puan)`, 'success');
     this.renderScanResultCard(result);
   },
 
@@ -1686,8 +1690,16 @@ window.App = {
     const studentSelect = document.getElementById('scanner-student-select');
     const studentNo = studentSelect ? studentSelect.value : null;
 
+    if (!video || video.readyState < 2) {
+      this.showToast('Kamera henüz hazır değil, lütfen birkaç saniye bekleyiniz.', 'warning');
+      return;
+    }
+
     const result = window.OmrScanner.scanCurrentFrame(video, canvas, studentNo, 'A');
-    if (!result) return;
+    if (!result) {
+      this.showToast('Optik form algılanamadı. Lütfen beyaz A4 kağıdı kamera çerçevesine net şekilde hizalayınız.', 'warning');
+      return;
+    }
 
     const session = window.PortalStore.getCurrentSession();
     this.handleScannedPaper(session ? session.institutionId : null, result);
@@ -1697,16 +1709,22 @@ window.App = {
     const container = document.getElementById('scan-result-card');
     if (!container) return;
 
+    const isBlank = !!result.isBlank;
+
     container.innerHTML = `
-      <div class="bg-slate-900 border-2 border-emerald-500 rounded-3xl p-5 shadow-2xl animate-fade-in">
+      <div class="bg-slate-900 border-2 ${isBlank ? 'border-amber-500 shadow-amber-500/10' : 'border-emerald-500 shadow-emerald-500/10'} rounded-3xl p-5 shadow-2xl animate-fade-in">
         <div class="flex items-center justify-between border-b border-slate-800 pb-3 mb-3">
           <div>
-            <span class="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Son Okunan Kağıt</span>
-            <h3 class="text-lg font-black text-white">${result.studentName}</h3>
-            <span class="text-xs text-slate-400 font-mono">No: ${result.studentNo} • Sınıf: ${result.className}</span>
+            ${isBlank ? `
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-amber-500/20 text-amber-300 border border-amber-500/40">⚠️ Boş Form Okundu (İşaretleme Yok)</span>
+            ` : `
+              <span class="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Son Okunan Kağıt</span>
+            `}
+            <h3 class="text-lg font-black text-white mt-0.5">${result.studentName}</h3>
+            <span class="text-xs text-slate-400 font-mono">${result.studentNo ? `No: ${result.studentNo} • ` : ''}Sınıf: ${result.className}</span>
           </div>
           <div class="text-right">
-            <span class="text-2xl font-black text-emerald-400 font-mono">${result.totalScore}</span>
+            <span class="text-2xl font-black ${isBlank ? 'text-amber-400' : 'text-emerald-400'} font-mono">${result.totalScore}</span>
             <span class="block text-[10px] font-bold text-slate-400 uppercase">Toplam Puan</span>
           </div>
         </div>
@@ -1722,7 +1740,7 @@ window.App = {
           </div>
           <div class="bg-slate-950 p-2 rounded-xl border border-slate-800">
             <span class="block text-[10px] text-slate-500 font-bold uppercase">Boş</span>
-            <span class="text-base font-black text-slate-400 font-mono">${result.totalEmpty}</span>
+            <span class="text-base font-black text-slate-300 font-mono font-bold">${result.totalEmpty}</span>
           </div>
           <div class="bg-slate-950 p-2 rounded-xl border border-slate-800">
             <span class="block text-[10px] text-slate-500 font-bold uppercase">Toplam Net</span>
@@ -1731,12 +1749,12 @@ window.App = {
         </div>
 
         <div class="flex gap-2">
-          ${result.parentPhone ? `
-            <button onclick="App.sendWhatsAppCard('${encodeURIComponent(result.parentPhone)}', '${encodeURIComponent(result.studentName)}', '${result.totalNet}', '${result.totalScore}')" class="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs rounded-xl shadow transition flex items-center justify-center gap-1.5">
+          ${(result.parentPhone && !isBlank) ? `
+            <button onclick="App.sendWhatsAppCard('${encodeURIComponent(result.parentPhone)}', '${encodeURIComponent(result.studentName)}', '${result.totalNet}', '${result.totalScore}')" class="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs rounded-xl shadow transition flex items-center justify-center gap-1.5 cursor-pointer">
               <span>💬</span> <span>Veliye WhatsApp Karnesi Gönder</span>
             </button>
           ` : ''}
-          <button onclick="App.switchTab('neticeler')" class="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs rounded-xl transition">
+          <button onclick="App.switchTab('neticeler')" class="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs rounded-xl transition cursor-pointer">
             Tüm Neticeler & Sıralama →
           </button>
         </div>

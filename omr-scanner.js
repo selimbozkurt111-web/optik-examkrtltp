@@ -158,46 +158,194 @@ window.OmrScanner = {
     }
   },
 
-  // --- 1. TEK KARE OPTİK TARAMA ANALİZCİSİ ---
+  // --- 1. GERÇEK GÖRÜNTÜ OMR ANALİZ MOTORU ---
   scanCurrentFrame(videoElement, canvasElement, studentNoOverride = null, booklet = 'A') {
-    if (!this.activeExam) return null;
+    if (!this.activeExam || !videoElement) return null;
+    if (videoElement.videoWidth === 0 || videoElement.videoHeight === 0) return null;
+
     const exam = this.activeExam;
     const qCount = exam.questionCount || 20;
 
-    // Cevap anahtarını al (A veya B kitapçığı)
-    const rawKey = (exam.answerKeys && exam.answerKeys[booklet]) 
-      ? exam.answerKeys[booklet].toUpperCase().replace(/[^A-E]/g, '')
-      : '';
+    const w = videoElement.videoWidth;
+    const h = videoElement.videoHeight;
+    canvasElement.width = w;
+    canvasElement.height = h;
 
-    // Öğrenci cevaplarını tespit et
-    const detectedAnswers = [];
-    for (let q = 1; q <= qCount; q++) {
-      const correctOpt = rawKey[q - 1] || 'A';
-      
-      let studentAns = '';
-      const rand = Math.random();
-      if (rand < 0.76) {
-        studentAns = correctOpt;
-      } else if (rand < 0.90) {
-        const opts = ['A', 'B', 'C', 'D'].filter(o => o !== correctOpt);
-        studentAns = opts[Math.floor(Math.random() * opts.length)];
-      } else {
-        studentAns = ''; // Boş
+    const ctx = canvasElement.getContext('2d', { willReadFrequently: true });
+    ctx.drawImage(videoElement, 0, 0, w, h);
+
+    // QR Kod Okuma (jsQR kütüphanesi yüklüyse kağıt üzerindeki bilgileri çöz)
+    let detectedStudentNo = studentNoOverride;
+    let detectedBooklet = booklet || 'A';
+
+    if (typeof jsQR !== 'undefined') {
+      try {
+        const fullImg = ctx.getImageData(0, 0, w, h);
+        const qrCode = jsQR(fullImg.data, w, h, { inversionAttempts: 'dontInvert' });
+        if (qrCode && qrCode.data) {
+          const parts = qrCode.data.split('|');
+          parts.forEach(p => {
+            if (p.startsWith('ST:')) detectedStudentNo = p.substring(3).trim();
+            if (p.startsWith('BK:')) detectedBooklet = p.substring(3).trim();
+            if (p === 'BLANK' && !studentNoOverride) detectedStudentNo = null;
+          });
+        }
+      } catch (e) {
+        console.warn('QR okuma uyarısı:', e);
       }
-
-      detectedAnswers.push(studentAns);
     }
 
-    const answersString = detectedAnswers.join('');
-    this.playBeep(true);
+    // Görüntü piksellerini al
+    const imgData = ctx.getImageData(0, 0, w, h);
+    const data = imgData.data;
 
-    if (window.PortalStore && typeof window.PortalStore.scoreStudentAnswers === 'function') {
-      const scored = window.PortalStore.scoreStudentAnswers(answersString, exam, booklet);
+    // 1. Çerçeve içi ortam ışığı ve beyaz kağıt varlık kontrolü
+    const guideX1 = Math.round(w * 0.12);
+    const guideX2 = Math.round(w * 0.88);
+    const guideY1 = Math.round(h * 0.12);
+    const guideY2 = Math.round(h * 0.88);
+    const sheetW = guideX2 - guideX1;
+    const sheetH = guideY2 - guideY1;
+
+    let lumaSum = 0;
+    let lumaSamples = 0;
+    const stepX = Math.max(1, Math.floor(sheetW / 25));
+    const stepY = Math.max(1, Math.floor(sheetH / 25));
+
+    for (let py = guideY1; py < guideY2; py += stepY) {
+      for (let px = guideX1; px < guideX2; px += stepX) {
+        const idx = (py * w + px) * 4;
+        const luma = 0.299 * data[idx] + 0.587 * data[idx + 1] + 0.114 * data[idx + 2];
+        lumaSum += luma;
+        lumaSamples++;
+      }
+    }
+
+    const avgLuma = lumaSamples > 0 ? (lumaSum / lumaSamples) : 0;
+    if (avgLuma < 65) {
+      // Ortam karanlık veya optik form çerçevede değil
+      return null;
+    }
+
+    // Belirli bir koordinattaki ortalama karartmayı (Darkness: 255 - luma) ölçen fonksiyon
+    const sampleDarkness = (cx, cy, r = 4) => {
+      let darkTotal = 0;
+      let count = 0;
+      const rSq = r * r;
+      for (let dy = -r; dy <= r; dy += 2) {
+        for (let dx = -r; dx <= r; dx += 2) {
+          if (dx * dx + dy * dy <= rSq) {
+            const px = Math.round(cx + dx);
+            const py = Math.round(cy + dy);
+            if (px >= 0 && px < w && py >= 0 && py < h) {
+              const i = (py * w + px) * 4;
+              const luma = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+              darkTotal += (255 - luma);
+              count++;
+            }
+          }
+        }
+      }
+      return count > 0 ? (darkTotal / count) : 0;
+    };
+
+    // 2. Optik Form Sütun ve Kabarcık Geometrisi
+    const subjects = (exam.subjects && exam.subjects.length > 0) ? exam.subjects : [
+      { name: 'Genel', startQ: 1, endQ: qCount }
+    ];
+
+    const colsCount = Math.max(1, subjects.length);
+    const colWidth = (sheetW * 0.74) / colsCount;
+    const startXOffset = guideX1 + (sheetW * 0.22);
+    const startYOffset = guideY1 + (sheetH * 0.27);
+    const availableH = sheetH * 0.65;
+
+    const detectedAnswers = new Array(qCount).fill('');
+    let markedCount = 0;
+
+    // Gerçek işaretleme eşiği:
+    // Kalemle doldurulmuş bir kabarcık, etrafındaki boş beyaz kağıttan en az 30 birim daha koyu olmalıdır
+    const MARK_THRESHOLD = 30;
+
+    subjects.forEach((subj, sIdx) => {
+      const colX = startXOffset + (sIdx * colWidth);
+      const subjQCount = (subj.endQ - subj.startQ + 1);
+      const maxRows = Math.max(20, subjQCount);
+      const rowHeight = availableH / maxRows;
+
+      for (let qNum = subj.startQ; qNum <= subj.endQ; qNum++) {
+        if (qNum > qCount) continue;
+        const qIdx = qNum - 1;
+        const rowIdx = (qNum - subj.startQ);
+        const rowY = startYOffset + (rowIdx * rowHeight) + (rowHeight * 0.5);
+
+        // Satır yanındaki boş beyaz kağıt referans koyuluğu
+        const paperRef = sampleDarkness(colX + (colWidth * 0.08), rowY, 3);
+
+        // A, B, C, D seçeneklerinin yatay pozisyonları
+        const optStartX = colX + (colWidth * 0.40);
+        const optEndX = colX + (colWidth * 0.96);
+        const optStep = (optEndX - optStartX) / 4;
+
+        const scores = [];
+        const options = ['A', 'B', 'C', 'D'];
+
+        for (let oIdx = 0; oIdx < 4; oIdx++) {
+          const optX = optStartX + (oIdx * optStep) + (optStep * 0.5);
+          const bubbleDarkness = sampleDarkness(optX, rowY, 4);
+          const fillScore = bubbleDarkness - paperRef;
+          scores.push({ opt: options[oIdx], fillScore });
+        }
+
+        // Karartma derecesine göre azalan sırala
+        scores.sort((a, b) => b.fillScore - a.fillScore);
+        const top = scores[0];
+        const runnerUp = scores[1];
+
+        // Eşik kontrolü: Eğer boş kağıtsa fillScore eşiği aşamaz
+        if (top.fillScore >= MARK_THRESHOLD && (top.fillScore - runnerUp.fillScore) >= 12) {
+          detectedAnswers[qIdx] = top.opt;
+          markedCount++;
+        } else {
+          detectedAnswers[qIdx] = ''; // Boş bırakılmış soru
+        }
+      }
+    });
+
+    const isBlank = (markedCount === 0);
+    const answersString = detectedAnswers.join('');
+    this.playBeep(!isBlank);
+
+    const finalStudentNo = detectedStudentNo || (studentNoOverride ? studentNoOverride : (isBlank ? 'Boş' : '101'));
+
+    // EĞER KAĞIT BOŞ İSE: Kesinlikle 0 Doğru, 0 Yanlış, qCount Boş ve 0 Net dön
+    if (isBlank) {
       return {
         examId: exam.id,
         examTitle: exam.title,
-        studentNo: studentNoOverride || (100 + Math.floor(Math.random() * 50)).toString(),
-        booklet: booklet,
+        studentNo: finalStudentNo,
+        booklet: detectedBooklet,
+        answers: answersString,
+        subjectsResult: {},
+        totalCorrect: 0,
+        totalWrong: 0,
+        totalEmpty: qCount,
+        totalNet: 0,
+        totalScore: 0,
+        markedCount: 0,
+        isBlank: true,
+        scannedAt: new Date().toISOString()
+      };
+    }
+
+    // İşaretleme varsa puan ve net hesapla
+    if (window.PortalStore && typeof window.PortalStore.scoreStudentAnswers === 'function') {
+      const scored = window.PortalStore.scoreStudentAnswers(answersString, exam, detectedBooklet);
+      return {
+        examId: exam.id,
+        examTitle: exam.title,
+        studentNo: finalStudentNo,
+        booklet: detectedBooklet,
         answers: scored.answers,
         subjectsResult: scored.subjectsResult,
         totalCorrect: scored.totalCorrect,
@@ -205,11 +353,16 @@ window.OmrScanner = {
         totalEmpty: scored.totalEmpty,
         totalNet: scored.totalNet,
         totalScore: scored.totalScore,
+        markedCount: markedCount,
+        isBlank: false,
         scannedAt: new Date().toISOString()
       };
     }
 
     // Yedek hesaplama
+    const rawKey = (exam.answerKeys && exam.answerKeys[detectedBooklet]) 
+      ? exam.answerKeys[detectedBooklet].toUpperCase().replace(/[^A-E]/g, '')
+      : '';
     let totalCorrect = 0;
     let totalWrong = 0;
     let totalEmpty = 0;
@@ -226,8 +379,8 @@ window.OmrScanner = {
     return {
       examId: exam.id,
       examTitle: exam.title,
-      studentNo: studentNoOverride || (100 + Math.floor(Math.random() * 50)).toString(),
-      booklet: booklet,
+      studentNo: finalStudentNo,
+      booklet: detectedBooklet,
       answers: answersString,
       subjectsResult: {},
       totalCorrect,
@@ -235,6 +388,8 @@ window.OmrScanner = {
       totalEmpty,
       totalNet,
       totalScore,
+      markedCount: markedCount,
+      isBlank: false,
       scannedAt: new Date().toISOString()
     };
   },
@@ -253,7 +408,7 @@ window.OmrScanner = {
       if (!this.isContinuousActive || !this.isScanning) return;
 
       const now = Date.now();
-      // Önceki okumadan sonra en az 1.8 saniye bekle (Hocaya kağıdı değiştirme vakti ver)
+      // Önceki okumadan sonra en az 1.8 saniye bekle
       if (now - this.lastScannedTime < 1800) {
         return;
       }
@@ -261,7 +416,7 @@ window.OmrScanner = {
       // Kameradan kareyi tara
       const result = this.scanCurrentFrame(videoElement, canvasElement);
       if (result) {
-        // Aynı talebe ardı ardına 4 saniye içinde tekrar okunmasın
+        // Aynı kağıt ardı ardına 4 saniye içinde tekrar okunmasın
         if (this.lastScannedKey === result.studentNo && (now - this.lastScannedTime < 4000)) {
           if (onStatusUpdate) onStatusUpdate('⏳ Sıradaki kağıt bekleniyor...');
           return;
@@ -272,7 +427,11 @@ window.OmrScanner = {
         this.sessionScanCount++;
 
         if (onStatusUpdate) {
-          onStatusUpdate(`✓ #${result.studentNo} başarıyla okundu! (${this.sessionScanCount}. Kağıt) - Sıradakini koyunuz...`);
+          if (result.isBlank) {
+            onStatusUpdate(`⚠️ Boş form okundu (İşaretleme yok) - Sıradaki kağıdı koyunuz...`);
+          } else {
+            onStatusUpdate(`✓ #${result.studentNo} başarıyla okundu! (${this.sessionScanCount}. Kağıt) - Sıradakini koyunuz...`);
+          }
         }
 
         if (typeof onResultCallback === 'function') {
@@ -292,26 +451,23 @@ window.OmrScanner = {
 
   // --- 3. CEVAP ANAHTARINI KAMERAYLA OKUMA MOTORU ---
   scanAnswerKeyFromFrame(videoElement, canvasElement, questionCount = 20, booklet = 'A') {
-    const letters = ['A', 'B', 'C', 'D'];
-    const generatedAnswers = [];
-
-    // Gerçekçi ve dengeli bir cevap anahtarı deseni üret
-    for (let i = 0; i < questionCount; i++) {
-      // Bir önceki soruyla aynı olma ihtimalini düşürerek doğal dağılım oluştur
-      const prev = generatedAnswers[i - 1];
-      const available = letters.filter(l => l !== prev);
-      const chosen = Math.random() < 0.75 
-        ? available[Math.floor(Math.random() * available.length)] 
-        : letters[Math.floor(Math.random() * letters.length)];
-      generatedAnswers.push(chosen);
+    if (!videoElement || videoElement.videoWidth === 0) {
+      return { success: false, message: 'Kamera görüntüsü alınamadı.' };
     }
 
-    const keyString = generatedAnswers.join('');
-    this.playBeep(true);
+    const res = this.scanCurrentFrame(videoElement, canvasElement, null, booklet);
+    if (!res || res.isBlank || !res.answers || res.answers.replace(/\s/g, '').length === 0) {
+      this.playBeep(false);
+      return {
+        success: false,
+        message: 'Cevap anahtarı formunda işaretli soru tespit edilemedi. Lütfen optik formdaki doğru şıkları kurşun kalemle karalayıp tekrar deneyiniz.'
+      };
+    }
 
+    this.playBeep(true);
     return {
       success: true,
-      key: keyString,
+      key: res.answers,
       questionCount,
       booklet,
       scannedAt: new Date().toISOString()
