@@ -1366,15 +1366,14 @@ window.App = {
             <p class="text-xs text-slate-400 mt-0.5">Optik formlarda QR kod basmak ve karneleri göndermek için talebelerinizi ekleyiniz.</p>
           </div>
           <div class="flex flex-wrap items-center gap-2">
-            <label class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl shadow cursor-pointer transition flex items-center gap-1.5">
-              <span>📥</span> <span>Excel'den Yükle</span>
-              <input type="file" accept=".csv" onchange="App.handleCsvUpload(event, '${instId}')" class="hidden">
-            </label>
-            <a href="ogrenciler_sablon.csv" download class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl transition" title="Excel Örnek Şablonu İndir">
-              📄 Şablon
-            </a>
-            <button onclick="App.showAddStudentModal('${instId}')" class="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black text-xs rounded-xl shadow transition">
-              + Talebe Ekle
+            <button onclick="App.showBulkStudentModal('${instId}')" class="px-3.5 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-slate-950 font-black text-xs rounded-xl shadow-lg transition flex items-center gap-1.5 cursor-pointer">
+              <span>📥</span> <span>Excel'den Toplu Yükle</span>
+            </button>
+            <button onclick="App.downloadExcelTemplate()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl transition flex items-center gap-1.5 cursor-pointer" title="Excel Örnek Şablonu İndir">
+              <span>📄</span> <span>Excel Şablonu İndir</span>
+            </button>
+            <button onclick="App.showAddStudentModal('${instId}')" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-700 font-bold text-xs rounded-xl shadow transition cursor-pointer">
+              + Tek Talebe Ekle
             </button>
           </div>
         </div>
@@ -1395,7 +1394,7 @@ window.App = {
                 ${students.length === 0 ? `
                   <tr>
                     <td colspan="5" class="p-8 text-center text-slate-500">
-                      Henüz talebe eklenmedi. "Excel'den Yükle" veya "+ Talebe Ekle" butonunu kullanabilirsiniz.
+                      Henüz talebe eklenmedi. "Excel'den Toplu Yükle" veya "+ Tek Talebe Ekle" butonunu kullanabilirsiniz.
                     </td>
                   </tr>
                 ` : students.map(st => `
@@ -1441,22 +1440,301 @@ window.App = {
     }
   },
 
-  handleCsvUpload(event, instId) {
+  // --- TOPLU TALEBE YÜKLEME MODALI (EXCEL .xlsx, .xls, .csv & KOPYALA-YAPIŞTIR) ---
+  showBulkStudentModal(instId) {
+    const existing = document.getElementById('bulk-student-modal');
+    if (existing) existing.remove();
+
+    window._pendingBulkStudents = [];
+
+    const modal = document.createElement('div');
+    modal.id = 'bulk-student-modal';
+    modal.className = 'fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-sm animate-fade-in';
+    modal.innerHTML = `
+      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-7 max-w-2xl w-full shadow-2xl relative max-h-[92vh] flex flex-col">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-800 mb-4 flex-shrink-0">
+          <div class="flex items-center gap-2.5">
+            <span class="text-2xl">📥</span>
+            <div>
+              <h3 class="text-base font-black text-white">Excel'den Toplu Talebe Yükleme</h3>
+              <p class="text-xs text-slate-400 font-medium">Excel (.xlsx, .xls) veya CSV dosyanızı yükleyin ya da tablodan kopyalayıp yapıştırın.</p>
+            </div>
+          </div>
+          <button onclick="document.getElementById('bulk-student-modal').remove()" class="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-sm font-bold cursor-pointer">✕</button>
+        </div>
+
+        <!-- Sekmeler: Dosya Yükle vs Kopyala-Yapıştır -->
+        <div class="flex gap-2 mb-3 border-b border-slate-800 pb-2 flex-shrink-0">
+          <button type="button" id="tab-btn-bulk-file" onclick="App.switchBulkTab('file')" class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-emerald-500 text-slate-950 transition">
+            📁 Excel / CSV Dosyası Yükle
+          </button>
+          <button type="button" id="tab-btn-bulk-paste" onclick="App.switchBulkTab('paste')" class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-400 transition">
+            📋 Excel'den Kopyala - Yapıştır
+          </button>
+          <div class="ml-auto">
+            <button type="button" onclick="App.downloadExcelTemplate()" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-cyan-400 text-xs font-bold rounded-xl border border-cyan-800/40 transition flex items-center gap-1 cursor-pointer">
+              <span>📄</span> <span>Örnek Excel Şablonu</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="overflow-y-auto flex-1 space-y-4 pr-1">
+          <!-- 1. Dosya Yükleme Alanı -->
+          <div id="bulk-pane-file" class="space-y-3">
+            <div id="bulk-drop-zone" onclick="document.getElementById('bulk-file-input').click()" class="border-2 border-dashed border-slate-700 hover:border-emerald-500/70 bg-slate-950/60 p-6 rounded-2xl text-center cursor-pointer transition">
+              <span class="text-3xl block mb-2">📊</span>
+              <p class="text-xs font-bold text-white mb-1">Excel (.xlsx, .xls) veya CSV Dosyasını Seçin ya da Buraya Sürükleyin</p>
+              <p class="text-[11px] text-slate-400">Microsoft Excel, Google E-Tablolar veya e-Okul listeleriyle tam uyumludur.</p>
+              <input type="file" id="bulk-file-input" accept=".xlsx,.xls,.csv,.tsv,.txt" onchange="App.handleBulkFileSelect(event, '${instId}')" class="hidden">
+            </div>
+          </div>
+
+          <!-- 2. Kopyala Yapıştır Alanı -->
+          <div id="bulk-pane-paste" class="space-y-3 hidden">
+            <div>
+              <label class="block text-xs font-bold text-slate-300 mb-1">Excel Tablosundan Kopyaladığınız Hücreleri Buraya Yapıştırın:</label>
+              <textarea id="bulk-paste-input" oninput="App.handleBulkPasteInput('${instId}')" rows="5" placeholder="Excel'de satırları seçip Ctrl+C yapın, ardından buraya Ctrl+V ile yapıştırın...&#10;Örn: 101 [TAB] AHMET [TAB] YILMAZ [TAB] 8-A [TAB] 05551112233" class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs font-mono text-emerald-300 focus:border-emerald-500 focus:outline-none"></textarea>
+            </div>
+            <p class="text-[11px] text-slate-400">İpucu: Sütun sırası fark etmez. Sistem isimleri, numaraları ve şubeleri otomatik tespit eder.</p>
+          </div>
+
+          <!-- 3. Canlı Önizleme Alanı -->
+          <div id="bulk-preview-section" class="hidden space-y-2">
+            <div class="flex items-center justify-between">
+              <span id="bulk-preview-badge" class="px-2.5 py-1 rounded-lg text-xs font-black bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                0 Talebe Algılandı
+              </span>
+              <span class="text-[11px] text-slate-400">Lütfen aşağıdaki listeyi kontrol edip onaylayınız.</span>
+            </div>
+
+            <div class="border border-slate-800 rounded-xl overflow-hidden max-h-52 overflow-y-auto">
+              <table class="w-full text-left text-xs min-w-[400px]">
+                <thead class="bg-slate-950 text-slate-400 font-bold uppercase sticky top-0 border-b border-slate-800">
+                  <tr>
+                    <th class="p-2">No</th>
+                    <th class="p-2">Adı</th>
+                    <th class="p-2">Soyadı</th>
+                    <th class="p-2">Sınıfı</th>
+                    <th class="p-2">Veli Telefon</th>
+                  </tr>
+                </thead>
+                <tbody id="bulk-preview-tbody" class="divide-y divide-slate-800/60 bg-slate-900/80">
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Alt Kaydet Butonu -->
+        <div class="pt-3 border-t border-slate-800 mt-3 flex-shrink-0 flex items-center justify-between gap-3">
+          <button type="button" onclick="document.getElementById('bulk-student-modal').remove()" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl transition cursor-pointer">
+            Vazgeç
+          </button>
+          <button type="button" id="btn-save-bulk-students" onclick="App.saveBulkStudents('${instId}')" disabled class="px-5 py-2.5 bg-slate-800 text-slate-500 font-black text-xs rounded-xl transition flex items-center gap-2 cursor-not-allowed">
+            <span>💾</span> <span>Talebeleri Listeye Ekle</span>
+          </button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+  },
+
+  switchBulkTab(tab) {
+    const paneFile = document.getElementById('bulk-pane-file');
+    const panePaste = document.getElementById('bulk-pane-paste');
+    const btnFile = document.getElementById('tab-btn-bulk-file');
+    const btnPaste = document.getElementById('tab-btn-bulk-paste');
+
+    if (tab === 'file') {
+      if (paneFile) paneFile.classList.remove('hidden');
+      if (panePaste) panePaste.classList.add('hidden');
+      if (btnFile) btnFile.className = 'px-3.5 py-1.5 rounded-xl text-xs font-bold bg-emerald-500 text-slate-950 transition';
+      if (btnPaste) btnPaste.className = 'px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-400 transition';
+    } else {
+      if (paneFile) paneFile.classList.add('hidden');
+      if (panePaste) panePaste.classList.remove('hidden');
+      if (btnPaste) btnPaste.className = 'px-3.5 py-1.5 rounded-xl text-xs font-bold bg-emerald-500 text-slate-950 transition';
+      if (btnFile) btnFile.className = 'px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-400 transition';
+    }
+  },
+
+  async handleBulkFileSelect(event, instId) {
     const file = event.target.files && event.target.files[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const text = e.target.result;
-      const res = window.PortalStore.importStudentsCsv(instId, text);
+
+    try {
+      this.showToast('Dosya inceleniyor...', 'info');
+      const students = await this.parseStudentFile(file);
+      this.updateBulkPreview(students);
+    } catch (err) {
+      this.showToast('Dosya okunamadı: ' + err.message, 'error');
+    }
+    event.target.value = '';
+  },
+
+  handleBulkPasteInput(instId) {
+    const textarea = document.getElementById('bulk-paste-input');
+    if (!textarea) return;
+    const text = textarea.value;
+    const students = this.parseStudentText(text);
+    this.updateBulkPreview(students);
+  },
+
+  updateBulkPreview(students) {
+    window._pendingBulkStudents = Array.isArray(students) ? students : [];
+    const previewSection = document.getElementById('bulk-preview-section');
+    const tbody = document.getElementById('bulk-preview-tbody');
+    const badge = document.getElementById('bulk-preview-badge');
+    const saveBtn = document.getElementById('btn-save-bulk-students');
+
+    if (!previewSection || !tbody || !badge || !saveBtn) return;
+
+    if (window._pendingBulkStudents.length > 0) {
+      previewSection.classList.remove('hidden');
+      badge.textContent = `✓ ${window._pendingBulkStudents.length} Talebe Algılandı`;
+      badge.className = 'px-2.5 py-1 rounded-lg text-xs font-black bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
+
+      tbody.innerHTML = window._pendingBulkStudents.slice(0, 100).map(s => `
+        <tr class="hover:bg-slate-800/40">
+          <td class="p-2 font-mono font-bold text-emerald-400">${s.studentNo}</td>
+          <td class="p-2 font-bold text-white">${s.firstName}</td>
+          <td class="p-2 font-bold text-slate-200">${s.lastName}</td>
+          <td class="p-2 font-semibold text-slate-300">${s.className}</td>
+          <td class="p-2 font-mono text-slate-400">${s.parentPhone || '-'}</td>
+        </tr>
+      `).join('');
+
+      saveBtn.disabled = false;
+      saveBtn.className = 'px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-slate-950 font-black text-xs rounded-xl shadow-lg transition flex items-center gap-2 cursor-pointer';
+      saveBtn.innerHTML = `<span>💾</span> <span>${window._pendingBulkStudents.length} Talebeyi Listeye Ekle</span>`;
+    } else {
+      previewSection.classList.add('hidden');
+      saveBtn.disabled = true;
+      saveBtn.className = 'px-5 py-2.5 bg-slate-800 text-slate-500 font-black text-xs rounded-xl transition flex items-center gap-2 cursor-not-allowed';
+      saveBtn.innerHTML = `<span>💾</span> <span>Talebeleri Listeye Ekle</span>`;
+    }
+  },
+
+  saveBulkStudents(instId) {
+    const list = window._pendingBulkStudents || [];
+    if (list.length === 0) {
+      this.showToast('Lütfen önce Excel dosyası seçiniz veya yapıştırınız.', 'warning');
+      return;
+    }
+
+    const res = window.PortalStore.importStudentsArray(instId, list);
+    if (res && res.success) {
+      this.showToast(`✓ ${res.added} yeni talebe başarıyla kaydedildi! Toplam: ${res.count}`, 'success');
+      const modal = document.getElementById('bulk-student-modal');
+      if (modal) modal.remove();
+      this.render();
+    } else {
+      this.showToast('Kayıt başarısız: ' + (res ? res.message : 'Bilinmeyen hata'), 'error');
+    }
+  },
+
+  async parseStudentFile(file) {
+    const fileName = (file.name || '').toLowerCase();
+    const isExcel = fileName.endsWith('.xlsx') || fileName.endsWith('.xls');
+
+    if (isExcel) {
+      if (typeof XLSX === 'undefined') {
+        throw new Error('Excel okuma kütüphanesi yükleniyor, lütfen birkaç saniye sonra tekrar deneyiniz.');
+      }
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data, { type: 'array' });
+      const firstSheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[firstSheetName];
+      const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
+      return window.PortalStore.parseStudentsFromMatrix(rows);
+    } else {
+      const buffer = await file.arrayBuffer();
+      let text = new TextDecoder('utf-8').decode(buffer);
+      if (text.includes('\uFFFD')) {
+        try {
+          text = new TextDecoder('windows-1254').decode(buffer);
+        } catch (e) {}
+      }
+      return this.parseStudentText(text);
+    }
+  },
+
+  parseStudentText(rawText) {
+    if (!rawText || !rawText.trim()) return [];
+    const cleanText = rawText.replace(/^\uFEFF/, '').trim();
+    const lines = cleanText.split(/\r?\n/).filter(line => line.trim().length > 0);
+    if (lines.length === 0) return [];
+
+    const firstLine = lines[0];
+    let delimiter = ';';
+    const semiCount = (firstLine.match(/;/g) || []).length;
+    const commaCount = (firstLine.match(/,/g) || []).length;
+    const tabCount = (firstLine.match(/\t/g) || []).length;
+    const pipeCount = (firstLine.match(/\|/g) || []).length;
+
+    if (tabCount >= semiCount && tabCount >= commaCount && tabCount > 0) delimiter = '\t';
+    else if (pipeCount > semiCount && pipeCount > commaCount) delimiter = '|';
+    else if (semiCount >= commaCount) delimiter = ';';
+    else delimiter = ',';
+
+    const matrix = lines.map(line => line.split(delimiter).map(c => c.trim().replace(/^["']|["']$/g, '')));
+    return window.PortalStore.parseStudentsFromMatrix(matrix);
+  },
+
+  downloadExcelTemplate() {
+    if (typeof XLSX !== 'undefined') {
+      const data = [
+        ['Okul No', 'Adı', 'Soyadı', 'Sınıfı', 'Veli Telefon', 'Notlar'],
+        [101, 'AHMET', 'YILMAZ', '8-A', '05551112233', 'LGS Grubu'],
+        [102, 'MEHMET', 'KAYA', '8-A', '05552223344', 'LGS Grubu'],
+        [103, 'AYŞE', 'DEMİR', '8-B', '05553334455', 'LGS Grubu'],
+        [104, 'FATMA', 'ÇELİK', '8-B', '05554445566', 'LGS Grubu'],
+        [105, 'ALİ', 'ÖZTÜRK', '7-A', '05555556677', 'Ara Sınıf']
+      ];
+      const ws = XLSX.utils.aoa_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Talebeler');
+      XLSX.writeFile(wb, 'ogrenciler_sablon.xlsx');
+      this.showToast('✓ Excel şablonu indirildi (ogrenciler_sablon.xlsx)', 'success');
+    } else {
+      const csvContent = '\uFEFF' + 
+        'Okul No;Adı;Soyadı;Sınıfı;Veli Telefon;Notlar\r\n' +
+        '101;AHMET;YILMAZ;8-A;05551112233;LGS Grubu\r\n' +
+        '102;MEHMET;KAYA;8-A;05552223344;LGS Grubu\r\n' +
+        '103;AYŞE;DEMİR;8-B;05553334455;LGS Grubu\r\n' +
+        '104;FATMA;ÇELİK;8-B;05554445566;LGS Grubu\r\n' +
+        '105;ALİ;ÖZTÜRK;7-A;05555556677;Ara Sınıf\r\n';
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = 'ogrenciler_sablon.csv';
+      link.click();
+      this.showToast('✓ CSV şablonu indirildi (ogrenciler_sablon.csv)', 'success');
+    }
+  },
+
+  async handleCsvUpload(event, instId) {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+    try {
+      this.showToast('Dosya inceleniyor...', 'info');
+      const students = await this.parseStudentFile(file);
+      if (students.length === 0) {
+        this.showToast('Dosyada geçerli talebe kaydı bulunamadı.', 'warning');
+        return;
+      }
+      const res = window.PortalStore.importStudentsArray(instId, students);
       if (res && res.success) {
         this.showToast(`✓ ${res.added} yeni talebe başarıyla aktarıldı! Toplam: ${res.count}`, 'success');
         this.render();
       } else {
-        this.showToast('Dosya okuma hatası: ' + (res ? res.message : ''), 'error');
+        this.showToast('Aktarım hatası: ' + (res ? res.message : ''), 'error');
       }
-      event.target.value = '';
-    };
-    reader.readAsText(file);
+    } catch (err) {
+      this.showToast('Dosya okuma hatası: ' + err.message, 'error');
+    }
+    event.target.value = '';
   },
 
   // 6. KURS PANELİ: OPTİK FORM YAZDIRMA
