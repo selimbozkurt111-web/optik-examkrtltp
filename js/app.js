@@ -1887,21 +1887,28 @@ window.App = {
   },
 
   downloadExcelTemplate() {
-    if (typeof XLSX !== 'undefined') {
-      const data = [
-        ['Okul No', 'Adı', 'Soyadı', 'Sınıfı', 'Veli Telefon', 'Notlar'],
-        [101, 'AHMET', 'YILMAZ', '8-A', '05551112233', 'LGS Grubu'],
-        [102, 'MEHMET', 'KAYA', '8-A', '05552223344', 'LGS Grubu'],
-        [103, 'AYŞE', 'DEMİR', '8-B', '05553334455', 'LGS Grubu'],
-        [104, 'FATMA', 'ÇELİK', '8-B', '05554445566', 'LGS Grubu'],
-        [105, 'ALİ', 'ÖZTÜRK', '7-A', '05555556677', 'Ara Sınıf']
-      ];
-      const ws = XLSX.utils.aoa_to_sheet(data);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Talebeler');
-      XLSX.writeFile(wb, 'ogrenciler_sablon.xlsx');
-      this.showToast('✓ Excel şablonu indirildi (ogrenciler_sablon.xlsx)', 'success');
-    } else {
+    try {
+      if (typeof XLSX !== 'undefined') {
+        const data = [
+          ['Okul No', 'Adı', 'Soyadı', 'Sınıfı', 'Veli Telefon', 'Notlar'],
+          [101, 'AHMET', 'YILMAZ', '8-A', '05551112233', 'LGS Grubu'],
+          [102, 'MEHMET', 'KAYA', '8-A', '05552223344', 'LGS Grubu'],
+          [103, 'AYŞE', 'DEMİR', '8-B', '05553334455', 'LGS Grubu'],
+          [104, 'FATMA', 'ÇELİK', '8-B', '05554445566', 'LGS Grubu'],
+          [105, 'ALİ', 'ÖZTÜRK', '7-A', '05555556677', 'Ara Sınıf']
+        ];
+        const ws = XLSX.utils.aoa_to_sheet(data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Talebeler');
+        XLSX.writeFile(wb, 'ogrenciler_sablon.xlsx');
+        this.showToast('✓ Excel şablonu başarıyla indirildi (ogrenciler_sablon.xlsx)', 'success');
+        return;
+      }
+    } catch (e) {
+      console.warn('XLSX indirme hatası, CSV üretiliyor:', e);
+    }
+
+    try {
       const csvContent = '\uFEFF' + 
         'Okul No;Adı;Soyadı;Sınıfı;Veli Telefon;Notlar\r\n' +
         '101;AHMET;YILMAZ;8-A;05551112233;LGS Grubu\r\n' +
@@ -1910,11 +1917,19 @@ window.App = {
         '104;FATMA;ÇELİK;8-B;05554445566;LGS Grubu\r\n' +
         '105;ALİ;ÖZTÜRK;7-A;05555556677;Ara Sınıf\r\n';
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
-      link.download = 'ogrenciler_sablon.csv';
+      link.href = url;
+      link.setAttribute('download', 'ogrenciler_sablon.csv');
+      document.body.appendChild(link);
       link.click();
-      this.showToast('✓ CSV şablonu indirildi (ogrenciler_sablon.csv)', 'success');
+      setTimeout(() => {
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }, 300);
+      this.showToast('✓ CSV şablonu başarıyla indirildi (ogrenciler_sablon.csv)', 'success');
+    } catch (err) {
+      this.showToast('Şablon oluşturulamadı: ' + err.message, 'error');
     }
   },
 
