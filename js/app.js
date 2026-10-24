@@ -686,13 +686,16 @@ window.App = {
             </div>
           </div>
 
-          <!-- 4 Kitapçık (A, B, C, D) Cevap Anahtarları -->
+          <!-- 4 Kitapçık (A, B, C, D) Ders Ders Cevap Anahtarları -->
           <div class="space-y-3 p-3.5 bg-slate-950/80 rounded-2xl border border-slate-800">
-            <div class="flex items-center justify-between">
-              <label class="text-xs font-bold text-white uppercase flex items-center gap-1.5">
-                <span>🔑</span> <span>Cevap Anahtarları (4 Kitapçık)</span>
-              </label>
-              <div class="flex gap-1" id="booklet-tab-buttons">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800/80 pb-2.5">
+              <div>
+                <label class="text-xs font-black text-white uppercase flex items-center gap-1.5">
+                  <span>🔑</span> <span>Ders Ders Cevap Anahtarları</span>
+                </label>
+                <p class="text-[10px] text-slate-400">Her dersin doğru cevaplarını ilgili ders kutusuna sırasıyla yazınız.</p>
+              </div>
+              <div class="flex items-center gap-1" id="booklet-tab-buttons">
                 <button type="button" onclick="App.switchBookletTab('A')" id="btn-tab-A" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-500 text-slate-950 transition">Kitapçık A</button>
                 <button type="button" onclick="App.switchBookletTab('B')" id="btn-tab-B" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 transition">Kitapçık B</button>
                 <button type="button" onclick="App.switchBookletTab('C')" id="btn-tab-C" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 transition">Kitapçık C</button>
@@ -700,45 +703,10 @@ window.App = {
               </div>
             </div>
 
-            <div id="booklet-pane-A" class="booklet-pane">
-              <div class="flex items-center justify-between mb-1">
-                <span class="text-[11px] font-bold text-emerald-400 uppercase">A Kitapçığı Cevapları:</span>
-                <button type="button" onclick="App.openScanAnswerKeyModal('exam-form-key-a')" class="text-[10px] font-bold text-cyan-400 hover:text-cyan-300 flex items-center gap-1 bg-cyan-950/40 px-2 py-0.5 rounded-lg border border-cyan-800/50 cursor-pointer">
-                  <span>📷</span> <span>Kameradan Tara</span>
-                </button>
-              </div>
-              <textarea id="exam-form-key-a" rows="2" placeholder="Örn: ABCDABCD..." class="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs font-mono text-emerald-300 focus:border-emerald-500 focus:outline-none uppercase"></textarea>
-            </div>
-
-            <div id="booklet-pane-B" class="booklet-pane hidden">
-              <div class="flex items-center justify-between mb-1">
-                <span class="text-[11px] font-bold text-amber-400 uppercase">B Kitapçığı Cevapları:</span>
-                <button type="button" onclick="App.openScanAnswerKeyModal('exam-form-key-b')" class="text-[10px] font-bold text-cyan-400 hover:text-cyan-300 flex items-center gap-1 bg-cyan-950/40 px-2 py-0.5 rounded-lg border border-cyan-800/50 cursor-pointer">
-                  <span>📷</span> <span>Kameradan Tara</span>
-                </button>
-              </div>
-              <textarea id="exam-form-key-b" rows="2" placeholder="Örn: BCDABCDA..." class="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs font-mono text-amber-300 focus:border-emerald-500 focus:outline-none uppercase"></textarea>
-            </div>
-
-            <div id="booklet-pane-C" class="booklet-pane hidden">
-              <div class="flex items-center justify-between mb-1">
-                <span class="text-[11px] font-bold text-cyan-400 uppercase">C Kitapçığı Cevapları:</span>
-                <button type="button" onclick="App.openScanAnswerKeyModal('exam-form-key-c')" class="text-[10px] font-bold text-cyan-400 hover:text-cyan-300 flex items-center gap-1 bg-cyan-950/40 px-2 py-0.5 rounded-lg border border-cyan-800/50 cursor-pointer">
-                  <span>📷</span> <span>Kameradan Tara</span>
-                </button>
-              </div>
-              <textarea id="exam-form-key-c" rows="2" placeholder="Örn: CDABCDAB..." class="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs font-mono text-cyan-300 focus:border-emerald-500 focus:outline-none uppercase"></textarea>
-            </div>
-
-            <div id="booklet-pane-D" class="booklet-pane hidden">
-              <div class="flex items-center justify-between mb-1">
-                <span class="text-[11px] font-bold text-purple-400 uppercase">D Kitapçığı Cevapları:</span>
-                <button type="button" onclick="App.openScanAnswerKeyModal('exam-form-key-d')" class="text-[10px] font-bold text-cyan-400 hover:text-cyan-300 flex items-center gap-1 bg-cyan-950/40 px-2 py-0.5 rounded-lg border border-cyan-800/50 cursor-pointer">
-                  <span>📷</span> <span>Kameradan Tara</span>
-                </button>
-              </div>
-              <textarea id="exam-form-key-d" rows="2" placeholder="Örn: DABCDABC..." class="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs font-mono text-purple-300 focus:border-emerald-500 focus:outline-none uppercase"></textarea>
-            </div>
+            <div id="create-booklet-pane-A" class="create-booklet-pane space-y-2"></div>
+            <div id="create-booklet-pane-B" class="create-booklet-pane space-y-2 hidden"></div>
+            <div id="create-booklet-pane-C" class="create-booklet-pane space-y-2 hidden"></div>
+            <div id="create-booklet-pane-D" class="create-booklet-pane space-y-2 hidden"></div>
           </div>
 
           <div class="pt-2">
@@ -877,9 +845,14 @@ window.App = {
     const totalInput = document.getElementById(isEdit ? 'edit-form-qcount' : 'exam-form-qcount');
     if (totalInput && totalCount > 0) {
       totalInput.value = totalCount;
-      if (!isEdit && typeof this.handleExamQCountChange === 'function') {
-        this.handleExamQCountChange(totalCount.toString());
-      }
+    }
+
+    // Dersler değiştikçe veya soru sayıları güncellendikçe ders ders cevap anahtarı kutularını yenile
+    const prefix = isEdit ? 'edit' : 'create';
+    const subjects = this.collectSubjectsFromForm(containerId);
+    if (subjects.length > 0) {
+      const currentKeys = this.collectBookletKeysFromInputs(prefix, subjects, totalCount);
+      this.renderBookletSubjectKeys(prefix, subjects, currentKeys);
     }
   },
 
@@ -948,10 +921,245 @@ window.App = {
     return subjects;
   },
 
+  // --- DERS DERS CEVAP ANAHTARI GİRİŞ MOTORU ---
+  renderBookletSubjectKeys(prefix, subjects, existingAnswerKeys = {}) {
+    if (!Array.isArray(subjects) || subjects.length === 0) return;
+
+    ['A', 'B', 'C', 'D'].forEach(letter => {
+      const container = document.getElementById(`${prefix}-booklet-pane-${letter}`);
+      if (!container) return;
+
+      const rawFullKey = (existingAnswerKeys && existingAnswerKeys[letter]) ? existingAnswerKeys[letter].toString().trim() : '';
+
+      let totalExamQ = 0;
+      let totalEnteredQ = 0;
+
+      const subjectCardsHtml = subjects.map((sub, idx) => {
+        const qCount = (sub.endQ && sub.startQ) ? (sub.endQ - sub.startQ + 1) : (sub.questionCount || 20);
+        const startQ = sub.startQ || (totalExamQ + 1);
+        const endQ = sub.endQ || (startQ + qCount - 1);
+        totalExamQ += qCount;
+
+        // Mevcut tam anahtardan bu dersin dilimini al
+        let subKey = '';
+        if (rawFullKey) {
+          subKey = rawFullKey.substring(startQ - 1, endQ).toUpperCase();
+        }
+
+        totalEnteredQ += subKey.length;
+        const isComplete = subKey.length === qCount;
+        const badgeClass = isComplete 
+          ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
+          : (subKey.length > 0 ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-slate-800 text-slate-400 border border-slate-700');
+
+        return `
+          <div class="bg-slate-900/90 border border-slate-800 hover:border-slate-700/80 p-2.5 rounded-xl transition">
+            <div class="flex items-center justify-between mb-1.5">
+              <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full ${isComplete ? 'bg-emerald-400' : 'bg-amber-400'}"></span>
+                <span class="text-xs font-bold text-white">${sub.name || ('Ders ' + (idx + 1))}</span>
+                <span class="text-[10px] font-mono text-slate-400 bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">
+                  ${startQ} - ${endQ} (${qCount} Soru)
+                </span>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <span id="badge-key-${prefix}-${letter}-${idx}" class="text-[10px] font-mono font-bold px-2 py-0.5 rounded ${badgeClass}">
+                  ${subKey.length} / ${qCount}${isComplete ? ' ✓' : ''}
+                </span>
+                <button type="button" onclick="App.openScanAnswerKeyModal('key-${prefix}-${letter}-${idx}', ${qCount})" title="Sadece bu dersin cevaplarını kameradan oku" class="text-[10px] font-bold text-cyan-400 hover:text-cyan-300 flex items-center gap-1 bg-cyan-950/40 px-2 py-0.5 rounded-lg border border-cyan-800/50 cursor-pointer">
+                  <span>📷</span> <span>Tara</span>
+                </button>
+              </div>
+            </div>
+            <input type="text" 
+              id="key-${prefix}-${letter}-${idx}" 
+              data-prefix="${prefix}" 
+              data-letter="${letter}" 
+              data-idx="${idx}" 
+              data-qcount="${qCount}"
+              value="${subKey}" 
+              maxlength="${qCount}"
+              placeholder="Örn: ${qCount} harf (A, B, C, D...)" 
+              oninput="App.handleSubjectKeyInput('${prefix}', '${letter}', ${idx}, ${qCount})" 
+              class="w-full px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-xs font-mono text-emerald-300 focus:border-emerald-500 focus:outline-none uppercase tracking-widest font-bold">
+          </div>
+        `;
+      }).join('');
+
+      const totalBadgeClass = totalEnteredQ === totalExamQ && totalExamQ > 0
+        ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+        : 'bg-slate-800 text-slate-300 border border-slate-700';
+
+      container.innerHTML = `
+        <div class="space-y-2">
+          <!-- Üst Bilgi ve Araç Çubuğu -->
+          <div class="flex flex-wrap items-center justify-between gap-2 bg-slate-900/60 p-2 rounded-xl border border-slate-800/80">
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-black text-white">${letter} Kitapçığı</span>
+              <span id="total-badge-${prefix}-${letter}" class="text-[11px] font-mono font-bold px-2 py-0.5 rounded ${totalBadgeClass}">
+                Toplam: ${totalEnteredQ} / ${totalExamQ} Soru ${totalEnteredQ === totalExamQ && totalExamQ > 0 ? '✓' : ''}
+              </span>
+            </div>
+            <div class="flex items-center gap-1.5">
+              ${letter !== 'A' ? `
+                <button type="button" onclick="App.copyBookletKeysFromA('${prefix}', '${letter}')" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-amber-300 text-[10px] font-bold rounded-lg border border-amber-500/30 transition flex items-center gap-1 cursor-pointer" title="A Kitapçığında girdiğiniz cevapları buraya kopyalar">
+                  <span>📋</span> <span>A'dan Kopyala</span>
+                </button>
+              ` : ''}
+              <button type="button" onclick="App.togglePasteBox('${prefix}', '${letter}')" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-cyan-300 text-[10px] font-bold rounded-lg border border-cyan-500/30 transition flex items-center gap-1 cursor-pointer" title="Uzun metin yapıştır">
+                <span>📝</span> <span>Toplu Metin Yapıştır</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Toplu Yapıştırma Kutusu (Açılır Kapanır) -->
+          <div id="paste-box-${prefix}-${letter}" class="hidden p-2.5 bg-slate-950 border border-cyan-800/60 rounded-xl space-y-1.5 animate-fade-in">
+            <label class="block text-[11px] font-bold text-cyan-300">Tüm Kitapçık Metnini Yapıştırın (Derslere Otomatik Dağıtılır):</label>
+            <div class="flex gap-2">
+              <input type="text" id="paste-input-${prefix}-${letter}" placeholder="Örn: ABCDABCD... (${totalExamQ} Harf)" class="flex-1 px-3 py-1.5 bg-slate-900 border border-slate-800 rounded-lg text-xs font-mono text-cyan-200 uppercase tracking-wider focus:outline-none focus:border-cyan-500">
+              <button type="button" onclick="App.applyPastedKeyToSubjects('${prefix}', '${letter}')" class="px-3 py-1.5 bg-cyan-500 hover:bg-cyan-600 text-slate-950 font-black text-xs rounded-lg transition cursor-pointer">
+                Dağıt
+              </button>
+            </div>
+          </div>
+
+          <!-- Ders Ders Kutular -->
+          <div class="space-y-2">
+            ${subjectCardsHtml}
+          </div>
+        </div>
+      `;
+    });
+  },
+
+  handleSubjectKeyInput(prefix, letter, idx, qCount) {
+    const input = document.getElementById(`key-${prefix}-${letter}-${idx}`);
+    const badge = document.getElementById(`badge-key-${prefix}-${letter}-${idx}`);
+    if (!input || !badge) return;
+
+    let val = (input.value || '').toUpperCase().replace(/[^A-E]/g, '');
+    if (val.length > qCount) {
+      val = val.substring(0, qCount);
+    }
+    input.value = val;
+
+    const isComplete = val.length === qCount;
+    badge.textContent = `${val.length} / ${qCount}${isComplete ? ' ✓' : ''}`;
+    badge.className = isComplete 
+      ? 'text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
+      : (val.length > 0 ? 'text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700');
+
+    this.updateTotalBookletBadge(prefix, letter);
+  },
+
+  updateTotalBookletBadge(prefix, letter) {
+    const container = document.getElementById(`${prefix}-booklet-pane-${letter}`);
+    if (!container) return;
+    const inputs = container.querySelectorAll(`input[id^="key-${prefix}-${letter}-"]`);
+    let totalEntered = 0;
+    let totalExpected = 0;
+
+    inputs.forEach(inp => {
+      totalEntered += (inp.value || '').length;
+      totalExpected += parseInt(inp.dataset.qcount || 0, 10);
+    });
+
+    const totalBadge = document.getElementById(`total-badge-${prefix}-${letter}`);
+    if (totalBadge) {
+      const isComplete = totalEntered === totalExpected && totalExpected > 0;
+      totalBadge.textContent = `Toplam: ${totalEntered} / ${totalExpected} Soru ${isComplete ? '✓' : ''}`;
+      totalBadge.className = isComplete 
+        ? 'text-[11px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
+        : 'text-[11px] font-mono font-bold px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700';
+    }
+  },
+
+  copyBookletKeysFromA(prefix, targetLetter) {
+    const paneA = document.getElementById(`${prefix}-booklet-pane-A`);
+    const targetPane = document.getElementById(`${prefix}-booklet-pane-${targetLetter}`);
+    if (!paneA || !targetPane) return;
+
+    const inputsA = paneA.querySelectorAll(`input[id^="key-${prefix}-A-"]`);
+    inputsA.forEach((inpA, idx) => {
+      const targetInput = document.getElementById(`key-${prefix}-${targetLetter}-${idx}`);
+      if (targetInput) {
+        targetInput.value = inpA.value;
+        const qCount = parseInt(targetInput.dataset.qcount || 0, 10);
+        this.handleSubjectKeyInput(prefix, targetLetter, idx, qCount);
+      }
+    });
+
+    this.showToast(`A Kitapçığı cevapları ${targetLetter} Kitapçığına kopyalandı!`, 'success');
+  },
+
+  togglePasteBox(prefix, letter) {
+    const box = document.getElementById(`paste-box-${prefix}-${letter}`);
+    if (box) {
+      box.classList.toggle('hidden');
+      if (!box.classList.contains('hidden')) {
+        const inp = document.getElementById(`paste-input-${prefix}-${letter}`);
+        if (inp) inp.focus();
+      }
+    }
+  },
+
+  applyPastedKeyToSubjects(prefix, letter) {
+    const pasteInput = document.getElementById(`paste-input-${prefix}-${letter}`);
+    if (!pasteInput) return;
+    const raw = (pasteInput.value || '').toUpperCase().replace(/[^A-E]/g, '');
+    if (!raw) {
+      this.showToast('Lütfen yapıştırılacak metin giriniz.', 'warning');
+      return;
+    }
+
+    const container = document.getElementById(`${prefix}-booklet-pane-${letter}`);
+    if (!container) return;
+    const inputs = container.querySelectorAll(`input[id^="key-${prefix}-${letter}-"]`);
+
+    let offset = 0;
+    inputs.forEach((inp, idx) => {
+      const qCount = parseInt(inp.dataset.qcount || 0, 10);
+      const slice = raw.substring(offset, offset + qCount);
+      inp.value = slice;
+      offset += qCount;
+      this.handleSubjectKeyInput(prefix, letter, idx, qCount);
+    });
+
+    this.showToast('✓ Metin tüm derslere başarıyla paylaştırıldı!', 'success');
+    this.togglePasteBox(prefix, letter);
+  },
+
+  collectBookletKeysFromInputs(prefix, subjects, totalQCount) {
+    const keys = { 'A': '', 'B': '', 'C': '', 'D': '' };
+
+    ['A', 'B', 'C', 'D'].forEach(letter => {
+      const container = document.getElementById(`${prefix}-booklet-pane-${letter}`);
+      if (container) {
+        const inputs = container.querySelectorAll(`input[id^="key-${prefix}-${letter}-"]`);
+        let fullKey = '';
+        inputs.forEach(inp => {
+          fullKey += (inp.value || '').toUpperCase().replace(/[^A-E]/g, '');
+        });
+        keys[letter] = fullKey;
+      }
+    });
+
+    // Eğer A boşsa varsayılan A... doldur
+    if (!keys['A']) {
+      keys['A'] = 'A'.repeat(totalQCount);
+    }
+    // B, C, D boşsa A'yı devral
+    if (!keys['B']) keys['B'] = keys['A'];
+    if (!keys['C']) keys['C'] = keys['A'];
+    if (!keys['D']) keys['D'] = keys['A'];
+
+    return keys;
+  },
+
   // Kitapçık Sekmesi Değiştirici
   switchBookletTab(letter) {
     ['A', 'B', 'C', 'D'].forEach(l => {
-      const pane = document.getElementById('booklet-pane-' + l);
+      const pane = document.getElementById('create-booklet-pane-' + l);
       const btn = document.getElementById('btn-tab-' + l);
       if (pane) {
         if (l === letter) pane.classList.remove('hidden');
@@ -982,12 +1190,8 @@ window.App = {
       target = targetSelect.value.trim();
     }
 
-    const keyA = (document.getElementById('exam-form-key-a') ? document.getElementById('exam-form-key-a').value : '').trim().toUpperCase() || 'A'.repeat(qCount);
-    const keyB = (document.getElementById('exam-form-key-b') ? document.getElementById('exam-form-key-b').value : '').trim().toUpperCase() || keyA;
-    const keyC = (document.getElementById('exam-form-key-c') ? document.getElementById('exam-form-key-c').value : '').trim().toUpperCase() || keyA;
-    const keyD = (document.getElementById('exam-form-key-d') ? document.getElementById('exam-form-key-d').value : '').trim().toUpperCase() || keyA;
-
     const subjects = this.collectSubjectsFromForm('subject-rows-container');
+    const answerKeys = this.collectBookletKeysFromInputs('create', subjects, qCount);
 
     const examData = {
       title,
@@ -996,7 +1200,7 @@ window.App = {
       targetClass: target,
       bookletTypes: ['A', 'B', 'C', 'D'],
       subjects: subjects.length > 0 ? subjects : [{ name: 'Genel', startQ: 1, endQ: qCount, wrongPenalty: 0.333, coeff: 1 }],
-      answerKeys: { 'A': keyA, 'B': keyB, 'C': keyC, 'D': keyD },
+      answerKeys: answerKeys,
       canceledQuestions: []
     };
 
@@ -1130,13 +1334,16 @@ window.App = {
             </div>
           </div>
 
-          <!-- 4 Kitapçık Cevap Anahtarları -->
+          <!-- 4 Kitapçık Ders Ders Cevap Anahtarları -->
           <div class="space-y-3 p-3.5 bg-slate-950/80 rounded-2xl border border-slate-800">
-            <div class="flex items-center justify-between">
-              <label class="text-xs font-bold text-white uppercase flex items-center gap-1.5">
-                <span>🔑</span> <span>Cevap Anahtarları</span>
-              </label>
-              <div class="flex gap-1">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800/80 pb-2.5">
+              <div>
+                <label class="text-xs font-black text-white uppercase flex items-center gap-1.5">
+                  <span>🔑</span> <span>Ders Ders Cevap Anahtarları</span>
+                </label>
+                <p class="text-[10px] text-slate-400">Her dersin doğru cevaplarını ilgili ders kutusuna sırasıyla giriniz.</p>
+              </div>
+              <div class="flex items-center gap-1">
                 <button type="button" onclick="App.switchEditBookletTab('A')" id="btn-edit-tab-A" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-500 text-slate-950 transition">Kitapçık A</button>
                 <button type="button" onclick="App.switchEditBookletTab('B')" id="btn-edit-tab-B" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 transition">Kitapçık B</button>
                 <button type="button" onclick="App.switchEditBookletTab('C')" id="btn-edit-tab-C" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 transition">Kitapçık C</button>
@@ -1144,18 +1351,10 @@ window.App = {
               </div>
             </div>
 
-            <div id="edit-booklet-pane-A" class="edit-booklet-pane">
-              <textarea id="edit-form-key-a" rows="2" class="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs font-mono text-emerald-300 focus:border-emerald-500 focus:outline-none uppercase">${(exam.answerKeys && exam.answerKeys['A']) || ''}</textarea>
-            </div>
-            <div id="edit-booklet-pane-B" class="edit-booklet-pane hidden">
-              <textarea id="edit-form-key-b" rows="2" class="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs font-mono text-amber-300 focus:border-emerald-500 focus:outline-none uppercase">${(exam.answerKeys && exam.answerKeys['B']) || ''}</textarea>
-            </div>
-            <div id="edit-booklet-pane-C" class="edit-booklet-pane hidden">
-              <textarea id="edit-form-key-c" rows="2" class="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs font-mono text-cyan-300 focus:border-emerald-500 focus:outline-none uppercase">${(exam.answerKeys && exam.answerKeys['C']) || ''}</textarea>
-            </div>
-            <div id="edit-booklet-pane-D" class="edit-booklet-pane hidden">
-              <textarea id="edit-form-key-d" rows="2" class="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs font-mono text-purple-300 focus:border-emerald-500 focus:outline-none uppercase">${(exam.answerKeys && exam.answerKeys['D']) || ''}</textarea>
-            </div>
+            <div id="edit-booklet-pane-A" class="edit-booklet-pane space-y-2"></div>
+            <div id="edit-booklet-pane-B" class="edit-booklet-pane space-y-2 hidden"></div>
+            <div id="edit-booklet-pane-C" class="edit-booklet-pane space-y-2 hidden"></div>
+            <div id="edit-booklet-pane-D" class="edit-booklet-pane space-y-2 hidden"></div>
           </div>
 
           <div class="pt-2">
@@ -1169,6 +1368,7 @@ window.App = {
     document.body.appendChild(modal);
 
     this.renderSubjectRows(exam.subjects || [], 'edit-subject-rows-container');
+    this.renderBookletSubjectKeys('edit', exam.subjects || [], exam.answerKeys || {});
   },
 
   switchEditBookletTab(letter) {
@@ -1204,12 +1404,8 @@ window.App = {
       target = targetSelect.value.trim();
     }
 
-    const keyA = document.getElementById('edit-form-key-a').value.trim().toUpperCase();
-    const keyB = document.getElementById('edit-form-key-b').value.trim().toUpperCase() || keyA;
-    const keyC = document.getElementById('edit-form-key-c').value.trim().toUpperCase() || keyA;
-    const keyD = document.getElementById('edit-form-key-d').value.trim().toUpperCase() || keyA;
-
     const subjects = this.collectSubjectsFromForm('edit-subject-rows-container');
+    const answerKeys = this.collectBookletKeysFromInputs('edit', subjects, qCount);
 
     const canceledRaw = document.getElementById('edit-form-canceled').value;
     const canceled = canceledRaw
@@ -1223,7 +1419,7 @@ window.App = {
       questionCount: qCount,
       targetClass: target,
       subjects: subjects.length > 0 ? subjects : [{ name: 'Genel', startQ: 1, endQ: qCount, wrongPenalty: 0.333, coeff: 1 }],
-      answerKeys: { 'A': keyA, 'B': keyB, 'C': keyC, 'D': keyD },
+      answerKeys,
       canceledQuestions: canceled
     };
 
@@ -1270,12 +1466,12 @@ window.App = {
     }
   },
 
-  openScanAnswerKeyModal(targetInputId) {
+  openScanAnswerKeyModal(targetInputId, customQCount = null) {
     const existing = document.getElementById('scan-answer-key-modal');
     if (existing) existing.remove();
 
-    const qCountSelect = document.getElementById('exam-form-qcount');
-    const questionCount = qCountSelect ? parseInt(qCountSelect.value, 10) || 20 : 20;
+    const qCountSelect = document.getElementById('exam-form-qcount') || document.getElementById('edit-form-qcount');
+    const questionCount = customQCount || (qCountSelect ? parseInt(qCountSelect.value, 10) || 20 : 20);
 
     const modal = document.createElement('div');
     modal.id = 'scan-answer-key-modal';
@@ -1285,9 +1481,9 @@ window.App = {
         <div class="flex items-center justify-between pb-3 border-b border-slate-800 mb-3">
           <div class="flex items-center gap-2">
             <span class="text-xl">📷</span>
-            <h4 class="text-sm font-black text-white">Cevap Anahtarını Kameradan Tara</h4>
+            <h4 class="text-sm font-black text-white">Cevap Anahtarını Kameradan Tara (${questionCount} Soru)</h4>
           </div>
-          <button onclick="App.closeScanAnswerKeyModal()" class="w-7 h-7 rounded-lg bg-slate-800 text-slate-300 flex items-center justify-center text-xs font-bold">✕</button>
+          <button onclick="App.closeScanAnswerKeyModal()" class="w-7 h-7 rounded-lg bg-slate-800 text-slate-300 flex items-center justify-center text-xs font-bold cursor-pointer">✕</button>
         </div>
 
         <p class="text-xs text-slate-400 mb-3">Doğru cevapları işaretlediğiniz optik formu çerçeveye gösterip butona basınız.</p>
@@ -1300,8 +1496,8 @@ window.App = {
           </div>
         </div>
 
-        <button onclick="App.captureAnswerKey('${targetInputId}', ${questionCount})" class="w-full py-2.5 bg-cyan-500 hover:bg-cyan-600 text-slate-950 font-black text-xs rounded-xl shadow-lg transition flex items-center justify-center gap-2">
-          <span>🎯</span> <span>Cevapları Otomatik Çıkar</span>
+        <button onclick="App.captureAnswerKey('${targetInputId}', ${questionCount})" class="w-full py-2.5 bg-cyan-500 hover:bg-cyan-600 text-slate-950 font-black text-xs rounded-xl shadow-lg transition flex items-center justify-center gap-2 cursor-pointer">
+          <span>🎯</span> <span>Cevapları Otomatik Çıkar (${questionCount} Soru)</span>
         </button>
       </div>
     `;
@@ -1341,6 +1537,14 @@ window.App = {
       const targetInput = document.getElementById(targetInputId);
       if (targetInput) {
         targetInput.value = result.key;
+        if (targetInput.dataset && targetInput.dataset.prefix && targetInput.dataset.letter) {
+          this.handleSubjectKeyInput(
+            targetInput.dataset.prefix,
+            targetInput.dataset.letter,
+            parseInt(targetInput.dataset.idx, 10),
+            parseInt(targetInput.dataset.qcount, 10)
+          );
+        }
       }
       this.showToast(`✓ ${result.questionCount} soruluk cevap anahtarı başarıyla çıkarıldı!`, 'success');
       this.closeScanAnswerKeyModal();
