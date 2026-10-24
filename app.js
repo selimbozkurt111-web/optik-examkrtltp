@@ -589,6 +589,8 @@ window.App = {
     if (existing) existing.remove();
 
     const templates = window.PortalStore.getTemplates();
+    const students = instId ? window.PortalStore.getStudents(instId) : [];
+    const existingClasses = Array.from(new Set(students.map(s => (s.className || '').trim()).filter(Boolean))).sort();
 
     const modal = document.createElement('div');
     modal.id = 'create-exam-modal';
@@ -627,14 +629,29 @@ window.App = {
             </div>
           </div>
 
-          <div class="grid grid-cols-2 gap-3">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Toplam Soru Sayısı</label>
-              <input type="number" id="exam-form-qcount" min="1" max="300" value="90" onchange="App.handleExamQCountChange(this.value)" class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-bold text-xs focus:border-emerald-500 focus:outline-none">
+              <input type="number" id="exam-form-qcount" min="1" max="300" value="90" readonly class="w-full px-3 py-2 bg-slate-950/80 border border-slate-800 rounded-xl text-emerald-400 font-black text-xs focus:outline-none cursor-default" title="Ders soru sayılarına göre otomatik hesaplanır">
             </div>
             <div>
-              <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Hedef Sınıf / Seviye</label>
-              <input type="text" id="exam-form-target" value="8. Sınıf" class="w-full px-3.5 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-medium text-xs focus:border-emerald-500 focus:outline-none">
+              <label class="block text-xs font-bold uppercase text-slate-400 mb-1">🎯 Hedef Sınıf / Şube</label>
+              <select id="exam-form-target" onchange="App.handleTargetClassSelectChange(this, 'exam-form-target-custom')" class="w-full px-3.5 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-bold text-xs focus:border-emerald-500 focus:outline-none">
+                ${existingClasses.length > 0 ? `
+                  <optgroup label="🏫 Kurumdaki Talebe Şubeleri">
+                    ${existingClasses.map(c => `<option value="${c}">${c} Şubesi</option>`).join('')}
+                  </optgroup>
+                ` : ''}
+                <optgroup label="📚 Standart Sınıflar">
+                  <option value="8. Sınıf" selected>8. Sınıf (LGS)</option>
+                  <option value="7. Sınıf">7. Sınıf</option>
+                  <option value="6. Sınıf">6. Sınıf</option>
+                  <option value="5. Sınıf">5. Sınıf</option>
+                  <option value="Tüm Şubeler">Tüm Şubeler</option>
+                </optgroup>
+                <option value="custom">✍️ Diğer / Yeni Şube Yaz...</option>
+              </select>
+              <input type="text" id="exam-form-target-custom" placeholder="Örn: 8-C veya Seviye 1" class="hidden mt-1.5 w-full px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-white font-medium text-xs focus:border-emerald-500 focus:outline-none">
             </div>
           </div>
 
@@ -642,21 +659,21 @@ window.App = {
           <div class="bg-slate-950/80 p-3.5 rounded-2xl border border-slate-800 space-y-2">
             <div class="flex items-center justify-between pb-1">
               <div>
-                <label class="text-xs font-bold uppercase text-slate-300">📚 Ders Bölümleri & Katsayılar</label>
-                <p class="text-[10px] text-slate-500">Her dersin soru aralığını, puan katsayısını ve yanlış götürme oranını belirleyebilirsiniz.</p>
+                <label class="text-xs font-bold uppercase text-slate-300">📚 Ders Bölümleri & Soru Sayıları</label>
+                <p class="text-[10px] text-slate-500">Her dersin sadece kaç soru olduğunu giriniz; soru aralıkları ve toplam soru sayısı otomatik hesaplanır.</p>
               </div>
-              <button type="button" onclick="App.addSubjectRow('subject-rows-container')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-emerald-400 text-[11px] font-bold rounded-lg border border-slate-700 transition">
+              <button type="button" onclick="App.addSubjectRow('subject-rows-container')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-emerald-400 text-[11px] font-bold rounded-lg border border-slate-700 transition cursor-pointer">
                 + Ders Ekle
               </button>
             </div>
 
             <div class="overflow-x-auto w-full max-w-full" style="-webkit-overflow-scrolling: touch;">
-              <table class="w-full text-left text-[11px] min-w-[440px]">
+              <table class="w-full text-left text-[11px] min-w-[460px]">
                 <thead class="text-slate-500 uppercase border-b border-slate-800 font-bold">
                   <tr>
                     <th class="p-1.5">Ders Adı</th>
-                    <th class="p-1.5 text-center">İlk Soru</th>
-                    <th class="p-1.5 text-center">Son Soru</th>
+                    <th class="p-1.5 text-center">Soru Sayısı</th>
+                    <th class="p-1.5 text-center">Aralık</th>
                     <th class="p-1.5 text-center">Ceza (Yanlış Götürme)</th>
                     <th class="p-1.5 text-center">Katsayı</th>
                     <th class="p-1.5 text-right">Sil</th>
@@ -737,25 +754,46 @@ window.App = {
     this.handleTemplateChange('tpl_lgs_90');
   },
 
+  handleTargetClassSelectChange(selectElem, customInputId) {
+    const customInput = document.getElementById(customInputId);
+    if (!customInput) return;
+    if (selectElem.value === 'custom') {
+      customInput.classList.remove('hidden');
+      customInput.focus();
+    } else {
+      customInput.classList.add('hidden');
+    }
+  },
+
   // Sınav Şablonu Seçildiğinde Alanları Otomatik Doldur
   handleTemplateChange(tplId) {
     const templates = window.PortalStore.getTemplates();
     const tpl = templates.find(t => t.id === tplId);
     const titleInput = document.getElementById('exam-form-title');
     const qCountInput = document.getElementById('exam-form-qcount');
-    const targetInput = document.getElementById('exam-form-target');
+    const targetSelect = document.getElementById('exam-form-target');
+    const targetCustom = document.getElementById('exam-form-target-custom');
 
     if (tpl) {
-      if (titleInput && (!titleInput.value || titleInput.value.includes('Deneme') || titleInput.value.includes('Prova'))) {
+      if (titleInput && (!titleInput.value || titleInput.value.includes('Deneme') || titleInput.value.includes('Prova') || titleInput.value.includes('Sınav'))) {
         titleInput.value = tpl.name;
       }
       if (qCountInput) {
         qCountInput.value = tpl.questionCount;
       }
-      if (targetInput) {
-        if (tpl.id.includes('lgs')) targetInput.value = '8. Sınıf';
-        else if (tpl.id.includes('tyt')) targetInput.value = '12. Sınıf / Mezun';
-        else targetInput.value = 'Tüm Sınıflar';
+      if (targetSelect) {
+        if (targetCustom) targetCustom.classList.add('hidden');
+        if (tpl.id.includes('lgs') || tpl.id.includes('ortaokul')) {
+          if (targetSelect.querySelector('option[value="8. Sınıf"]')) {
+            targetSelect.value = '8. Sınıf';
+          }
+        } else if (tpl.id.includes('tyt')) {
+          if (targetCustom) {
+            targetSelect.value = 'custom';
+            targetCustom.classList.remove('hidden');
+            targetCustom.value = '12. Sınıf / Mezun';
+          }
+        }
       }
       this.renderSubjectRows(tpl.subjects || [], 'subject-rows-container');
       this.handleExamQCountChange(tpl.questionCount.toString());
@@ -768,45 +806,86 @@ window.App = {
     }
   },
 
-  // Ders Satırlarını Tabloya Basma
+  // Ders Satırlarını Tabloya Basma (İlk Soru - Son Soru yerine sadece Soru Sayısı)
   renderSubjectRows(subjects, containerId = 'subject-rows-container') {
     const container = document.getElementById(containerId);
     if (!container) return;
 
-    container.innerHTML = subjects.map((sub, idx) => `
-      <tr class="subject-row">
-        <td class="p-1.5">
-          <input type="text" class="sub-name w-full px-2 py-1 bg-slate-900 border border-slate-800 rounded font-bold text-white text-xs" value="${sub.name || 'Ders ' + (idx + 1)}">
-        </td>
-        <td class="p-1.5 text-center">
-          <input type="number" class="sub-start w-14 px-1.5 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs text-slate-200" value="${sub.startQ || 1}">
-        </td>
-        <td class="p-1.5 text-center">
-          <input type="number" class="sub-end w-14 px-1.5 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs text-slate-200" value="${sub.endQ || 20}">
-        </td>
-        <td class="p-1.5 text-center">
-          <select class="sub-penalty px-1.5 py-1 bg-slate-900 border border-slate-800 rounded text-xs text-slate-200 font-medium">
-            <option value="0.333" ${sub.wrongPenalty === 0.333 ? 'selected' : ''}>3 Yanlış 1 Doğru (0.33)</option>
-            <option value="0.25" ${sub.wrongPenalty === 0.25 ? 'selected' : ''}>4 Yanlış 1 Doğru (0.25)</option>
-            <option value="0" ${sub.wrongPenalty === 0 ? 'selected' : ''}>Ceza Yok (0.00)</option>
-          </select>
-        </td>
-        <td class="p-1.5 text-center">
-          <input type="number" step="0.1" class="sub-coeff w-14 px-1.5 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs text-emerald-400 font-bold" value="${sub.coeff !== undefined ? sub.coeff : 1}">
-        </td>
-        <td class="p-1.5 text-right">
-          <button type="button" onclick="App.removeSubjectRow(this)" class="p-1 text-rose-400 hover:text-rose-300 text-xs">🗑️</button>
-        </td>
-      </tr>
-    `).join('');
+    let currentStart = 1;
+    container.innerHTML = subjects.map((sub, idx) => {
+      const qCount = (sub.endQ && sub.startQ) ? (sub.endQ - sub.startQ + 1) : (sub.questionCount || 20);
+      const startQ = currentStart;
+      const endQ = currentStart + qCount - 1;
+      currentStart = endQ + 1;
+
+      return `
+        <tr class="subject-row" data-start="${startQ}" data-end="${endQ}">
+          <td class="p-1.5">
+            <input type="text" class="sub-name w-full px-2 py-1 bg-slate-900 border border-slate-800 rounded font-bold text-white text-xs" value="${sub.name || 'Ders ' + (idx + 1)}">
+          </td>
+          <td class="p-1.5 text-center">
+            <input type="number" min="1" max="150" class="sub-qcount w-16 px-1.5 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs text-emerald-400 font-black" value="${qCount}" oninput="App.recalcSubjectRanges('${containerId}')" onchange="App.recalcSubjectRanges('${containerId}')">
+          </td>
+          <td class="p-1.5 text-center">
+            <span class="sub-range-badge text-[11px] font-mono text-slate-300 font-bold bg-slate-800/90 px-2 py-0.5 rounded border border-slate-700/60">${startQ} - ${endQ}</span>
+          </td>
+          <td class="p-1.5 text-center">
+            <select class="sub-penalty px-1.5 py-1 bg-slate-900 border border-slate-800 rounded text-xs text-slate-200 font-medium">
+              <option value="0.333" ${sub.wrongPenalty === 0.333 ? 'selected' : ''}>3 Yanlış 1 Doğru (0.33)</option>
+              <option value="0.25" ${sub.wrongPenalty === 0.25 ? 'selected' : ''}>4 Yanlış 1 Doğru (0.25)</option>
+              <option value="0" ${sub.wrongPenalty === 0 ? 'selected' : ''}>Ceza Yok (0.00)</option>
+            </select>
+          </td>
+          <td class="p-1.5 text-center">
+            <input type="number" step="0.1" class="sub-coeff w-14 px-1.5 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs text-emerald-400 font-bold" value="${sub.coeff !== undefined ? sub.coeff : 1}">
+          </td>
+          <td class="p-1.5 text-right">
+            <button type="button" onclick="App.removeSubjectRow(this, '${containerId}')" class="p-1 text-rose-400 hover:text-rose-300 text-xs cursor-pointer">🗑️</button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+    this.recalcSubjectRanges(containerId);
+  },
+
+  recalcSubjectRanges(containerId = 'subject-rows-container') {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    const rows = container.querySelectorAll('.subject-row');
+    let currentStart = 1;
+    let totalCount = 0;
+
+    rows.forEach(r => {
+      const qInput = r.querySelector('.sub-qcount');
+      const count = parseInt(qInput ? qInput.value : 0, 10) || 1;
+      const endQ = currentStart + count - 1;
+
+      r.dataset.start = currentStart;
+      r.dataset.end = endQ;
+
+      const badge = r.querySelector('.sub-range-badge');
+      if (badge) {
+        badge.textContent = `${currentStart} - ${endQ}`;
+      }
+
+      currentStart = endQ + 1;
+      totalCount += count;
+    });
+
+    const isEdit = containerId.includes('edit');
+    const totalInput = document.getElementById(isEdit ? 'edit-form-qcount' : 'exam-form-qcount');
+    if (totalInput && totalCount > 0) {
+      totalInput.value = totalCount;
+      if (!isEdit && typeof this.handleExamQCountChange === 'function') {
+        this.handleExamQCountChange(totalCount.toString());
+      }
+    }
   },
 
   addSubjectRow(containerId = 'subject-rows-container') {
     const container = document.getElementById(containerId);
     if (!container) return;
-    const existingRows = container.querySelectorAll('.subject-row');
-    const nextStart = existingRows.length > 0 ? (parseInt(existingRows[existingRows.length - 1].querySelector('.sub-end').value, 10) + 1) : 1;
-    const nextEnd = nextStart + 19;
 
     const tr = document.createElement('tr');
     tr.className = 'subject-row';
@@ -815,10 +894,10 @@ window.App = {
         <input type="text" class="sub-name w-full px-2 py-1 bg-slate-900 border border-slate-800 rounded font-bold text-white text-xs" value="Yeni Ders">
       </td>
       <td class="p-1.5 text-center">
-        <input type="number" class="sub-start w-14 px-1.5 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs text-slate-200" value="${nextStart}">
+        <input type="number" min="1" max="150" class="sub-qcount w-16 px-1.5 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs text-emerald-400 font-black" value="10" oninput="App.recalcSubjectRanges('${containerId}')" onchange="App.recalcSubjectRanges('${containerId}')">
       </td>
       <td class="p-1.5 text-center">
-        <input type="number" class="sub-end w-14 px-1.5 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs text-slate-200" value="${nextEnd}">
+        <span class="sub-range-badge text-[11px] font-mono text-slate-300 font-bold bg-slate-800/90 px-2 py-0.5 rounded border border-slate-700/60">-</span>
       </td>
       <td class="p-1.5 text-center">
         <select class="sub-penalty px-1.5 py-1 bg-slate-900 border border-slate-800 rounded text-xs text-slate-200 font-medium">
@@ -831,15 +910,19 @@ window.App = {
         <input type="number" step="0.1" class="sub-coeff w-14 px-1.5 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs text-emerald-400 font-bold" value="1">
       </td>
       <td class="p-1.5 text-right">
-        <button type="button" onclick="App.removeSubjectRow(this)" class="p-1 text-rose-400 hover:text-rose-300 text-xs">🗑️</button>
+        <button type="button" onclick="App.removeSubjectRow(this, '${containerId}')" class="p-1 text-rose-400 hover:text-rose-300 text-xs cursor-pointer">🗑️</button>
       </td>
     `;
     container.appendChild(tr);
+    this.recalcSubjectRanges(containerId);
   },
 
-  removeSubjectRow(btn) {
+  removeSubjectRow(btn, containerId = 'subject-rows-container') {
     const row = btn.closest('.subject-row');
-    if (row) row.remove();
+    if (row) {
+      row.remove();
+      this.recalcSubjectRanges(containerId);
+    }
   },
 
   collectSubjectsFromForm(containerId = 'subject-rows-container') {
@@ -847,15 +930,19 @@ window.App = {
     if (!container) return [];
     const rows = container.querySelectorAll('.subject-row');
     const subjects = [];
+    let currentStart = 1;
 
-    rows.forEach(r => {
-      const name = (r.querySelector('.sub-name').value || 'Genel').trim();
-      const startQ = parseInt(r.querySelector('.sub-start').value, 10) || 1;
-      const endQ = parseInt(r.querySelector('.sub-end').value, 10) || startQ;
+    rows.forEach((r, idx) => {
+      const name = (r.querySelector('.sub-name').value || ('Ders ' + (idx + 1))).trim();
+      const qInput = r.querySelector('.sub-qcount');
+      const count = parseInt(qInput ? qInput.value : 0, 10) || 1;
+      const startQ = currentStart;
+      const endQ = currentStart + count - 1;
       const wrongPenalty = parseFloat(r.querySelector('.sub-penalty').value) || 0;
       const coeff = parseFloat(r.querySelector('.sub-coeff').value) || 1;
 
-      subjects.push({ name, startQ, endQ, wrongPenalty, coeff });
+      subjects.push({ name, startQ, endQ, wrongPenalty, coeff, questionCount: count });
+      currentStart = endQ + 1;
     });
 
     return subjects;
@@ -885,7 +972,15 @@ window.App = {
     const title = document.getElementById('exam-form-title').value.trim();
     const examDate = document.getElementById('exam-form-date') ? document.getElementById('exam-form-date').value : new Date().toISOString().split('T')[0];
     const qCount = parseInt(document.getElementById('exam-form-qcount').value, 10) || 20;
-    const target = document.getElementById('exam-form-target').value.trim();
+
+    const targetSelect = document.getElementById('exam-form-target');
+    const targetCustom = document.getElementById('exam-form-target-custom');
+    let target = '8. Sınıf';
+    if (targetSelect && targetSelect.value === 'custom') {
+      target = (targetCustom && targetCustom.value.trim()) || 'Özel';
+    } else if (targetSelect) {
+      target = targetSelect.value.trim();
+    }
 
     const keyA = (document.getElementById('exam-form-key-a') ? document.getElementById('exam-form-key-a').value : '').trim().toUpperCase() || 'A'.repeat(qCount);
     const keyB = (document.getElementById('exam-form-key-b') ? document.getElementById('exam-form-key-b').value : '').trim().toUpperCase() || keyA;
@@ -933,6 +1028,10 @@ window.App = {
     }
 
     const canceledList = Array.isArray(exam.canceledQuestions) ? exam.canceledQuestions : [];
+    const students = instId ? window.PortalStore.getStudents(instId) : [];
+    const existingClasses = Array.from(new Set(students.map(s => (s.className || '').trim()).filter(Boolean))).sort();
+    const currentTarget = exam.targetClass || '';
+    const isKnownClass = existingClasses.includes(currentTarget) || ['8. Sınıf', '7. Sınıf', '6. Sınıf', '5. Sınıf', 'Tüm Şubeler', 'TÜM SINIFLAR'].includes(currentTarget);
 
     const modal = document.createElement('div');
     modal.id = 'edit-exam-modal';
@@ -962,14 +1061,29 @@ window.App = {
             </div>
           </div>
 
-          <div class="grid grid-cols-2 gap-3">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Toplam Soru Sayısı</label>
-              <input type="number" id="edit-form-qcount" value="${exam.questionCount}" class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-bold text-xs focus:border-emerald-500 focus:outline-none">
+              <input type="number" id="edit-form-qcount" value="${exam.questionCount}" readonly class="w-full px-3 py-2 bg-slate-950/80 border border-slate-800 rounded-xl text-emerald-400 font-black text-xs focus:outline-none cursor-default" title="Ders soru sayılarına göre otomatik hesaplanır">
             </div>
             <div>
-              <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Hedef Sınıf / Seviye</label>
-              <input type="text" id="edit-form-target" value="${exam.targetClass || ''}" class="w-full px-3.5 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-medium text-xs focus:border-emerald-500 focus:outline-none">
+              <label class="block text-xs font-bold uppercase text-slate-400 mb-1">🎯 Hedef Sınıf / Şube</label>
+              <select id="edit-form-target" onchange="App.handleTargetClassSelectChange(this, 'edit-form-target-custom')" class="w-full px-3.5 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-bold text-xs focus:border-emerald-500 focus:outline-none">
+                ${existingClasses.length > 0 ? `
+                  <optgroup label="🏫 Kurumdaki Talebe Şubeleri">
+                    ${existingClasses.map(c => `<option value="${c}" ${c === currentTarget ? 'selected' : ''}>${c} Şubesi</option>`).join('')}
+                  </optgroup>
+                ` : ''}
+                <optgroup label="📚 Standart Sınıflar">
+                  <option value="8. Sınıf" ${currentTarget === '8. Sınıf' ? 'selected' : ''}>8. Sınıf (LGS)</option>
+                  <option value="7. Sınıf" ${currentTarget === '7. Sınıf' ? 'selected' : ''}>7. Sınıf</option>
+                  <option value="6. Sınıf" ${currentTarget === '6. Sınıf' ? 'selected' : ''}>6. Sınıf</option>
+                  <option value="5. Sınıf" ${currentTarget === '5. Sınıf' ? 'selected' : ''}>5. Sınıf</option>
+                  <option value="Tüm Şubeler" ${(currentTarget === 'Tüm Şubeler' || currentTarget === 'TÜM SINIFLAR') ? 'selected' : ''}>Tüm Şubeler</option>
+                </optgroup>
+                <option value="custom" ${!isKnownClass && currentTarget ? 'selected' : ''}>✍️ Diğer / Yeni Şube Yaz...</option>
+              </select>
+              <input type="text" id="edit-form-target-custom" value="${!isKnownClass ? currentTarget : ''}" placeholder="Şube adını yazınız (Örn: 8-C)" class="${!isKnownClass && currentTarget ? '' : 'hidden'} mt-1.5 w-full px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-white font-medium text-xs focus:border-emerald-500 focus:outline-none">
             </div>
           </div>
 
@@ -989,21 +1103,21 @@ window.App = {
           <div class="bg-slate-950/80 p-3.5 rounded-2xl border border-slate-800 space-y-2">
             <div class="flex items-center justify-between pb-1">
               <div>
-                <label class="text-xs font-bold uppercase text-slate-300">📚 Ders Bölümleri & Katsayılar</label>
-                <p class="text-[10px] text-slate-500">Ders aralıklarını, katsayıları ve ceza oranlarını düzenleyin.</p>
+                <label class="text-xs font-bold uppercase text-slate-300">📚 Ders Bölümleri & Soru Sayıları</label>
+                <p class="text-[10px] text-slate-500">Derslerin soru sayılarını, katsayılarını ve ceza oranlarını düzenleyin.</p>
               </div>
-              <button type="button" onclick="App.addSubjectRow('edit-subject-rows-container')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-emerald-400 text-[11px] font-bold rounded-lg border border-slate-700 transition">
+              <button type="button" onclick="App.addSubjectRow('edit-subject-rows-container')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-emerald-400 text-[11px] font-bold rounded-lg border border-slate-700 transition cursor-pointer">
                 + Ders Ekle
               </button>
             </div>
 
             <div class="overflow-x-auto w-full max-w-full" style="-webkit-overflow-scrolling: touch;">
-              <table class="w-full text-left text-[11px] min-w-[440px]">
+              <table class="w-full text-left text-[11px] min-w-[460px]">
                 <thead class="text-slate-500 uppercase border-b border-slate-800 font-bold">
                   <tr>
                     <th class="p-1.5">Ders Adı</th>
-                    <th class="p-1.5 text-center">İlk Soru</th>
-                    <th class="p-1.5 text-center">Son Soru</th>
+                    <th class="p-1.5 text-center">Soru Sayısı</th>
+                    <th class="p-1.5 text-center">Aralık</th>
                     <th class="p-1.5 text-center">Ceza</th>
                     <th class="p-1.5 text-center">Katsayı</th>
                     <th class="p-1.5 text-right">Sil</th>
@@ -1080,7 +1194,15 @@ window.App = {
     const title = document.getElementById('edit-form-title').value.trim();
     const examDate = document.getElementById('edit-form-date').value;
     const qCount = parseInt(document.getElementById('edit-form-qcount').value, 10) || 20;
-    const target = document.getElementById('edit-form-target').value.trim();
+
+    const targetSelect = document.getElementById('edit-form-target');
+    const targetCustom = document.getElementById('edit-form-target-custom');
+    let target = '8. Sınıf';
+    if (targetSelect && targetSelect.value === 'custom') {
+      target = (targetCustom && targetCustom.value.trim()) || 'Özel';
+    } else if (targetSelect) {
+      target = targetSelect.value.trim();
+    }
 
     const keyA = document.getElementById('edit-form-key-a').value.trim().toUpperCase();
     const keyB = document.getElementById('edit-form-key-b').value.trim().toUpperCase() || keyA;
@@ -1342,30 +1464,42 @@ window.App = {
     const exams = window.PortalStore.getExams(instId);
     const students = window.PortalStore.getStudents(instId);
     const session = window.PortalStore.getCurrentSession();
+    const uniqueClasses = Array.from(new Set(students.map(s => (s.className || '').trim()).filter(Boolean))).sort();
 
     return `
       <div class="space-y-6">
         <div class="bg-slate-900 border border-slate-800 p-5 rounded-2xl shadow-lg">
           <h2 class="text-xl font-black text-white tracking-tight">Optik Cevap Kağıdı Yazdır</h2>
-          <p class="text-xs text-slate-400 mt-0.5 mb-4">Seçtiğiniz sınav için öğrencilerin isimleri ve QR kodları hazır basılı A4 optik formlar üretin.</p>
+          <p class="text-xs text-slate-400 mt-0.5 mb-4">Seçtiğiniz sınav ve şube için talebelerin isimleri ve QR kodları hazır basılı A4 optik formlar üretin.</p>
 
-          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
               <label class="block text-xs font-bold text-slate-400 mb-1">Sınav Seçiniz</label>
-              <select id="print-exam-select" class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-medium text-xs">
+              <select id="print-exam-select" onchange="App.handlePrintFilterChange('${instId}')" class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-medium text-xs focus:border-emerald-500 focus:outline-none">
                 ${exams.map(e => `<option value="${e.id}">${e.title} (${e.questionCount} Soru)</option>`).join('')}
               </select>
             </div>
             <div>
+              <label class="block text-xs font-bold text-slate-400 mb-1">🎯 Sınıf / Şube Seçiniz</label>
+              <select id="print-class-select" onchange="App.handlePrintFilterChange('${instId}')" class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-medium text-xs focus:border-emerald-500 focus:outline-none">
+                <option value="all">Tüm Şubeler (${students.length} Talebe)</option>
+                ${uniqueClasses.map(c => {
+                  const count = students.filter(s => s.className === c).length;
+                  return `<option value="${c}">${c} Şubesi (${count} Talebe)</option>`;
+                }).join('')}
+              </select>
+            </div>
+            <div>
               <label class="block text-xs font-bold text-slate-400 mb-1">Baskı Türü</label>
-              <select id="print-type-select" class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-medium text-xs">
-                <option value="all_students">Tüm Talebelere Özel İsimli & QR Kodlu (${students.length} Sayfa)</option>
+              <select id="print-type-select" class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-medium text-xs focus:border-emerald-500 focus:outline-none">
+                <option value="all_students">Talebelere Özel İsimli & QR Kodlu</option>
                 <option value="blank_10">Boş Form (10 Adet)</option>
                 <option value="blank_25">Boş Form (25 Adet)</option>
+                <option value="blank_50">Boş Form (50 Adet)</option>
               </select>
             </div>
             <div class="flex items-end">
-              <button onclick="App.generateAndPrintSheets('${instId}')" class="w-full py-2.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black text-xs rounded-xl shadow transition flex items-center justify-center gap-1.5">
+              <button onclick="App.generateAndPrintSheets('${instId}')" class="w-full py-2.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black text-xs rounded-xl shadow transition flex items-center justify-center gap-1.5 cursor-pointer">
                 <span>🖨️</span> <span>Optik Kağıtları Bas</span>
               </button>
             </div>
@@ -1381,7 +1515,7 @@ window.App = {
             <span class="text-[11px] text-emerald-400 font-mono">297mm × 210mm (Sıfır Taşma Formatı)</span>
           </div>
           <div class="w-full max-w-full overflow-x-auto pb-4" style="-webkit-overflow-scrolling: touch;">
-            <div class="w-[980px] min-w-[980px] max-w-[1050px] mx-auto border border-gray-400 rounded-xl shadow-2xl bg-white text-black p-2 text-left">
+            <div id="optical-preview-container" class="w-[980px] min-w-[980px] max-w-[1050px] mx-auto border border-gray-400 rounded-xl shadow-2xl bg-white text-black p-2 text-left">
               ${window.OpticalSheetGenerator.renderSheetHtml({
                 institutionName: session.institutionName || 'TABAKÇILAR B BLOK',
                 examTitle: exams[0] ? exams[0].title : 'İsabet Ortaokul 8. Sınıf Deneme 3 (23-28 Ara)',
@@ -1403,8 +1537,39 @@ window.App = {
     `;
   },
 
+  handlePrintFilterChange(instId) {
+    const examSelect = document.getElementById('print-exam-select');
+    const classSelect = document.getElementById('print-class-select');
+    const previewContainer = document.getElementById('optical-preview-container');
+    if (!examSelect || !previewContainer) return;
+
+    const examId = examSelect.value;
+    const exam = window.PortalStore.getExamById(instId, examId) || window.PortalStore.getExams(instId)[0];
+    const session = window.PortalStore.getCurrentSession();
+    let students = window.PortalStore.getStudents(instId);
+    const selectedClass = classSelect ? classSelect.value : 'all';
+    if (selectedClass && selectedClass !== 'all') {
+      students = students.filter(s => s.className === selectedClass);
+    }
+    const sampleStudent = students[0] || { 
+      firstName: 'ÖRNEK', 
+      lastName: 'TALEBE', 
+      studentNo: '29828977800', 
+      className: selectedClass !== 'all' ? selectedClass : (exam ? exam.targetClass : '8-A') 
+    };
+
+    previewContainer.innerHTML = window.OpticalSheetGenerator.renderSheetHtml({
+      institutionName: session.institutionName || 'TABAKÇILAR B BLOK',
+      examTitle: exam ? exam.title : 'Deneme Sınavı',
+      student: sampleStudent,
+      questionCount: exam ? exam.questionCount : 75,
+      subjects: (exam && exam.subjects) ? exam.subjects : []
+    });
+  },
+
   generateAndPrintSheets(instId) {
     const examSelect = document.getElementById('print-exam-select');
+    const classSelect = document.getElementById('print-class-select');
     const typeSelect = document.getElementById('print-type-select');
     if (!examSelect) return;
 
@@ -1416,13 +1581,17 @@ window.App = {
     }
 
     const session = window.PortalStore.getCurrentSession();
-    const students = window.PortalStore.getStudents(instId);
-    const printType = typeSelect.value;
+    let students = window.PortalStore.getStudents(instId);
+    const selectedClass = classSelect ? classSelect.value : 'all';
+    if (selectedClass && selectedClass !== 'all') {
+      students = students.filter(s => s.className === selectedClass);
+    }
+    const printType = typeSelect ? typeSelect.value : 'all_students';
 
     let sheetsHtml = '';
     if (printType === 'all_students') {
       if (students.length === 0) {
-        this.showToast('Kayıtlı talebe bulunamadı. Boş form basılıyor.', 'info');
+        this.showToast('Seçilen şubede kayıtlı talebe bulunamadı. Boş form basılıyor.', 'info');
         for (let i = 0; i < 5; i++) {
           sheetsHtml += window.OpticalSheetGenerator.renderSheetHtml({
             institutionName: session.institutionName,
@@ -1448,7 +1617,7 @@ window.App = {
         });
       }
     } else {
-      const count = printType === 'blank_25' ? 25 : 10;
+      const count = printType === 'blank_50' ? 50 : (printType === 'blank_25' ? 25 : 10);
       for (let i = 0; i < count; i++) {
         sheetsHtml += window.OpticalSheetGenerator.renderSheetHtml({
           institutionName: session.institutionName,

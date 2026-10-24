@@ -48,7 +48,7 @@ const DEFAULT_INSTITUTIONS = [
 const DEFAULT_EXAM_TEMPLATES = [
   {
     id: 'tpl_lgs_90',
-    name: 'LGS Tam Deneme (90 Soru)',
+    name: 'LGS Tam Deneme (90 Soru - 6 Ders)',
     questionCount: 90,
     bookletTypes: ['A', 'B', 'C', 'D'],
     subjects: [
@@ -58,6 +58,46 @@ const DEFAULT_EXAM_TEMPLATES = [
       { name: 'İngilizce', startQ: 41, endQ: 50, wrongPenalty: 0.333, coeff: 1 },
       { name: 'Matematik', startQ: 51, endQ: 70, wrongPenalty: 0.333, coeff: 4 },
       { name: 'Fen Bilimleri', startQ: 71, endQ: 90, wrongPenalty: 0.333, coeff: 4 }
+    ]
+  },
+  {
+    id: 'tpl_ortaokul_75',
+    name: 'Ortaokul Deneme Sınavı (75 Soru - 6 Ders)',
+    questionCount: 75,
+    bookletTypes: ['A', 'B', 'C', 'D'],
+    subjects: [
+      { name: 'Türkçe', startQ: 1, endQ: 15, wrongPenalty: 0.333, coeff: 4 },
+      { name: 'İnkılap Tarihi', startQ: 16, endQ: 25, wrongPenalty: 0.333, coeff: 1 },
+      { name: 'Din Kültürü', startQ: 26, endQ: 35, wrongPenalty: 0.333, coeff: 1 },
+      { name: 'İngilizce', startQ: 36, endQ: 45, wrongPenalty: 0.333, coeff: 1 },
+      { name: 'Matematik', startQ: 46, endQ: 60, wrongPenalty: 0.333, coeff: 4 },
+      { name: 'Fen Bilimleri', startQ: 61, endQ: 75, wrongPenalty: 0.333, coeff: 4 }
+    ]
+  },
+  {
+    id: 'tpl_ortaokul_60',
+    name: 'Ortaokul Deneme Sınavı (60 Soru - 6 Ders)',
+    questionCount: 60,
+    bookletTypes: ['A', 'B', 'C', 'D'],
+    subjects: [
+      { name: 'Türkçe', startQ: 1, endQ: 15, wrongPenalty: 0.333, coeff: 4 },
+      { name: 'Sosyal Bilgiler', startQ: 16, endQ: 25, wrongPenalty: 0.333, coeff: 1 },
+      { name: 'Din Kültürü', startQ: 26, endQ: 30, wrongPenalty: 0.333, coeff: 1 },
+      { name: 'İngilizce', startQ: 31, endQ: 35, wrongPenalty: 0.333, coeff: 1 },
+      { name: 'Matematik', startQ: 36, endQ: 47, wrongPenalty: 0.333, coeff: 4 },
+      { name: 'Fen Bilimleri', startQ: 48, endQ: 60, wrongPenalty: 0.333, coeff: 4 }
+    ]
+  },
+  {
+    id: 'tpl_ortaokul_60_4ders',
+    name: 'Ortaokul 4 Temel Ders Sınavı (60 Soru - 4 Ders x 15)',
+    questionCount: 60,
+    bookletTypes: ['A', 'B', 'C', 'D'],
+    subjects: [
+      { name: 'Türkçe', startQ: 1, endQ: 15, wrongPenalty: 0.333, coeff: 4 },
+      { name: 'Sosyal Bilgiler', startQ: 16, endQ: 30, wrongPenalty: 0.333, coeff: 2 },
+      { name: 'Matematik', startQ: 31, endQ: 45, wrongPenalty: 0.333, coeff: 4 },
+      { name: 'Fen Bilimleri', startQ: 46, endQ: 60, wrongPenalty: 0.333, coeff: 4 }
     ]
   },
   {
@@ -1053,7 +1093,24 @@ class MultiTenantStore {
   getTemplates() {
     try {
       const raw = localStorage.getItem(STORAGE_PREFIX + 'templates');
-      return raw ? JSON.parse(raw) : DEFAULT_EXAM_TEMPLATES;
+      let stored = raw ? JSON.parse(raw) : [];
+      if (!Array.isArray(stored) || stored.length === 0) {
+        localStorage.setItem(STORAGE_PREFIX + 'templates', JSON.stringify(DEFAULT_EXAM_TEMPLATES));
+        return DEFAULT_EXAM_TEMPLATES;
+      }
+      // DEFAULT_EXAM_TEMPLATES içinde yer alan yeni şablonları hafızaya ekle
+      const existingIds = new Set(stored.map(t => t.id));
+      let isUpdated = false;
+      DEFAULT_EXAM_TEMPLATES.forEach(tpl => {
+        if (!existingIds.has(tpl.id)) {
+          stored.push(tpl);
+          isUpdated = true;
+        }
+      });
+      if (isUpdated) {
+        localStorage.setItem(STORAGE_PREFIX + 'templates', JSON.stringify(stored));
+      }
+      return stored;
     } catch {
       return DEFAULT_EXAM_TEMPLATES;
     }
