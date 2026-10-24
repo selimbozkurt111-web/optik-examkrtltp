@@ -413,58 +413,209 @@ class MultiTenantStore {
     }
   }
 
-  // Excel / CSV metninden toplu talebe içe aktarma
-  importStudentsCsv(instId, csvText) {
-    if (!csvText || typeof csvText !== 'string') return { success: false, message: 'Geçersiz dosya.' };
-    const cleanText = csvText.replace(/^\uFEFF/, '').trim();
-    const lines = cleanText.split(/\r?\n/).filter(Boolean);
-    if (lines.length === 0) return { success: false, message: 'Dosya boş.' };
+  // İki boyutlu hücre matrisinden (Excel / CSV / Kopyala-Yapıştır) talebeleri akıllıca ayıklar
+  parseStudentsFromMatrix(matrix) {
+    if (!Array.isArray(matrix) || matrix.length === 0) return [];
 
-    const delimiter = lines[0].includes(';') ? ';' : (lines[0].includes('\t') ? '\t' : ',');
+    // Boş satırları filtrele
+    const cleanRows = matrix.filter(row => {
+      if (!row) return false;
+      if (Array.isArray(row)) {
+        return row.some(cell => cell !== null && cell !== undefined && cell.toString().trim() !== '');
+      }
+      return typeof row === 'object' && Object.keys(row).length > 0;
+    });
+
+    if (cleanRows.length === 0) return [];
+
+    // Eğer satırlar nesne formatındaysa (örn. [{ 'Okul No': 101, 'Adı': 'Ahmet' }])
+    if (!Array.isArray(cleanRows[0]) && typeof cleanRows[0] === 'object') {
+      const keys = Object.keys(cleanRows[0]);
+      const headerRow = keys;
+      const dataRows = cleanRows.map(obj => keys.map(k => obj[k]));
+      return this.parseStudentsFromMatrix([headerRow, ...dataRows]);
+    }
+
+    const firstRow = cleanRows[0].map(c => (c !== null && c !== undefined ? c.toString().trim() : ''));
+    
+    // Sütun index tespiti
+    let colNo = -1;
+    let colFullName = -1;
+    let colFirstName = -1;
+    let colLastName = -1;
+    let colClass = -1;
+    let colPhone = -1;
+    let colNotes = -1;
+
+    const norm = (str) => (str || '').toLowerCase()
+      .replace(/İ/g, 'i').replace(/I/g, 'i').replace(/ı/g, 'i')
+      .replace(/Ğ/g, 'g').replace(/ğ/g, 'g')
+      .replace(/Ü/g, 'u').replace(/ü/g, 'u')
+      .replace(/Ş/g, 's').replace(/ş/g, 's')
+      .replace(/Ö/g, 'o').replace(/ö/g, 'o')
+      .replace(/Ç/g, 'c').replace(/ç/g, 'c')
+      .replace(/[^a-z0-9]/g, '');
+
+    let hasHeader = false;
+    firstRow.forEach((cell, idx) => {
+      const n = norm(cell);
+      if (n.includes('adsoyad') || n.includes('isimsoyisim') || (n.includes('ogrenci') && n.includes('ad')) || n.includes('talebead')) {
+        colFullName = idx;
+        hasHeader = true;
+      } else if (n === 'ad' || n === 'adi' || n === 'isim' || n === 'isimi' || n === 'talebe' || n === 'ogrenci') {
+        colFirstName = idx;
+        hasHeader = true;
+      } else if (n === 'soyad' || n === 'soyadi' || n === 'soyisim' || n === 'soyisimi') {
+        colLastName = idx;
+        hasHeader = true;
+      } else if (n.includes('no') || n.includes('numara') || n.includes('okulno') || n === 'id' || n.includes('tc') || n === 'sira') {
+        colNo = idx;
+        hasHeader = true;
+      } else if (n.includes('sinif') || n.includes('sube') || n.includes('seviye') || n.includes('grup')) {
+        colClass = idx;
+        hasHeader = true;
+      } else if (n.includes('tel') || n.includes('telefon') || n.includes('gsm') || n.includes('cep') || n.includes('veli')) {
+        colPhone = idx;
+        hasHeader = true;
+      } else if (n.includes('not') || n.includes('aciklama') || n.includes('bilgi')) {
+        colNotes = idx;
+        hasHeader = true;
+      }
+    });
+
+    const startRow = hasHeader ? 1 : 0;
+
+    // Başlık bulunamadıysa varsayılan pozisyonları tahmin et
+    if (!hasHeader) {
+      colNo = 0;
+      colFirstName = 1;
+      colLastName = 2;
+      colClass = 3;
+      colPhone = 4;
+      colNotes = 5;
+    } else {
+      if (colFirstName === -1 && colFullName === -1) {
+        for (let i = 0; i < firstRow.length; i++) {
+          if (i !== colNo && i !== colClass && i !== colPhone && i !== colNotes) {
+            colFullName = i;
+            break;
+          }
+        }
+      }
+      if (colNo === -1) {
+        for (let i = 0; i < firstRow.length; i++) {
+          if (i !== colFirstName && i !== colLastName && i !== colFullName && i !== colClass && i !== colPhone) {
+            colNo = i;
+            break;
+          }
+        }
+      }
+      if (colClass === -1) {
+        for (let i = 0; i < firstRow.length; i++) {
+          if (i !== colNo && i !== colFirstName && i !== colLastName && i !== colFullName && i !== colPhone && i !== colNotes) {
+            colClass = i;
+            break;
+          }
+        }
+      }
+    }
+
+    const students = [];
+    for (let r = startRow; r < cleanRows.length; r++) {
+      const row = cleanRows[r];
+      if (!row || row.length === 0) continue;
+
+      const getVal = (idx) => (idx >= 0 && idx < row.length && row[idx] !== null && row[idx] !== undefined)
+        ? row[idx].toString().trim().replace(/^["']|["']$/g, '')
+        : '';
+
+      let rawNo = getVal(colNo);
+      let rawFirst = getVal(colFirstName);
+      let rawLast = getVal(colLastName);
+      let rawFull = getVal(colFullName);
+      let rawClass = getVal(colClass);
+      let rawPhone = getVal(colPhone);
+      let rawNotes = getVal(colNotes);
+
+      // Ad - Soyad birleşikse ayrıştır
+      if (rawFull && (!rawFirst || !rawLast)) {
+        const parts = rawFull.trim().split(/\s+/);
+        if (parts.length > 1) {
+          rawLast = parts.pop();
+          rawFirst = parts.join(' ');
+        } else {
+          rawFirst = rawFull;
+          rawLast = '';
+        }
+      }
+
+      // Eğer hala boşsa ve satırda başka metin varsa
+      if (!rawFirst && !rawLast && row.length >= 2) {
+        rawFirst = (row[1] || '').toString().trim();
+      }
+
+      // Eğer numara yoksa otomatik oluştur
+      if (!rawNo) {
+        rawNo = (100 + r + 1).toString();
+      }
+
+      // Sınıf boşsa standart 8-A ver
+      if (!rawClass) {
+        rawClass = '8-A';
+      }
+
+      // Sadece ad, soyad veya numara doluysa ekle
+      if (rawFirst || rawLast || rawNo) {
+        students.push({
+          studentNo: rawNo,
+          firstName: rawFirst.toUpperCase(),
+          lastName: rawLast.toUpperCase(),
+          className: rawClass.toUpperCase(),
+          parentPhone: rawPhone,
+          notes: rawNotes
+        });
+      }
+    }
+
+    return students;
+  }
+
+  // Talebe listesini doğrudan veritabanına ekle / güncelle
+  importStudentsArray(instId, studentArray) {
+    instId = instId || (this.getCurrentSession() && this.getCurrentSession().institutionId);
+    if (!instId) return { success: false, message: 'Kurum oturumu bulunamadı.' };
+    if (!Array.isArray(studentArray) || studentArray.length === 0) {
+      return { success: false, message: 'İçe aktarılacak talebe bulunamadı.' };
+    }
+
     const currentList = this.getStudents(instId);
     const studentMap = new Map();
     currentList.forEach(s => studentMap.set(s.studentNo || s.id, s));
 
     let addedCount = 0;
-    const startIdx = lines[0].toLowerCase().includes('no') || lines[0].toLowerCase().includes('ad') ? 1 : 0;
+    studentArray.forEach((st, idx) => {
+      const sNo = (st.studentNo || (100 + idx + 1)).toString().trim();
+      const fn = (st.firstName || '').toString().trim().toUpperCase();
+      const ln = (st.lastName || '').toString().trim().toUpperCase();
+      const cName = (st.className || '8-A').toString().trim().toUpperCase();
+      const phone = (st.parentPhone || '').toString().trim();
+      const notes = (st.notes || '').toString().trim();
 
-    for (let i = startIdx; i < lines.length; i++) {
-      const parts = lines[i].split(delimiter).map(p => p.trim().replace(/^["']|["']$/g, ''));
-      if (parts.length >= 2) {
-        const sNo = parts[0] || (Date.now() + '_' + i);
-        let fn = '';
-        let ln = '';
-        let cName = '8-A';
-        let phone = '';
-        let notes = '';
-
-        if (parts.length >= 3) {
-          fn = (parts[1] || '').toUpperCase();
-          ln = (parts[2] || '').toUpperCase();
-          cName = (parts[3] || '8-A').toUpperCase();
-          phone = parts[4] || '';
-          notes = parts[5] || '';
-        } else {
-          const names = (parts[1] || '').split(' ');
-          ln = (names.pop() || '').toUpperCase();
-          fn = (names.join(' ') || parts[1]).toUpperCase();
-        }
-
+      if (fn || ln || sNo) {
         const stObj = {
           id: 'st_' + sNo,
           studentNo: sNo,
           firstName: fn,
           lastName: ln,
-          className: cName,
+          className: cName || '8-A',
           parentPhone: phone,
           notes: notes,
           updatedAt: new Date().toISOString()
         };
-
         studentMap.set(sNo, stObj);
         addedCount++;
       }
-    }
+    });
 
     const finalList = Array.from(studentMap.values()).sort((a, b) => {
       if (a.className !== b.className) return a.className.localeCompare(b.className, 'tr');
@@ -476,6 +627,38 @@ class MultiTenantStore {
       window.CloudSync.syncStudentsBulk(instId, finalList);
     }
     return { success: true, count: finalList.length, added: addedCount };
+  }
+
+  // Excel / CSV metninden toplu talebe içe aktarma
+  importStudentsCsv(instId, csvText) {
+    instId = instId || (this.getCurrentSession() && this.getCurrentSession().institutionId);
+    if (!csvText || typeof csvText !== 'string') return { success: false, message: 'Geçersiz dosya.' };
+    const cleanText = csvText.replace(/^\uFEFF/, '').trim();
+    if (!cleanText) return { success: false, message: 'Dosya boş.' };
+
+    const lines = cleanText.split(/\r?\n/).filter(line => line.trim().length > 0);
+    if (lines.length === 0) return { success: false, message: 'Dosya boş.' };
+
+    const firstLine = lines[0];
+    let delimiter = ';';
+    const semiCount = (firstLine.match(/;/g) || []).length;
+    const commaCount = (firstLine.match(/,/g) || []).length;
+    const tabCount = (firstLine.match(/\t/g) || []).length;
+    const pipeCount = (firstLine.match(/\|/g) || []).length;
+
+    if (tabCount >= semiCount && tabCount >= commaCount && tabCount > 0) delimiter = '\t';
+    else if (pipeCount > semiCount && pipeCount > commaCount) delimiter = '|';
+    else if (semiCount >= commaCount) delimiter = ';';
+    else delimiter = ',';
+
+    const matrix = lines.map(line => line.split(delimiter).map(c => c.trim().replace(/^["']|["']$/g, '')));
+    const parsedStudents = this.parseStudentsFromMatrix(matrix);
+
+    if (parsedStudents.length === 0) {
+      return { success: false, message: 'Dosyadan talebe bilgisi okunamadı. Lütfen şablonu kontrol ediniz.' };
+    }
+
+    return this.importStudentsArray(instId, parsedStudents);
   }
 
   // --- Kurum Bazlı Sınav İşlemleri ---
