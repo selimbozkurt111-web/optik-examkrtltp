@@ -629,10 +629,19 @@ window.App = {
             </div>
           </div>
 
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Toplam Soru Sayısı</label>
               <input type="number" id="exam-form-qcount" min="1" max="300" value="90" readonly class="w-full px-3 py-2 bg-slate-950/80 border border-slate-800 rounded-xl text-emerald-400 font-black text-xs focus:outline-none cursor-default" title="Ders soru sayılarına göre otomatik hesaplanır">
+            </div>
+            <div>
+              <label class="block text-xs font-bold uppercase text-slate-400 mb-1">📖 Kitapçık Sayısı</label>
+              <select id="exam-form-booklet-count" onchange="App.handleBookletCountChange('create', this.value)" class="w-full px-3.5 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-bold text-xs focus:border-emerald-500 focus:outline-none">
+                <option value="1">1 Kitapçık (Yalnızca A)</option>
+                <option value="2">2 Kitapçık (A, B)</option>
+                <option value="3">3 Kitapçık (A, B, C)</option>
+                <option value="4" selected>4 Kitapçık (A, B, C, D)</option>
+              </select>
             </div>
             <div>
               <label class="block text-xs font-bold uppercase text-slate-400 mb-1">🎯 Hedef Sınıf / Şube</label>
@@ -762,6 +771,11 @@ window.App = {
             targetCustom.value = '12. Sınıf / Mezun';
           }
         }
+      }
+      const bCountSelect = document.getElementById('exam-form-booklet-count');
+      if (bCountSelect && tpl.bookletTypes) {
+        bCountSelect.value = tpl.bookletTypes.length.toString();
+        this.handleBookletCountChange('create', tpl.bookletTypes.length);
       }
       this.renderSubjectRows(tpl.subjects || [], 'subject-rows-container');
       this.handleExamQCountChange(tpl.questionCount.toString());
@@ -1130,9 +1144,13 @@ window.App = {
   },
 
   collectBookletKeysFromInputs(prefix, subjects, totalQCount) {
-    const keys = { 'A': '', 'B': '', 'C': '', 'D': '' };
+    const countElem = document.getElementById(prefix === 'edit' ? 'edit-form-booklet-count' : 'exam-form-booklet-count');
+    const bCount = countElem ? (parseInt(countElem.value, 10) || 4) : 4;
+    const activeLetters = ['A', 'B', 'C', 'D'].slice(0, bCount);
 
-    ['A', 'B', 'C', 'D'].forEach(letter => {
+    const keys = {};
+
+    activeLetters.forEach(letter => {
       const container = document.getElementById(`${prefix}-booklet-pane-${letter}`);
       if (container) {
         const inputs = container.querySelectorAll(`input[id^="key-${prefix}-${letter}-"]`);
@@ -1148,12 +1166,40 @@ window.App = {
     if (!keys['A']) {
       keys['A'] = 'A'.repeat(totalQCount);
     }
-    // B, C, D boşsa A'yı devral
-    if (!keys['B']) keys['B'] = keys['A'];
-    if (!keys['C']) keys['C'] = keys['A'];
-    if (!keys['D']) keys['D'] = keys['A'];
+    // Aktif kitapçıklardan boş olanlar A'yı devralır
+    activeLetters.forEach(l => {
+      if (!keys[l]) keys[l] = keys['A'];
+    });
 
     return keys;
+  },
+
+  // Kitapçık Sayısı Değiştirici
+  handleBookletCountChange(prefix, countVal) {
+    const count = Math.max(1, Math.min(4, parseInt(countVal, 10) || 4));
+    const allLetters = ['A', 'B', 'C', 'D'];
+    const activeLetters = allLetters.slice(0, count);
+
+    allLetters.forEach(l => {
+      const btn = document.getElementById(prefix === 'edit' ? `btn-edit-tab-${l}` : `btn-tab-${l}`);
+      const pane = document.getElementById(prefix === 'edit' ? `edit-booklet-pane-${l}` : `create-booklet-pane-${l}`);
+      if (btn) {
+        if (activeLetters.includes(l)) {
+          btn.classList.remove('hidden');
+        } else {
+          btn.classList.add('hidden');
+        }
+      }
+      if (pane && !activeLetters.includes(l)) {
+        pane.classList.add('hidden');
+      }
+    });
+
+    if (prefix === 'edit') {
+      this.switchEditBookletTab('A');
+    } else {
+      this.switchBookletTab('A');
+    }
   },
 
   // Kitapçık Sekmesi Değiştirici
@@ -1181,6 +1227,10 @@ window.App = {
     const examDate = document.getElementById('exam-form-date') ? document.getElementById('exam-form-date').value : new Date().toISOString().split('T')[0];
     const qCount = parseInt(document.getElementById('exam-form-qcount').value, 10) || 20;
 
+    const bCountElem = document.getElementById('exam-form-booklet-count');
+    const bookletCount = bCountElem ? (parseInt(bCountElem.value, 10) || 4) : 4;
+    const bookletTypes = ['A', 'B', 'C', 'D'].slice(0, bookletCount);
+
     const targetSelect = document.getElementById('exam-form-target');
     const targetCustom = document.getElementById('exam-form-target-custom');
     let target = '8. Sınıf';
@@ -1198,7 +1248,7 @@ window.App = {
       examDate,
       questionCount: qCount,
       targetClass: target,
-      bookletTypes: ['A', 'B', 'C', 'D'],
+      bookletTypes: bookletTypes,
       subjects: subjects.length > 0 ? subjects : [{ name: 'Genel', startQ: 1, endQ: qCount, wrongPenalty: 0.333, coeff: 1 }],
       answerKeys: answerKeys,
       canceledQuestions: []
@@ -1237,6 +1287,11 @@ window.App = {
     const currentTarget = exam.targetClass || '';
     const isKnownClass = existingClasses.includes(currentTarget) || ['8. Sınıf', '7. Sınıf', '6. Sınıf', '5. Sınıf', 'Tüm Şubeler', 'TÜM SINIFLAR'].includes(currentTarget);
 
+    const activeBooklets = (Array.isArray(exam.bookletTypes) && exam.bookletTypes.length > 0)
+      ? exam.bookletTypes
+      : (exam.answerKeys ? Object.keys(exam.answerKeys).filter(k => ['A', 'B', 'C', 'D'].includes(k) && exam.answerKeys[k]) : ['A', 'B', 'C', 'D']);
+    const currentBookletCount = Math.max(1, Math.min(4, activeBooklets.length || 4));
+
     const modal = document.createElement('div');
     modal.id = 'edit-exam-modal';
     modal.className = 'fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-sm animate-fade-in';
@@ -1265,10 +1320,19 @@ window.App = {
             </div>
           </div>
 
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Toplam Soru Sayısı</label>
               <input type="number" id="edit-form-qcount" value="${exam.questionCount}" readonly class="w-full px-3 py-2 bg-slate-950/80 border border-slate-800 rounded-xl text-emerald-400 font-black text-xs focus:outline-none cursor-default" title="Ders soru sayılarına göre otomatik hesaplanır">
+            </div>
+            <div>
+              <label class="block text-xs font-bold uppercase text-slate-400 mb-1">📖 Kitapçık Sayısı</label>
+              <select id="edit-form-booklet-count" onchange="App.handleBookletCountChange('edit', this.value)" class="w-full px-3.5 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-bold text-xs focus:border-emerald-500 focus:outline-none">
+                <option value="1" ${currentBookletCount === 1 ? 'selected' : ''}>1 Kitapçık (Yalnızca A)</option>
+                <option value="2" ${currentBookletCount === 2 ? 'selected' : ''}>2 Kitapçık (A, B)</option>
+                <option value="3" ${currentBookletCount === 3 ? 'selected' : ''}>3 Kitapçık (A, B, C)</option>
+                <option value="4" ${currentBookletCount === 4 ? 'selected' : ''}>4 Kitapçık (A, B, C, D)</option>
+              </select>
             </div>
             <div>
               <label class="block text-xs font-bold uppercase text-slate-400 mb-1">🎯 Hedef Sınıf / Şube</label>
@@ -1369,6 +1433,7 @@ window.App = {
 
     this.renderSubjectRows(exam.subjects || [], 'edit-subject-rows-container');
     this.renderBookletSubjectKeys('edit', exam.subjects || [], exam.answerKeys || {});
+    this.handleBookletCountChange('edit', currentBookletCount);
   },
 
   switchEditBookletTab(letter) {
@@ -1407,6 +1472,10 @@ window.App = {
     const subjects = this.collectSubjectsFromForm('edit-subject-rows-container');
     const answerKeys = this.collectBookletKeysFromInputs('edit', subjects, qCount);
 
+    const bCountElem = document.getElementById('edit-form-booklet-count');
+    const bookletCount = bCountElem ? (parseInt(bCountElem.value, 10) || 4) : 4;
+    const bookletTypes = ['A', 'B', 'C', 'D'].slice(0, bookletCount);
+
     const canceledRaw = document.getElementById('edit-form-canceled').value;
     const canceled = canceledRaw
       .split(',')
@@ -1418,6 +1487,7 @@ window.App = {
       examDate,
       questionCount: qCount,
       targetClass: target,
+      bookletTypes,
       subjects: subjects.length > 0 ? subjects : [{ name: 'Genel', startQ: 1, endQ: qCount, wrongPenalty: 0.333, coeff: 1 }],
       answerKeys,
       canceledQuestions: canceled
@@ -2025,7 +2095,8 @@ window.App = {
                   { name: 'İngilizce', startQ: 41, endQ: 50 },
                   { name: 'Matematik', startQ: 51, endQ: 70 },
                   { name: 'Fen Bilimleri', startQ: 71, endQ: 90 }
-                ]
+                ],
+                bookletTypes: exams[0] ? exams[0].bookletTypes : undefined
               })}
             </div>
           </div>
@@ -2060,7 +2131,8 @@ window.App = {
       examTitle: exam ? exam.title : 'Deneme Sınavı',
       student: sampleStudent,
       questionCount: exam ? exam.questionCount : 75,
-      subjects: (exam && exam.subjects) ? exam.subjects : []
+      subjects: (exam && exam.subjects) ? exam.subjects : [],
+      bookletTypes: exam ? exam.bookletTypes : undefined
     });
   },
 
@@ -2097,6 +2169,7 @@ window.App = {
             student: null,
             questionCount: exam.questionCount,
             subjects: exam.subjects,
+            bookletTypes: exam.bookletTypes,
             examId: exam.id
           });
         }
@@ -2109,6 +2182,7 @@ window.App = {
             student: st,
             questionCount: exam.questionCount,
             subjects: exam.subjects,
+            bookletTypes: exam.bookletTypes,
             examId: exam.id
           });
         });
@@ -2123,6 +2197,7 @@ window.App = {
           student: null,
           questionCount: exam.questionCount,
           subjects: exam.subjects,
+          bookletTypes: exam.bookletTypes,
           examId: exam.id
         });
       }
@@ -2152,6 +2227,13 @@ window.App = {
             <select id="scanner-student-select" class="w-full sm:w-auto px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-medium text-xs">
               <option value="">-- Talebe Seç (veya QR Koddan Oku) --</option>
               ${students.map(s => `<option value="${s.studentNo}">${s.studentNo} - ${s.firstName} ${s.lastName} (${s.className})</option>`).join('')}
+            </select>
+            <select id="scanner-booklet-select" class="w-full sm:w-auto px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-medium text-xs" title="Kitapçık Türü">
+              <option value="auto">📖 Kitapçık: Otomatik (OMR/QR)</option>
+              <option value="A">Kitapçık A</option>
+              <option value="B">Kitapçık B</option>
+              <option value="C">Kitapçık C</option>
+              <option value="D">Kitapçık D</option>
             </select>
           </div>
 
@@ -2315,6 +2397,10 @@ window.App = {
         },
         (statusMsg) => {
           if (statusBadge) statusBadge.textContent = statusMsg;
+        },
+        () => {
+          const bookletSelect = document.getElementById('scanner-booklet-select');
+          return (bookletSelect && bookletSelect.value !== 'auto') ? bookletSelect.value : null;
         }
       );
       this.showToast('⚡ Seri otomatik okuma devrede! Kağıtları sırayla kameraya tutun.', 'success');
@@ -2361,7 +2447,10 @@ window.App = {
       return;
     }
 
-    const result = window.OmrScanner.scanCurrentFrame(video, canvas, studentNo, 'A');
+    const bookletSelect = document.getElementById('scanner-booklet-select');
+    const selectedBooklet = (bookletSelect && bookletSelect.value !== 'auto') ? bookletSelect.value : null;
+
+    const result = window.OmrScanner.scanCurrentFrame(video, canvas, studentNo, selectedBooklet);
     if (!result) {
       this.showToast('Optik form algılanamadı. Lütfen beyaz A4 kağıdı kamera çerçevesine net şekilde hizalayınız.', 'warning');
       return;
@@ -2387,7 +2476,7 @@ window.App = {
               <span class="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Son Okunan Kağıt</span>
             `}
             <h3 class="text-lg font-black text-white mt-0.5">${result.studentName}</h3>
-            <span class="text-xs text-slate-400 font-mono">${result.studentNo ? `No: ${result.studentNo} • ` : ''}Sınıf: ${result.className}</span>
+            <span class="text-xs text-slate-400 font-mono">${result.studentNo ? `No: ${result.studentNo} • ` : ''}Sınıf: ${result.className} • Kitapçık: <span class="text-emerald-400 font-bold">${result.booklet || 'A'}</span></span>
           </div>
           <div class="text-right">
             <span class="text-2xl font-black ${isBlank ? 'text-amber-400' : 'text-emerald-400'} font-mono">${result.totalScore}</span>

@@ -176,7 +176,7 @@ window.OmrScanner = {
 
     // QR Kod Okuma (jsQR kütüphanesi yüklüyse kağıt üzerindeki bilgileri çöz)
     let detectedStudentNo = studentNoOverride;
-    let detectedBooklet = booklet || 'A';
+    let detectedBooklet = (booklet && booklet !== 'auto') ? booklet : null;
 
     if (typeof jsQR !== 'undefined') {
       try {
@@ -186,7 +186,10 @@ window.OmrScanner = {
           const parts = qrCode.data.split('|');
           parts.forEach(p => {
             if (p.startsWith('ST:')) detectedStudentNo = p.substring(3).trim();
-            if (p.startsWith('BK:')) detectedBooklet = p.substring(3).trim();
+            if (p.startsWith('BK:') && !detectedBooklet) {
+              const bVal = p.substring(3).trim();
+              if (bVal && bVal !== 'AUTO') detectedBooklet = bVal;
+            }
             if (p === 'BLANK' && !studentNoOverride) detectedStudentNo = null;
           });
         }
@@ -253,6 +256,40 @@ window.OmrScanner = {
     const subjects = (exam.subjects && exam.subjects.length > 0) ? exam.subjects : [
       { name: 'Genel', startQ: 1, endQ: qCount }
     ];
+
+    // Kitapçık Türü Optik Kabarcık Taraması (Eğer öğrenci kağıtta A, B, C, D işaretlemişse)
+    const availableBooklets = (Array.isArray(exam.bookletTypes) && exam.bookletTypes.length > 0)
+      ? exam.bookletTypes
+      : ['A', 'B', 'C', 'D'];
+
+    if (!detectedBooklet && availableBooklets.length > 1) {
+      const bBoxX1 = guideX1 + (sheetW * 0.025);
+      const bBoxX2 = guideX1 + (sheetW * 0.155);
+      const bBoxY = guideY1 + (sheetH * 0.44);
+      const bPaperRef = sampleDarkness(bBoxX1, bBoxY, 3);
+      const bStep = (bBoxX2 - bBoxX1) / availableBooklets.length;
+
+      let bestOpt = null;
+      let maxScore = 0;
+
+      availableBooklets.forEach((bLet, bIdx) => {
+        const bX = bBoxX1 + (bIdx * bStep) + (bStep * 0.5);
+        const bDark = sampleDarkness(bX, bBoxY, 4);
+        const bScore = bDark - bPaperRef;
+        if (bScore > maxScore && bScore >= 20) {
+          maxScore = bScore;
+          bestOpt = bLet;
+        }
+      });
+
+      if (bestOpt) {
+        detectedBooklet = bestOpt;
+      }
+    }
+
+    if (!detectedBooklet) {
+      detectedBooklet = availableBooklets[0] || 'A';
+    }
 
     const colsCount = Math.max(1, subjects.length);
     const colWidth = (sheetW * 0.74) / colsCount;
@@ -395,7 +432,7 @@ window.OmrScanner = {
   },
 
   // --- 2. SERİ OTOMATİK OKUMA MODU (Hands-Free Continuous Scanning) ---
-  startContinuousScanning(videoElement, canvasElement, onResultCallback, onStatusUpdate) {
+  startContinuousScanning(videoElement, canvasElement, onResultCallback, onStatusUpdate, getBookletOverride) {
     if (this.isContinuousActive) return;
     this.isContinuousActive = true;
     this.sessionScanCount = 0;
@@ -414,7 +451,8 @@ window.OmrScanner = {
       }
 
       // Kameradan kareyi tara
-      const result = this.scanCurrentFrame(videoElement, canvasElement);
+      const overrideBooklet = (typeof getBookletOverride === 'function') ? getBookletOverride() : null;
+      const result = this.scanCurrentFrame(videoElement, canvasElement, null, overrideBooklet);
       if (result) {
         // Aynı kağıt ardı ardına 4 saniye içinde tekrar okunmasın
         if (this.lastScannedKey === result.studentNo && (now - this.lastScannedTime < 4000)) {
