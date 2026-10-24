@@ -718,6 +718,25 @@ window.App = {
             <div id="create-booklet-pane-D" class="create-booklet-pane space-y-2 hidden"></div>
           </div>
 
+          <!-- Soru Konu ve Kazanımları (Seçmeli Havuz) -->
+          <div class="space-y-3 p-3.5 bg-slate-950/80 rounded-2xl border border-slate-800">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800/80 pb-2.5">
+              <div>
+                <label class="text-xs font-black text-white uppercase flex items-center gap-1.5">
+                  <span>🎯</span> <span>Soru Konu & Kazanımları (Seçmeli)</span>
+                </label>
+                <p class="text-[10px] text-slate-400">Her soru için açılır listeden konu seçiniz. Karnelerde konu başarı grafiği üretilir.</p>
+              </div>
+              <button type="button" onclick="App.toggleQuestionTopicsPanel('create')" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 transition cursor-pointer flex items-center gap-1">
+                <span id="btn-toggle-topics-create">Konuları Düzenle ▼</span>
+              </button>
+            </div>
+
+            <div id="create-topics-container" class="space-y-3">
+              <!-- JS ile render edilecek -->
+            </div>
+          </div>
+
           <div class="pt-2">
             <button type="submit" class="w-full py-3.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-slate-950 font-black text-xs rounded-xl shadow-lg transition flex items-center justify-center gap-2 cursor-pointer">
               <span>✓</span> <span>Sınavı Kaydet & Başlat</span>
@@ -779,12 +798,15 @@ window.App = {
       }
       this.renderSubjectRows(tpl.subjects || [], 'subject-rows-container');
       this.handleExamQCountChange(tpl.questionCount.toString());
+      this.renderQuestionTopics('create', tpl.subjects || [], {});
     } else {
       // Özel şablon
       const currentQ = qCountInput ? parseInt(qCountInput.value, 10) || 20 : 20;
-      this.renderSubjectRows([
+      const defaultSubs = [
         { name: 'Bölüm 1', startQ: 1, endQ: currentQ, wrongPenalty: 0.333, coeff: 1 }
-      ], 'subject-rows-container');
+      ];
+      this.renderSubjectRows(defaultSubs, 'subject-rows-container');
+      this.renderQuestionTopics('create', defaultSubs, {});
     }
   },
 
@@ -867,6 +889,8 @@ window.App = {
     if (subjects.length > 0) {
       const currentKeys = this.collectBookletKeysFromInputs(prefix, subjects, totalCount);
       this.renderBookletSubjectKeys(prefix, subjects, currentKeys);
+      const currentTopics = this.collectQuestionTopicsFromInputs(prefix, subjects);
+      this.renderQuestionTopics(prefix, subjects, currentTopics);
     }
   },
 
@@ -1174,6 +1198,171 @@ window.App = {
     return keys;
   },
 
+  // --- Soru Bazlı Konu & Kazanım Seçim Motoru (Seçmeli Havuz) ---
+  toggleQuestionTopicsPanel(prefix) {
+    const container = document.getElementById(`${prefix}-topics-container`);
+    const btn = document.getElementById(`btn-toggle-topics-${prefix}`);
+    if (!container) return;
+    container.classList.toggle('hidden');
+    if (btn) {
+      btn.textContent = container.classList.contains('hidden') ? 'Konuları Düzenle ▼' : 'Kapat ▲';
+    }
+  },
+
+  renderQuestionTopics(prefix, subjects, existingTopics = {}) {
+    const container = document.getElementById(`${prefix}-topics-container`);
+    if (!container) return;
+    if (!Array.isArray(subjects) || subjects.length === 0) {
+      container.innerHTML = `<p class="text-xs text-slate-500 italic p-2">Önce dersleri tanımlayınız.</p>`;
+      return;
+    }
+
+    let html = '';
+    let currentStart = 1;
+
+    subjects.forEach((sub, subIdx) => {
+      const qCount = (sub.endQ && sub.startQ) ? (sub.endQ - sub.startQ + 1) : (sub.questionCount || 10);
+      const startQ = sub.startQ || currentStart;
+      const endQ = sub.endQ || (startQ + qCount - 1);
+      currentStart = endQ + 1;
+
+      const subName = sub.name || `Ders ${subIdx + 1}`;
+      const topicPool = (window.PortalStore && typeof window.PortalStore.getSubjectTopics === 'function')
+        ? window.PortalStore.getSubjectTopics(subName)
+        : [];
+
+      // Soru soru dropdown seçimleri
+      let questionsHtml = '';
+      for (let q = startQ; q <= endQ; q++) {
+        const curTopic = (existingTopics && (existingTopics[q] || existingTopics[q.toString()])) ? existingTopics[q].toString().trim() : '';
+        const isKnown = curTopic && topicPool.includes(curTopic);
+        const isCustom = curTopic && !isKnown;
+
+        questionsHtml += `
+          <div class="flex flex-col sm:flex-row sm:items-center gap-1.5 p-2 bg-slate-900/90 border border-slate-800 rounded-xl">
+            <div class="flex items-center gap-1.5 flex-shrink-0">
+              <span class="w-8 h-6 rounded bg-slate-800 text-emerald-400 font-mono font-bold text-xs flex items-center justify-center">
+                S.${q}
+              </span>
+            </div>
+            <div class="flex-1 min-w-0 flex items-center gap-1">
+              <select id="topic-select-${prefix}-${q}" onchange="App.handleTopicSelectChange(this, '${prefix}', ${q})" class="w-full bg-slate-950 border border-slate-800 rounded-lg text-slate-200 text-xs px-2 py-1.5 focus:border-emerald-500 focus:outline-none ${isCustom ? 'hidden' : ''}">
+                <option value="">-- Konu Seçiniz --</option>
+                ${topicPool.map(t => `<option value="${t}" ${t === curTopic ? 'selected' : ''}>${t}</option>`).join('')}
+                <option value="custom" ${isCustom ? 'selected' : ''}>✍️ Diğer / Yeni Konu Yaz...</option>
+              </select>
+              <div id="topic-custom-wrapper-${prefix}-${q}" class="flex-1 flex items-center gap-1 ${isCustom ? '' : 'hidden'}">
+                <input type="text" id="topic-custom-${prefix}-${q}" value="${isCustom ? curTopic : ''}" placeholder="Konu adını yazınız..." class="w-full bg-slate-950 border border-emerald-500 rounded-lg text-emerald-300 text-xs px-2 py-1.5 focus:outline-none">
+                <button type="button" onclick="App.revertToTopicSelect('${prefix}', ${q})" class="px-2 py-1 bg-slate-800 text-slate-300 rounded text-[11px] font-bold" title="Listeye Geri Dön">↩</button>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      html += `
+        <div class="bg-slate-950/60 border border-slate-800/90 rounded-2xl p-3 space-y-2.5">
+          <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-2 border-b border-slate-800/60 pb-2">
+            <div class="flex items-center gap-2">
+              <span class="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-400 font-bold text-xs">${subName}</span>
+              <span class="text-[11px] text-slate-400 font-mono">(${startQ} - ${endQ}. Sorular • ${qCount} Soru)</span>
+            </div>
+            
+            <!-- Hızlı Toplu Konu Seçici -->
+            <div class="flex items-center gap-1.5 bg-slate-900/80 px-2 py-1 rounded-xl border border-slate-800">
+              <span class="text-[10px] text-slate-400 font-medium whitespace-nowrap">⚡ Toplu konu ata:</span>
+              <select id="bulk-topic-${prefix}-${subIdx}" class="bg-slate-950 border border-slate-700 rounded-lg text-[11px] text-slate-200 px-2 py-1 focus:outline-none max-w-[180px]">
+                <option value="">-- Konu Seçiniz --</option>
+                ${topicPool.map(t => `<option value="${t}">${t}</option>`).join('')}
+              </select>
+              <button type="button" onclick="App.applyBulkTopicToSubject('${prefix}', ${subIdx}, ${startQ}, ${endQ})" class="px-2 py-1 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold text-[10px] rounded-lg transition cursor-pointer">
+                Tümüne Uygula
+              </button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-60 overflow-y-auto pr-1">
+            ${questionsHtml}
+          </div>
+        </div>
+      `;
+    });
+
+    container.innerHTML = html;
+  },
+
+  handleTopicSelectChange(selectElem, prefix, qNum) {
+    const customWrapper = document.getElementById(`topic-custom-wrapper-${prefix}-${qNum}`);
+    const customInp = document.getElementById(`topic-custom-${prefix}-${qNum}`);
+    if (!customWrapper) return;
+    if (selectElem.value === 'custom') {
+      selectElem.classList.add('hidden');
+      customWrapper.classList.remove('hidden');
+      if (customInp) customInp.focus();
+    } else {
+      customWrapper.classList.add('hidden');
+      selectElem.classList.remove('hidden');
+    }
+  },
+
+  revertToTopicSelect(prefix, qNum) {
+    const select = document.getElementById(`topic-select-${prefix}-${qNum}`);
+    const customWrapper = document.getElementById(`topic-custom-wrapper-${prefix}-${qNum}`);
+    const customInp = document.getElementById(`topic-custom-${prefix}-${qNum}`);
+    if (customWrapper) customWrapper.classList.add('hidden');
+    if (customInp) customInp.value = '';
+    if (select) {
+      select.classList.remove('hidden');
+      select.value = '';
+      select.focus();
+    }
+  },
+
+  applyBulkTopicToSubject(prefix, subIdx, startQ, endQ) {
+    const bulkSelect = document.getElementById(`bulk-topic-${prefix}-${subIdx}`);
+    if (!bulkSelect || !bulkSelect.value) {
+      this.showToast('Lütfen önce bir konu seçiniz.', 'warning');
+      return;
+    }
+    const val = bulkSelect.value;
+    for (let q = startQ; q <= endQ; q++) {
+      const select = document.getElementById(`topic-select-${prefix}-${q}`);
+      const customWrapper = document.getElementById(`topic-custom-wrapper-${prefix}-${q}`);
+      const customInp = document.getElementById(`topic-custom-${prefix}-${q}`);
+      if (select) {
+        select.value = val;
+        select.classList.remove('hidden');
+      }
+      if (customWrapper) customWrapper.classList.add('hidden');
+      if (customInp) customInp.value = '';
+    }
+    this.showToast(`✓ "${val}" konusu ${startQ}-${endQ}. sorulara topluca uygulandı!`, 'success');
+  },
+
+  collectQuestionTopicsFromInputs(prefix, subjects) {
+    const questionTopics = {};
+    if (!Array.isArray(subjects)) return questionTopics;
+
+    subjects.forEach(sub => {
+      const startQ = sub.startQ || 1;
+      const endQ = sub.endQ || startQ;
+      for (let q = startQ; q <= endQ; q++) {
+        const select = document.getElementById(`topic-select-${prefix}-${q}`);
+        const customInp = document.getElementById(`topic-custom-${prefix}-${q}`);
+        if (select) {
+          if (select.value === 'custom') {
+            const customVal = customInp ? customInp.value.trim() : '';
+            if (customVal) questionTopics[q] = customVal;
+          } else if (select.value) {
+            questionTopics[q] = select.value.trim();
+          }
+        }
+      }
+    });
+
+    return questionTopics;
+  },
+
   // Kitapçık Sayısı Değiştirici
   handleBookletCountChange(prefix, countVal) {
     const count = Math.max(1, Math.min(4, parseInt(countVal, 10) || 4));
@@ -1242,6 +1431,7 @@ window.App = {
 
     const subjects = this.collectSubjectsFromForm('subject-rows-container');
     const answerKeys = this.collectBookletKeysFromInputs('create', subjects, qCount);
+    const questionTopics = this.collectQuestionTopicsFromInputs('create', subjects);
 
     const examData = {
       title,
@@ -1249,6 +1439,7 @@ window.App = {
       questionCount: qCount,
       targetClass: target,
       bookletTypes: bookletTypes,
+      questionTopics: questionTopics,
       subjects: subjects.length > 0 ? subjects : [{ name: 'Genel', startQ: 1, endQ: qCount, wrongPenalty: 0.333, coeff: 1 }],
       answerKeys: answerKeys,
       canceledQuestions: []
@@ -1421,6 +1612,25 @@ window.App = {
             <div id="edit-booklet-pane-D" class="edit-booklet-pane space-y-2 hidden"></div>
           </div>
 
+          <!-- Soru Konu ve Kazanımları (Seçmeli Havuz) -->
+          <div class="space-y-3 p-3.5 bg-slate-950/80 rounded-2xl border border-slate-800">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800/80 pb-2.5">
+              <div>
+                <label class="text-xs font-black text-white uppercase flex items-center gap-1.5">
+                  <span>🎯</span> <span>Soru Konu & Kazanımları (Seçmeli)</span>
+                </label>
+                <p class="text-[10px] text-slate-400">Her soru için açılır listeden konu seçiniz. Karnelerde konu başarı grafiği üretilir.</p>
+              </div>
+              <button type="button" onclick="App.toggleQuestionTopicsPanel('edit')" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 transition cursor-pointer flex items-center gap-1">
+                <span id="btn-toggle-topics-edit">Konuları Düzenle ▼</span>
+              </button>
+            </div>
+
+            <div id="edit-topics-container" class="space-y-3">
+              <!-- JS ile render edilecek -->
+            </div>
+          </div>
+
           <div class="pt-2">
             <button type="submit" class="w-full py-3.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-slate-950 font-black text-xs rounded-xl shadow-lg transition flex items-center justify-center gap-2 cursor-pointer">
               <span>💾</span> <span>Değişiklikleri Kaydet & Tüm Sonuçları Yeniden Hesapla</span>
@@ -1434,6 +1644,7 @@ window.App = {
     this.renderSubjectRows(exam.subjects || [], 'edit-subject-rows-container');
     this.renderBookletSubjectKeys('edit', exam.subjects || [], exam.answerKeys || {});
     this.handleBookletCountChange('edit', currentBookletCount);
+    this.renderQuestionTopics('edit', exam.subjects || [], exam.questionTopics || {});
   },
 
   switchEditBookletTab(letter) {
@@ -1471,6 +1682,7 @@ window.App = {
 
     const subjects = this.collectSubjectsFromForm('edit-subject-rows-container');
     const answerKeys = this.collectBookletKeysFromInputs('edit', subjects, qCount);
+    const questionTopics = this.collectQuestionTopicsFromInputs('edit', subjects);
 
     const bCountElem = document.getElementById('edit-form-booklet-count');
     const bookletCount = bCountElem ? (parseInt(bCountElem.value, 10) || 4) : 4;
@@ -1488,6 +1700,7 @@ window.App = {
       questionCount: qCount,
       targetClass: target,
       bookletTypes,
+      questionTopics,
       subjects: subjects.length > 0 ? subjects : [{ name: 'Genel', startQ: 1, endQ: qCount, wrongPenalty: 0.333, coeff: 1 }],
       answerKeys,
       canceledQuestions: canceled
@@ -2503,9 +2716,34 @@ window.App = {
           </div>
         </div>
 
+        ${(result.topicAnalysis && result.topicAnalysis.length > 0) ? `
+          <div class="bg-slate-950/70 border border-slate-800 rounded-2xl p-3 mb-4">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-[11px] font-bold text-indigo-400 uppercase tracking-wider flex items-center gap-1">
+                <span>🎯</span> <span>Konu Başarı Analizi</span>
+              </span>
+              <span class="text-[10px] text-slate-400 font-mono">${result.topicAnalysis.length} Konu</span>
+            </div>
+            <div class="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+              ${result.topicAnalysis.slice(0, 6).map(t => `
+                <div class="flex items-center justify-between text-[11px]">
+                  <span class="text-slate-300 truncate max-w-[180px]">${t.subject}: <strong class="text-white">${t.topic}</strong></span>
+                  <div class="flex items-center gap-1.5 font-mono">
+                    <span class="${t.percent >= 70 ? 'text-emerald-400' : (t.percent >= 40 ? 'text-amber-400' : 'text-rose-400')} font-bold">%${t.percent}</span>
+                    <span class="text-slate-500 text-[10px]">(${t.correct}/${t.total} D)</span>
+                  </div>
+                </div>
+              `).join('')}
+              ${result.topicAnalysis.length > 6 ? `
+                <div class="text-[10px] text-indigo-300 text-center pt-1">+${result.topicAnalysis.length - 6} konu daha (Karneden inceleyin)</div>
+              ` : ''}
+            </div>
+          </div>
+        ` : ''}
+
         <div class="flex gap-2">
           ${(result.parentPhone && !isBlank) ? `
-            <button onclick="App.sendWhatsAppCard('${encodeURIComponent(result.parentPhone)}', '${encodeURIComponent(result.studentName)}', '${result.totalNet}', '${result.totalScore}')" class="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs rounded-xl shadow transition flex items-center justify-center gap-1.5 cursor-pointer">
+            <button onclick="App.sendWhatsAppCard('${encodeURIComponent(result.parentPhone)}', '${encodeURIComponent(result.studentName)}', '${result.totalNet}', '${result.totalScore}', '${encodeURIComponent(JSON.stringify(result.topicAnalysis || []))}')" class="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs rounded-xl shadow transition flex items-center justify-center gap-1.5 cursor-pointer">
               <span>💬</span> <span>Veliye WhatsApp Karnesi Gönder</span>
             </button>
           ` : ''}
@@ -2517,10 +2755,28 @@ window.App = {
     `;
   },
 
-  sendWhatsAppCard(phone, name, net, score) {
+  sendWhatsAppCard(phone, name, net, score, topicsJson = null) {
     const cleanPhone = phone.replace(/\D/g, '');
     const cleanName = decodeURIComponent(name);
-    const message = `*DENEME SINAVI SONUÇ BİLGİLENDİRMESİ*\n\nSayın Velimiz,\nTalebeniz *${cleanName}* deneme sınavını tamamlamıştır:\n\n• Toplam Net: *${net}*\n• Sınav Puanı: *${score}*\n\nTalebemizi tebrik eder, başarılarının devamını dileriz.`;
+    let topicText = '';
+    if (topicsJson) {
+      try {
+        const topics = typeof topicsJson === 'string' ? JSON.parse(decodeURIComponent(topicsJson)) : topicsJson;
+        if (Array.isArray(topics) && topics.length > 0) {
+          const weakTopics = topics.filter(t => t.percent < 60);
+          const strongTopics = topics.filter(t => t.percent >= 80);
+          if (weakTopics.length > 0) {
+            topicText += `\n\n📌 *Tekrar Edilmesi Önerilen Konular:*\n` + weakTopics.slice(0, 4).map(t => `• ${t.topic} (%${t.percent} başarı - ${t.correct}/${t.total} D)`).join('\n');
+          }
+          if (strongTopics.length > 0) {
+            topicText += `\n\n🌟 *Güçlü Konular:*\n` + strongTopics.slice(0, 3).map(t => `• ${t.topic} (%${t.percent})`).join('\n');
+          }
+        }
+      } catch (e) {
+        console.error('WhatsApp konu parse hatası', e);
+      }
+    }
+    const message = `*DENEME SINAVI SONUÇ BİLGİLENDİRMESİ*\n\nSayın Velimiz,\nTalebeniz *${cleanName}* deneme sınavını tamamlamıştır:\n\n• Toplam Net: *${net}*\n• Sınav Puanı: *${score}*${topicText}\n\nTalebemizi tebrik eder, başarılarının devamını dileriz.`;
     const url = `https://wa.me/90${cleanPhone.startsWith('0') ? cleanPhone.substring(1) : cleanPhone}?text=${encodeURIComponent(message)}`;
     window.open(url, '_blank');
   },
@@ -2552,6 +2808,9 @@ window.App = {
             </button>
             <button onclick="App.showItemAnalysisModal('${instId}', '${currentExam.id}', false)" class="flex-1 sm:flex-initial px-3 py-2 bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-slate-950 font-bold text-xs rounded-xl border border-amber-500/40 transition flex items-center justify-center gap-1 cursor-pointer" title="Soru ve Madde Başarı Analizi">
               <span>📊</span> <span>Soru Analizi</span>
+            </button>
+            <button onclick="App.showTopicAnalysisModal('${instId}', '${currentExam.id}', false)" class="flex-1 sm:flex-initial px-3 py-2 bg-indigo-600/20 hover:bg-indigo-600 text-indigo-300 hover:text-white font-bold text-xs rounded-xl border border-indigo-500/40 transition flex items-center justify-center gap-1 cursor-pointer" title="Konu ve Kazanım Başarı Analizi">
+              <span>🎯</span> <span>Konu Analizi</span>
             </button>
             <button onclick="App.showBatchWhatsAppModal('${instId}', '${currentExam.id}')" class="flex-1 sm:flex-initial px-3 py-2 bg-emerald-600/20 hover:bg-emerald-600 text-emerald-300 hover:text-white font-bold text-xs rounded-xl border border-emerald-500/40 transition flex items-center justify-center gap-1 cursor-pointer" title="Sınıfa Toplu WhatsApp Karnesi Gönder">
               <span>💬</span> <span>Toplu WhatsApp</span>
@@ -2607,11 +2866,14 @@ window.App = {
                         <button onclick="App.showManualResultModal('${instId}', '${currentExam.id}', '${r.studentNo}')" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-amber-300 rounded-lg text-[11px] font-bold transition cursor-pointer" title="Cevapları / Puanı Elle Düzenle">
                           ✍️
                         </button>
+                        <button onclick="App.showStudentTopicAnalysisModal('${instId}', '${currentExam.id}', '${r.studentNo}')" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-indigo-300 rounded-lg text-[11px] font-bold transition cursor-pointer" title="Talebenin Konu ve Kazanım Karnesi">
+                          🎯
+                        </button>
                         <button onclick="App.printSingleReportCard('${instId}', '${currentExam.id}', '${r.studentNo}')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 rounded-lg text-[11px] font-bold transition flex items-center gap-1 cursor-pointer" title="Renkli & Grafikli A4 Karne Bas">
                           <span>📜</span> <span>Karne</span>
                         </button>
                         ${r.parentPhone ? `
-                          <button onclick="App.sendWhatsAppCard('${encodeURIComponent(r.parentPhone)}', '${encodeURIComponent(r.studentName)}', '${r.totalNet}', '${r.totalScore}')" class="px-2.5 py-1 bg-emerald-600/30 hover:bg-emerald-600 text-emerald-300 hover:text-white rounded-lg text-[11px] font-bold transition cursor-pointer" title="WhatsApp Gönder">
+                          <button onclick="App.sendWhatsAppCard('${encodeURIComponent(r.parentPhone)}', '${encodeURIComponent(r.studentName)}', '${r.totalNet}', '${r.totalScore}', '${encodeURIComponent(JSON.stringify(r.topicAnalysis || []))}')" class="px-2.5 py-1 bg-emerald-600/30 hover:bg-emerald-600 text-emerald-300 hover:text-white rounded-lg text-[11px] font-bold transition cursor-pointer" title="WhatsApp Gönder">
                             💬
                           </button>
                         ` : ''}
@@ -2733,6 +2995,9 @@ window.App = {
                       <button onclick="App.showItemAnalysisModal(null, '${gExam.id}', true)" class="flex-1 py-1.5 bg-slate-800 hover:bg-slate-700 text-amber-300 font-bold text-xs rounded-xl transition flex items-center justify-center gap-1" title="Madde & Soru Analizi">
                         <span>📊</span> <span>Analiz</span>
                       </button>
+                      <button onclick="App.showTopicAnalysisModal(null, '${gExam.id}', true)" class="flex-1 py-1.5 bg-slate-800 hover:bg-slate-700 text-indigo-300 font-bold text-xs rounded-xl transition flex items-center justify-center gap-1" title="Konu & Kazanım Analizi">
+                        <span>🎯</span> <span>Konu</span>
+                      </button>
                       <button onclick="App.showEditExamModal(null, '${gExam.id}', true)" class="flex-1 py-1.5 bg-slate-800 hover:bg-slate-700 text-emerald-300 font-bold text-xs rounded-xl transition flex items-center justify-center gap-1" title="Sınavı Düzenle & Soru İptali">
                         <span>✏️</span> <span>Düzenle</span>
                       </button>
@@ -2787,6 +3052,9 @@ window.App = {
           <div class="flex items-center gap-2">
             <button onclick="App.showItemAnalysisModal(null, '${exam.id}', true)" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-amber-300 text-xs font-bold rounded-xl border border-slate-700 transition flex items-center gap-1 cursor-pointer">
               <span>📊</span> <span>Soru Analizi</span>
+            </button>
+            <button onclick="App.showTopicAnalysisModal(null, '${exam.id}', true)" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-indigo-300 text-xs font-bold rounded-xl border border-slate-700 transition flex items-center gap-1 cursor-pointer">
+              <span>🎯</span> <span>Konu Analizi</span>
             </button>
             <button onclick="App.downloadResultsCsv(null, '${exam.id}', true)" class="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 text-xs font-black rounded-xl shadow transition flex items-center gap-1 cursor-pointer">
               <span>📥</span> <span>Excel İndir (CSV)</span>
@@ -3217,6 +3485,246 @@ window.App = {
   },
 
   // ==========================================
+  // 11-B. KONU VE KAZANIM BAŞARI ANALİZİ (Topic Analysis)
+  // ==========================================
+  showTopicAnalysisModal(instId, examId, isGlobal = false) {
+    const existing = document.getElementById('topic-analysis-modal');
+    if (existing) existing.remove();
+
+    const exam = isGlobal 
+      ? window.PortalStore.getGlobalExams().find(e => e.id === examId)
+      : window.PortalStore.getExamById(instId, examId);
+
+    if (!exam) {
+      this.showToast('Sınav bulunamadı.', 'error');
+      return;
+    }
+
+    const topics = isGlobal 
+      ? window.PortalStore.getGlobalTopicAnalysis(examId)
+      : window.PortalStore.getExamTopicAnalysis(instId, examId);
+
+    const subjects = exam.subjects || [{ name: 'Genel' }];
+    const strongCount = topics.filter(t => t.percent >= 70).length;
+    const warningCount = topics.filter(t => t.percent >= 40 && t.percent < 70).length;
+    const dangerCount = topics.filter(t => t.percent < 40).length;
+
+    const modal = document.createElement('div');
+    modal.id = 'topic-analysis-modal';
+    modal.className = 'fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-sm animate-fade-in';
+    modal.innerHTML = `
+      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-7 max-w-4xl w-full shadow-2xl relative max-h-[92vh] flex flex-col">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-4 border-b border-slate-800 mb-4 gap-3">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="text-2xl">🎯</span>
+              <h3 class="text-base sm:text-lg font-black text-white">${exam.title} - Konu ve Kazanım Analizi</h3>
+            </div>
+            <p class="text-xs text-slate-400 mt-0.5">
+              ${isGlobal ? 'Ortak Deneme Tüm Kurumlar Katılımı' : 'Kurum Sınav Sonuçları'} (${topics.length} Konu & Kazanım)
+            </p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button onclick="document.getElementById('topic-analysis-modal').remove()" class="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-sm font-bold cursor-pointer">✕</button>
+          </div>
+        </div>
+
+        <!-- Özet İstatistik Kartları -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-4">
+          <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800 text-center">
+            <span class="block text-[10px] text-slate-500 font-bold uppercase">Toplam Konu</span>
+            <span class="text-lg font-black text-white font-mono">${topics.length}</span>
+          </div>
+          <div class="bg-slate-950 p-2.5 rounded-xl border border-emerald-950/50 text-center">
+            <span class="block text-[10px] text-emerald-400 font-bold uppercase">Güçlü Konular (%70+)</span>
+            <span class="text-lg font-black text-emerald-400 font-mono">${strongCount}</span>
+          </div>
+          <div class="bg-slate-950 p-2.5 rounded-xl border border-amber-950/50 text-center">
+            <span class="block text-[10px] text-amber-400 font-bold uppercase">Geliştirilmeli (%40-%69)</span>
+            <span class="text-lg font-black text-amber-400 font-mono">${warningCount}</span>
+          </div>
+          <div class="bg-slate-950 p-2.5 rounded-xl border border-rose-950/50 text-center">
+            <span class="block text-[10px] text-rose-400 font-bold uppercase">Kritik Eksikler (<%40)</span>
+            <span class="text-lg font-black text-rose-400 font-mono">${dangerCount}</span>
+          </div>
+        </div>
+
+        <!-- Ders Filtresi -->
+        <div class="flex items-center gap-2 mb-3">
+          <span class="text-xs text-slate-400 font-bold">Ders Filtrele:</span>
+          <select id="topic-subject-filter" onchange="App.filterTopicAnalysisTable(this.value)" class="px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white font-bold">
+            <option value="all">Tüm Dersler (${topics.length} Konu)</option>
+            ${subjects.map(s => `<option value="${s.name}">${s.name}</option>`).join('')}
+          </select>
+        </div>
+
+        <!-- Konu Analiz Tablosu -->
+        <div class="overflow-y-auto overflow-x-auto w-full max-w-full flex-1 rounded-2xl border border-slate-800" style="-webkit-overflow-scrolling: touch;">
+          <table class="w-full text-left text-xs min-w-[640px]">
+            <thead class="bg-slate-950 border-b border-slate-800 text-slate-400 font-bold uppercase tracking-wider sticky top-0">
+              <tr>
+                <th class="p-2.5">Ders</th>
+                <th class="p-2.5">Konu / Kazanım</th>
+                <th class="p-2.5 text-center">İlgili Sorular</th>
+                <th class="p-2.5">Başarı Yüzdesi</th>
+                <th class="p-2.5 text-center">Ort. Doğru</th>
+                <th class="p-2.5 text-center">Ort. Yanlış</th>
+                <th class="p-2.5 text-center">Durum</th>
+              </tr>
+            </thead>
+            <tbody id="topic-analysis-tbody" class="divide-y divide-slate-800/80">
+              ${topics.length === 0 ? `
+                <tr>
+                  <td colspan="7" class="p-8 text-center text-slate-500">
+                    Bu sınavda henüz sorulara konu/kazanım atanmamış veya taranmış öğrenci kağıdı bulunmuyor. Sınav düzenleme ekranından sorulara MEB konu havuzundan konu atayabilirsiniz.
+                  </td>
+                </tr>
+              ` : topics.map(item => `
+                <tr class="topic-analysis-row hover:bg-slate-800/40 transition" data-subject="${item.subject}">
+                  <td class="p-2.5 font-bold text-white">${item.subject}</td>
+                  <td class="p-2.5 font-medium text-slate-200">${item.topic}</td>
+                  <td class="p-2.5 text-center font-mono text-[11px] text-cyan-300">
+                    ${(item.questionNumbers || []).map(q => '#' + q).join(', ')}
+                  </td>
+                  <td class="p-2.5">
+                    <div class="flex items-center gap-2">
+                      <div class="w-24 bg-slate-800 h-2 rounded-full overflow-hidden">
+                        <div class="h-full rounded-full ${item.percent >= 70 ? 'bg-emerald-500' : (item.percent >= 40 ? 'bg-amber-500' : 'bg-rose-500')}" style="width: ${item.percent}%"></div>
+                      </div>
+                      <span class="font-mono font-bold text-[11px] text-slate-300">${item.percent}%</span>
+                    </div>
+                  </td>
+                  <td class="p-2.5 text-center font-mono font-bold text-emerald-400">${item.avgCorrect}</td>
+                  <td class="p-2.5 text-center font-mono font-bold text-rose-400">${item.avgWrong}</td>
+                  <td class="p-2.5 text-center">
+                    <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${item.status === 'success' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : (item.status === 'warning' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' : 'bg-rose-500/20 text-rose-300 border border-rose-500/40')}">
+                      ${item.status === 'success' ? 'Güçlü' : (item.status === 'warning' ? 'Geliştirilmeli' : 'Kritik Eksik')}
+                    </span>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+  },
+
+  filterTopicAnalysisTable(subjectName) {
+    const rows = document.querySelectorAll('.topic-analysis-row');
+    rows.forEach(r => {
+      if (subjectName === 'all' || r.getAttribute('data-subject') === subjectName) {
+        r.classList.remove('hidden');
+      } else {
+        r.classList.add('hidden');
+      }
+    });
+  },
+
+  showStudentTopicAnalysisModal(instId, examId, studentNo) {
+    const existing = document.getElementById('student-topic-modal');
+    if (existing) existing.remove();
+
+    const exam = window.PortalStore.getExamById(instId, examId) || window.PortalStore.getGlobalExams().find(e => e.id === examId);
+    const rankings = instId ? window.PortalStore.calculateExamRankings(instId, examId) : window.PortalStore.calculateGlobalRankings(examId);
+    const result = rankings.find(r => r.studentNo === studentNo);
+
+    if (!result) {
+      this.showToast('Talebe sınav kaydı bulunamadı.', 'error');
+      return;
+    }
+
+    const topics = result.topicAnalysis || [];
+    const weakTopics = topics.filter(t => t.percent < 60);
+
+    const modal = document.createElement('div');
+    modal.id = 'student-topic-modal';
+    modal.className = 'fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-sm animate-fade-in';
+    modal.innerHTML = `
+      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-7 max-w-3xl w-full shadow-2xl relative max-h-[92vh] flex flex-col">
+        <div class="flex items-center justify-between pb-4 border-b border-slate-800 mb-4">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="text-2xl">🎯</span>
+              <h3 class="text-base sm:text-lg font-black text-white">${result.studentName} - Konu & Kazanım Karnesi</h3>
+            </div>
+            <p class="text-xs text-slate-400 mt-0.5">
+              No: <strong class="text-emerald-400 font-mono">${result.studentNo}</strong> • Sınıf: ${result.className} • Toplam Net: <strong class="text-cyan-400 font-mono">${result.totalNet}</strong> • Puan: <strong class="text-amber-400 font-mono">${result.totalScore}</strong>
+            </p>
+          </div>
+          <button onclick="document.getElementById('student-topic-modal').remove()" class="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-sm font-bold cursor-pointer">✕</button>
+        </div>
+
+        ${weakTopics.length > 0 ? `
+          <div class="bg-rose-950/30 border border-rose-500/40 rounded-2xl p-3.5 mb-4">
+            <span class="text-xs font-bold text-rose-300 uppercase block mb-1">⚠️ Tekrar Edilmesi Önerilen Konular (${weakTopics.length}):</span>
+            <div class="flex flex-wrap gap-1.5">
+              ${weakTopics.map(t => `
+                <span class="px-2.5 py-1 rounded-lg bg-rose-500/20 text-rose-200 border border-rose-500/30 text-xs font-semibold">
+                  ${t.subject}: <strong>${t.topic}</strong> (%${t.percent})
+                </span>
+              `).join('')}
+            </div>
+          </div>
+        ` : ''}
+
+        <div class="overflow-y-auto overflow-x-auto w-full max-w-full flex-1 rounded-2xl border border-slate-800 mb-4" style="-webkit-overflow-scrolling: touch;">
+          <table class="w-full text-left text-xs min-w-[500px]">
+            <thead class="bg-slate-950 border-b border-slate-800 text-slate-400 font-bold uppercase tracking-wider sticky top-0">
+              <tr>
+                <th class="p-2.5">Ders</th>
+                <th class="p-2.5">Konu / Kazanım</th>
+                <th class="p-2.5 text-center">Soru Sayısı</th>
+                <th class="p-2.5 text-center">Doğru</th>
+                <th class="p-2.5 text-center">Yanlış</th>
+                <th class="p-2.5 text-center">Boş</th>
+                <th class="p-2.5">Başarı</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-800/80">
+              ${topics.length === 0 ? `
+                <tr>
+                  <td colspan="7" class="p-8 text-center text-slate-500">Bu sınav soruları için henüz konu tanımlanmamıştır.</td>
+                </tr>
+              ` : topics.map(t => `
+                <tr class="hover:bg-slate-800/40 transition">
+                  <td class="p-2.5 font-bold text-white">${t.subject}</td>
+                  <td class="p-2.5 font-medium text-slate-200">${t.topic}</td>
+                  <td class="p-2.5 text-center font-mono font-bold text-slate-400">${t.total}</td>
+                  <td class="p-2.5 text-center font-mono font-bold text-emerald-400">${t.correct}</td>
+                  <td class="p-2.5 text-center font-mono font-bold text-rose-400">${t.wrong}</td>
+                  <td class="p-2.5 text-center font-mono font-bold text-slate-400">${t.empty}</td>
+                  <td class="p-2.5">
+                    <div class="flex items-center gap-2">
+                      <div class="w-20 bg-slate-800 h-2 rounded-full overflow-hidden">
+                        <div class="h-full rounded-full ${t.percent >= 70 ? 'bg-emerald-500' : (t.percent >= 40 ? 'bg-amber-500' : 'bg-rose-500')}" style="width: ${t.percent}%"></div>
+                      </div>
+                      <span class="font-mono font-bold text-[11px] text-slate-300 min-w-[32px]">${t.percent}%</span>
+                    </div>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="flex justify-end gap-2">
+          ${result.parentPhone ? `
+            <button onclick="App.sendWhatsAppCard('${encodeURIComponent(result.parentPhone)}', '${encodeURIComponent(result.studentName)}', '${result.totalNet}', '${result.totalScore}', '${encodeURIComponent(JSON.stringify(topics))}')" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow transition flex items-center gap-1.5 cursor-pointer">
+              <span>💬</span> <span>Konulu WhatsApp Karnesi Gönder</span>
+            </button>
+          ` : ''}
+          <button onclick="document.getElementById('student-topic-modal').remove()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl transition cursor-pointer">
+            Kapat
+          </button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+  },
+
+  // ==========================================
   // 12. TOPLU VELİ WHATSAPP GÖNDERİM MODÜLÜ
   // ==========================================
   showBatchWhatsAppModal(instId, examId) {
@@ -3289,7 +3797,7 @@ window.App = {
                   <td class="p-2.5 text-center font-mono font-black text-amber-400">${r.totalScore}</td>
                   <td class="p-2.5 text-right">
                     ${r.parentPhone ? `
-                      <button onclick="App.markWhatsAppSent('wa-row-${r.studentNo}', '${encodeURIComponent(r.parentPhone)}', '${encodeURIComponent(r.studentName)}', '${r.totalNet}', '${r.totalScore}')" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] rounded-xl shadow transition flex items-center gap-1.5 ml-auto cursor-pointer">
+                      <button onclick="App.markWhatsAppSent('wa-row-${r.studentNo}', '${encodeURIComponent(r.parentPhone)}', '${encodeURIComponent(r.studentName)}', '${r.totalNet}', '${r.totalScore}', '${encodeURIComponent(JSON.stringify(r.topicAnalysis || []))}')" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] rounded-xl shadow transition flex items-center gap-1.5 ml-auto cursor-pointer">
                         <span>💬</span> <span>Gönder</span>
                       </button>
                     ` : `
@@ -3317,8 +3825,8 @@ window.App = {
     });
   },
 
-  markWhatsAppSent(rowId, phone, name, net, score) {
-    this.sendWhatsAppCard(phone, name, net, score);
+  markWhatsAppSent(rowId, phone, name, net, score, topicsJson = null) {
+    this.sendWhatsAppCard(phone, name, net, score, topicsJson);
     const row = document.getElementById(rowId);
     if (row) {
       const btn = row.querySelector('button');
