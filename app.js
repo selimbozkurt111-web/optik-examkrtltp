@@ -168,9 +168,9 @@ window.App = {
       }
 
       appContainer.innerHTML = `
-        <div class="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
+        <div class="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans w-full max-w-full overflow-x-hidden">
           ${this.renderHeader(session)}
-          <main class="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-6">
+          <main class="flex-1 max-w-7xl w-full mx-auto p-2.5 sm:p-6 min-w-0 overflow-x-hidden">
             ${this.renderTabContent(session)}
           </main>
           ${this.renderFooter()}
@@ -200,86 +200,88 @@ window.App = {
   renderHeader(session) {
     const isSuper = session.role === 'superadmin';
     return `
-      <header class="bg-slate-900 border-b border-slate-800 sticky top-0 z-40 shadow-xl">
-        <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-slate-950 font-black text-xl shadow-lg shadow-emerald-500/20">
+      <header class="bg-slate-900 border-b border-slate-800 sticky top-0 z-40 shadow-xl w-full max-w-full">
+        <div class="max-w-7xl mx-auto px-2.5 sm:px-4 py-2 sm:py-3 flex items-center justify-between gap-2 min-w-0">
+          <div class="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+            <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-slate-950 font-black text-base sm:text-xl shadow-lg shadow-emerald-500/20 flex-shrink-0">
               📸
             </div>
-            <div>
-              <div class="flex items-center gap-2">
-                <h1 class="text-base sm:text-lg font-black tracking-tight text-white">Optik Sınav Portalı</h1>
-                <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${isSuper ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'}">
-                  ${isSuper ? 'Ana Yönetici' : 'Kurs Paneli'}
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center gap-1.5 sm:gap-2">
+                <h1 class="text-xs sm:text-base font-black tracking-tight text-white truncate">Optik Sınav Portalı</h1>
+                <span class="px-1.5 py-0.5 rounded-full text-[9px] sm:text-[10px] font-black uppercase whitespace-nowrap flex-shrink-0 ${isSuper ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'}">
+                  ${isSuper ? 'Ana Yönetici' : 'Kurs'}
                 </span>
               </div>
-              <p class="text-xs text-slate-400 font-medium">${session.institutionName}</p>
+              <p class="text-[10px] sm:text-xs text-slate-400 font-medium truncate">${session.institutionName}</p>
             </div>
           </div>
 
-          <div class="flex items-center gap-2">
+          <div class="flex items-center gap-1 sm:gap-1.5 flex-shrink-0">
             <!-- Tema Değiştir Butonu -->
-            <button onclick="App.showThemeModal()" title="Görünüm ve Tema Seçimi" class="px-2.5 py-1.5 rounded-xl text-xs font-bold border transition flex items-center gap-1.5 bg-slate-800 text-slate-300 border-slate-700 hover:text-white cursor-pointer">
+            <button onclick="App.showThemeModal()" title="Görünüm ve Tema Seçimi" class="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl text-xs font-bold border transition flex items-center gap-1 bg-slate-800 text-slate-300 border-slate-700 hover:text-white cursor-pointer">
               <span>🎨</span>
-              <span class="hidden sm:inline">Tema</span>
+              <span class="hidden md:inline">Tema</span>
             </button>
 
             <!-- Şifre Değiştir Butonu -->
-            <button onclick="App.showChangePasswordModal()" title="Şifre Değiştir" class="px-2.5 py-1.5 rounded-xl text-xs font-bold border transition flex items-center gap-1.5 bg-slate-800 text-amber-300 border-slate-700 hover:text-amber-200 cursor-pointer">
+            <button onclick="App.showChangePasswordModal()" title="Şifre Değiştir" class="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl text-xs font-bold border transition flex items-center gap-1 bg-slate-800 text-amber-300 border-slate-700 hover:text-amber-200 cursor-pointer">
               <span>🔑</span>
-              <span class="hidden sm:inline">Şifre</span>
+              <span class="hidden md:inline">Şifre</span>
             </button>
 
             <!-- Bulut Senkronizasyon Rozeti -->
-            <button id="cloud-sync-badge" onclick="App.showCloudSyncModal()" title="Bulut Senkronizasyon Ayarları" class="px-2.5 py-1.5 rounded-xl text-xs font-bold border transition flex items-center gap-1.5 bg-slate-800 text-slate-300 border-slate-700">
+            <button id="cloud-sync-badge" onclick="App.showCloudSyncModal()" title="Bulut Senkronizasyon Ayarları" class="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl text-xs font-bold border transition flex items-center gap-1 bg-slate-800 text-slate-300 border-slate-700">
               <span class="w-2 h-2 rounded-full bg-slate-400"></span>
-              <span class="hidden sm:inline">Bulut Durumu</span>
+              <span class="hidden md:inline">Bulut</span>
             </button>
 
             ${session.isImpersonating ? `
-              <button onclick="App.returnToSuperAdmin()" class="px-3 py-1.5 bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 border border-amber-500/40 rounded-xl text-xs font-bold transition flex items-center gap-1">
-                <span>👑</span> <span>Merkeze Dön</span>
+              <button onclick="App.returnToSuperAdmin()" class="px-2 sm:px-3 py-1.5 bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 border border-amber-500/40 rounded-xl text-xs font-bold transition flex items-center gap-1">
+                <span>👑</span> <span class="hidden sm:inline">Merkez</span>
               </button>
             ` : ''}
-            <button onclick="App.handleLogout()" class="px-3 py-1.5 bg-slate-800 hover:bg-rose-950/40 hover:text-rose-400 text-slate-300 border border-slate-700 hover:border-rose-800 rounded-xl text-xs font-bold transition flex items-center gap-1">
-              <span>Çıkış</span> <span>🚪</span>
+            <button onclick="App.handleLogout()" class="px-2 sm:px-3 py-1.5 bg-slate-800 hover:bg-rose-950/40 hover:text-rose-400 text-slate-300 border border-slate-700 hover:border-rose-800 rounded-xl text-xs font-bold transition flex items-center gap-1" title="Çıkış Yap">
+              <span class="hidden sm:inline">Çıkış</span> <span>🚪</span>
             </button>
           </div>
         </div>
 
-        <!-- Sekme Menüsü -->
-        <nav class="max-w-7xl mx-auto px-4 flex gap-1 sm:gap-2 overflow-x-auto border-t border-slate-800/80 pt-1 pb-1">
-          ${isSuper ? `
-            <button onclick="App.switchTab('kurumlar')" class="px-4 py-2 rounded-lg text-xs font-bold transition ${this.currentTab === 'kurumlar' ? 'bg-emerald-500 text-slate-950 font-black shadow-md' : 'text-slate-400 hover:text-white'}">
-              🏢 Kurs & Okul Yönetimi
-            </button>
-            <button onclick="App.switchTab('ortak_sinavlar')" class="px-4 py-2 rounded-lg text-xs font-bold transition ${this.currentTab === 'ortak_sinavlar' ? 'bg-emerald-500 text-slate-950 font-black shadow-md' : 'text-slate-400 hover:text-white'}">
-              🌐 Merkezi Ortak Sınavlar
-            </button>
-            <button onclick="App.switchTab('istatistikler')" class="px-4 py-2 rounded-lg text-xs font-bold transition ${this.currentTab === 'istatistikler' ? 'bg-emerald-500 text-slate-950 font-black shadow-md' : 'text-slate-400 hover:text-white'}">
-              📊 Sistem İstatistikleri
-            </button>
-            <button onclick="App.impersonateInstitution('inst_oay'); setTimeout(() => App.switchTab('kamera_tara'), 50);" class="px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 text-emerald-400 hover:text-emerald-300 border border-emerald-500/30 bg-emerald-500/10 cursor-pointer" title="Doğrudan Mobil Optik Okumayı Başlat">
-              <span>📱</span> <span>Kamera ile Oku</span>
-            </button>
-          ` : `
-            <button onclick="App.switchTab('sinavlar')" class="px-3 sm:px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${this.currentTab === 'sinavlar' ? 'bg-emerald-500 text-slate-950 font-black shadow-md' : 'text-slate-400 hover:text-white'}">
-              <span>📝</span> <span>Sınavlar</span>
-            </button>
-            <button onclick="App.switchTab('ogrenciler')" class="px-3 sm:px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${this.currentTab === 'ogrenciler' ? 'bg-emerald-500 text-slate-950 font-black shadow-md' : 'text-slate-400 hover:text-white'}">
-              <span>👥</span> <span>Talebeler</span>
-            </button>
-            <button onclick="App.switchTab('optik_yazdir')" class="px-3 sm:px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${this.currentTab === 'optik_yazdir' ? 'bg-emerald-500 text-slate-950 font-black shadow-md' : 'text-slate-400 hover:text-white'}">
-              <span>🖨️</span> <span>Optik Form Yazdır</span>
-            </button>
-            <button onclick="App.switchTab('kamera_tara')" class="px-3 sm:px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${this.currentTab === 'kamera_tara' ? 'bg-emerald-500 text-slate-950 font-black shadow-md' : 'text-slate-400 hover:text-white'}">
-              <span>📱</span> <span>Kamera ile Oku</span>
-            </button>
-            <button onclick="App.switchTab('neticeler')" class="px-3 sm:px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${this.currentTab === 'neticeler' ? 'bg-emerald-500 text-slate-950 font-black shadow-md' : 'text-slate-400 hover:text-white'}">
-              <span>🏆</span> <span>Neticeler & Sıralama</span>
-            </button>
-          `}
-        </nav>
+        <!-- Sekme Menüsü: Mobilde Taşma Yapmayan Akıcı Kaydırma -->
+        <div class="w-full border-t border-slate-800/80 overflow-hidden">
+          <nav class="max-w-7xl mx-auto px-2 sm:px-4 flex gap-1 sm:gap-2 overflow-x-auto pt-1 pb-1 whitespace-nowrap" style="-webkit-overflow-scrolling: touch;">
+            ${isSuper ? `
+              <button onclick="App.switchTab('kurumlar')" class="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs font-bold transition flex-shrink-0 ${this.currentTab === 'kurumlar' ? 'bg-emerald-500 text-slate-950 font-black shadow-md' : 'text-slate-400 hover:text-white'}">
+                🏢 Kurs & Okul Yönetimi
+              </button>
+              <button onclick="App.switchTab('ortak_sinavlar')" class="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs font-bold transition flex-shrink-0 ${this.currentTab === 'ortak_sinavlar' ? 'bg-emerald-500 text-slate-950 font-black shadow-md' : 'text-slate-400 hover:text-white'}">
+                🌐 Merkezi Ortak Sınavlar
+              </button>
+              <button onclick="App.switchTab('istatistikler')" class="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs font-bold transition flex-shrink-0 ${this.currentTab === 'istatistikler' ? 'bg-emerald-500 text-slate-950 font-black shadow-md' : 'text-slate-400 hover:text-white'}">
+                📊 Sistem İstatistikleri
+              </button>
+              <button onclick="App.impersonateInstitution('inst_oay'); setTimeout(() => App.switchTab('kamera_tara'), 50);" class="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs font-bold transition flex-shrink-0 flex items-center gap-1.5 text-emerald-400 hover:text-emerald-300 border border-emerald-500/30 bg-emerald-500/10 cursor-pointer" title="Doğrudan Mobil Optik Okumayı Başlat">
+                <span>📱</span> <span>Kamera ile Oku</span>
+              </button>
+            ` : `
+              <button onclick="App.switchTab('sinavlar')" class="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs font-bold transition flex-shrink-0 flex items-center gap-1.5 ${this.currentTab === 'sinavlar' ? 'bg-emerald-500 text-slate-950 font-black shadow-md' : 'text-slate-400 hover:text-white'}">
+                <span>📝</span> <span>Sınavlar</span>
+              </button>
+              <button onclick="App.switchTab('ogrenciler')" class="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs font-bold transition flex-shrink-0 flex items-center gap-1.5 ${this.currentTab === 'ogrenciler' ? 'bg-emerald-500 text-slate-950 font-black shadow-md' : 'text-slate-400 hover:text-white'}">
+                <span>👥</span> <span>Talebeler</span>
+              </button>
+              <button onclick="App.switchTab('optik_yazdir')" class="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs font-bold transition flex-shrink-0 flex items-center gap-1.5 ${this.currentTab === 'optik_yazdir' ? 'bg-emerald-500 text-slate-950 font-black shadow-md' : 'text-slate-400 hover:text-white'}">
+                <span>🖨️</span> <span>Optik Form Yazdır</span>
+              </button>
+              <button onclick="App.switchTab('kamera_tara')" class="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs font-bold transition flex-shrink-0 flex items-center gap-1.5 ${this.currentTab === 'kamera_tara' ? 'bg-emerald-500 text-slate-950 font-black shadow-md' : 'text-slate-400 hover:text-white'}">
+                <span>📱</span> <span>Kamera ile Oku</span>
+              </button>
+              <button onclick="App.switchTab('neticeler')" class="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs font-bold transition flex-shrink-0 flex items-center gap-1.5 ${this.currentTab === 'neticeler' ? 'bg-emerald-500 text-slate-950 font-black shadow-md' : 'text-slate-400 hover:text-white'}">
+                <span>🏆</span> <span>Neticeler & Sıralama</span>
+              </button>
+            `}
+          </nav>
+        </div>
       </header>
     `;
   },
@@ -368,12 +370,12 @@ window.App = {
     const list = window.PortalStore.getInstitutions();
     return `
       <div class="space-y-6">
-        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-900 border border-slate-800 p-5 rounded-2xl shadow-lg">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-900 border border-slate-800 p-4 sm:p-5 rounded-2xl shadow-lg w-full max-w-full">
           <div>
             <h2 class="text-xl font-black text-white tracking-tight">Kayıtlı Kurs & Okullar</h2>
             <p class="text-xs text-slate-400 mt-0.5">Sistemi kullanan tüm kurumları buradan açabilir, yönetebilir ve panellerine doğrudan geçebilirsiniz.</p>
           </div>
-          <button onclick="App.showAddInstitutionModal()" class="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black text-xs rounded-xl shadow-md transition flex items-center gap-1.5">
+          <button onclick="App.showAddInstitutionModal()" class="w-full sm:w-auto px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black text-xs rounded-xl shadow-md transition flex items-center justify-center gap-1.5 cursor-pointer">
             <span>+</span> <span>Yeni Kurs / Okul Ekle</span>
           </button>
         </div>
@@ -501,12 +503,12 @@ window.App = {
     const exams = window.PortalStore.getExams(instId);
     return `
       <div class="space-y-6">
-        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-900 border border-slate-800 p-5 rounded-2xl shadow-lg">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-900 border border-slate-800 p-4 sm:p-5 rounded-2xl shadow-lg w-full max-w-full">
           <div>
             <h2 class="text-xl font-black text-white tracking-tight">Deneme Sınavları</h2>
             <p class="text-xs text-slate-400 mt-0.5">Sınav tanımlayabilir, optik form basabilir veya kamerayla okumaya geçebilirsiniz.</p>
           </div>
-          <button onclick="App.showCreateExamModal('${instId}')" class="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black text-xs rounded-xl shadow-md transition flex items-center gap-1.5">
+          <button onclick="App.showCreateExamModal('${instId}')" class="w-full sm:w-auto px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black text-xs rounded-xl shadow-md transition flex items-center justify-center gap-1.5 cursor-pointer">
             <span>+</span> <span>Yeni Deneme Sınavı Oluştur</span>
           </button>
         </div>
@@ -648,8 +650,8 @@ window.App = {
               </button>
             </div>
 
-            <div class="overflow-x-auto">
-              <table class="w-full text-left text-[11px]">
+            <div class="overflow-x-auto w-full max-w-full" style="-webkit-overflow-scrolling: touch;">
+              <table class="w-full text-left text-[11px] min-w-[440px]">
                 <thead class="text-slate-500 uppercase border-b border-slate-800 font-bold">
                   <tr>
                     <th class="p-1.5">Ders Adı</th>
@@ -995,8 +997,8 @@ window.App = {
               </button>
             </div>
 
-            <div class="overflow-x-auto">
-              <table class="w-full text-left text-[11px]">
+            <div class="overflow-x-auto w-full max-w-full" style="-webkit-overflow-scrolling: touch;">
+              <table class="w-full text-left text-[11px] min-w-[440px]">
                 <thead class="text-slate-500 uppercase border-b border-slate-800 font-bold">
                   <tr>
                     <th class="p-1.5">Ders Adı</th>
@@ -1241,7 +1243,7 @@ window.App = {
             <h2 class="text-xl font-black text-white tracking-tight">Kayıtlı Talebeler (${students.length})</h2>
             <p class="text-xs text-slate-400 mt-0.5">Optik formlarda QR kod basmak ve karneleri göndermek için talebelerinizi ekleyiniz.</p>
           </div>
-          <div class="flex items-center gap-2">
+          <div class="flex flex-wrap items-center gap-2">
             <label class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl shadow cursor-pointer transition flex items-center gap-1.5">
               <span>📥</span> <span>Excel'den Yükle</span>
               <input type="file" accept=".csv" onchange="App.handleCsvUpload(event, '${instId}')" class="hidden">
@@ -1255,9 +1257,9 @@ window.App = {
           </div>
         </div>
 
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-lg">
-          <div class="overflow-x-auto">
-            <table class="w-full text-left text-xs">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-lg w-full max-w-full">
+          <div class="w-full max-w-full overflow-x-auto" style="-webkit-overflow-scrolling: touch;">
+            <table class="w-full text-left text-xs min-w-[480px]">
               <thead class="bg-slate-950 border-b border-slate-800 text-slate-400 font-bold uppercase tracking-wider">
                 <tr>
                   <th class="p-3">No</th>
@@ -1371,15 +1373,15 @@ window.App = {
         </div>
 
         <!-- Örnek Önizleme (Yatay A4) -->
-        <div class="border border-slate-800 rounded-2xl p-4 bg-slate-900/60">
-          <div class="flex items-center justify-between mb-3 px-1">
+        <div class="border border-slate-800 rounded-2xl p-3 sm:p-4 bg-slate-900/60 w-full max-w-full overflow-hidden">
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-3 px-1">
             <h4 class="text-xs font-bold text-slate-400 uppercase flex items-center gap-1.5">
               <span>📄</span> <span>Yatay A4 Optik Form Canlı Önizleme</span>
             </h4>
             <span class="text-[11px] text-emerald-400 font-mono">297mm × 210mm (Sıfır Taşma Formatı)</span>
           </div>
-          <div class="overflow-x-auto pb-4">
-            <div class="min-w-[950px] max-w-[1050px] mx-auto border border-gray-400 rounded-xl shadow-2xl bg-white text-black p-2 text-left">
+          <div class="w-full max-w-full overflow-x-auto pb-4" style="-webkit-overflow-scrolling: touch;">
+            <div class="w-[980px] min-w-[980px] max-w-[1050px] mx-auto border border-gray-400 rounded-xl shadow-2xl bg-white text-black p-2 text-left">
               ${window.OpticalSheetGenerator.renderSheetHtml({
                 institutionName: session.institutionName || 'TABAKÇILAR B BLOK',
                 examTitle: exams[0] ? exams[0].title : 'İsabet Ortaokul 8. Sınıf Deneme 3 (23-28 Ara)',
@@ -1476,23 +1478,23 @@ window.App = {
     return `
       <div class="space-y-4">
         <!-- Üst Kontrol Çubuğu -->
-        <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl flex flex-wrap items-center justify-between gap-3 shadow-lg">
-          <div class="flex items-center gap-3">
-            <select id="scanner-exam-select" onchange="App.handleScannerExamChange('${instId}')" class="px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-bold text-xs">
+        <div class="bg-slate-900 border border-slate-800 p-3.5 sm:p-4 rounded-2xl flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 shadow-lg w-full max-w-full overflow-hidden">
+          <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 w-full lg:w-auto flex-1 min-w-0">
+            <select id="scanner-exam-select" onchange="App.handleScannerExamChange('${instId}')" class="w-full sm:w-auto px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-bold text-xs">
               ${exams.map(e => `<option value="${e.id}" ${this.activeExamId === e.id ? 'selected' : ''}>${e.title} (${e.questionCount} Soru)</option>`).join('')}
             </select>
-            <select id="scanner-student-select" class="px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-medium text-xs">
+            <select id="scanner-student-select" class="w-full sm:w-auto px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-medium text-xs">
               <option value="">-- Talebe Seç (veya QR Koddan Oku) --</option>
               ${students.map(s => `<option value="${s.studentNo}">${s.studentNo} - ${s.firstName} ${s.lastName} (${s.className})</option>`).join('')}
             </select>
           </div>
 
-          <div class="flex items-center gap-2">
+          <div class="flex flex-wrap items-center gap-2 w-full lg:w-auto">
             <!-- Seri Otomatik Okuma Butonu -->
-            <button id="btn-continuous-scan" onclick="App.toggleContinuousScan('${instId}')" class="px-4 py-2.5 bg-cyan-600/30 hover:bg-cyan-600 text-cyan-300 hover:text-white font-black text-xs rounded-xl border border-cyan-500/50 shadow-lg transition flex items-center gap-1.5 cursor-pointer">
-              <span>⚡</span> <span id="continuous-btn-text">Seri Otomatik Okuma (Başlat)</span>
+            <button id="btn-continuous-scan" onclick="App.toggleContinuousScan('${instId}')" class="flex-1 sm:flex-initial px-3.5 py-2.5 bg-cyan-600/30 hover:bg-cyan-600 text-cyan-300 hover:text-white font-black text-xs rounded-xl border border-cyan-500/50 shadow-lg transition flex items-center justify-center gap-1.5 cursor-pointer">
+              <span>⚡</span> <span id="continuous-btn-text">Seri Otomatik Okuma</span>
             </button>
-            <button onclick="App.triggerScan()" class="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black text-xs rounded-xl shadow-lg transition flex items-center gap-2 cursor-pointer">
+            <button onclick="App.triggerScan()" class="flex-1 sm:flex-initial px-3.5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black text-xs rounded-xl shadow-lg transition flex items-center justify-center gap-1.5 cursor-pointer">
               <span>📸</span> <span>Tek Kare Oku</span>
             </button>
             <div class="px-3 py-2 bg-slate-950 rounded-xl border border-slate-800 text-xs text-slate-400 font-mono hidden sm:flex items-center gap-1.5">
@@ -1513,7 +1515,7 @@ window.App = {
           <!-- Kamera Başlatma / İzin İsteme Katmanı (Mobil Uyumlu) -->
           <div id="camera-start-prompt" class="absolute inset-0 bg-slate-950/85 backdrop-blur-sm flex flex-col items-center justify-center p-4 text-center z-20 transition-all">
             <div class="w-14 h-14 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-3xl mb-2.5 border border-emerald-500/40 shadow-lg animate-pulse">
-              📷
+              📸
             </div>
             <h4 class="text-sm font-black text-white mb-1">Kamerayı Başlat</h4>
             <p class="text-xs text-slate-300 max-w-xs mb-3">Telefonunuzun kamerasını açarak sınav kağıtlarını canlı okutabilirsiniz.</p>
@@ -1763,36 +1765,36 @@ window.App = {
 
     return `
       <div class="space-y-6">
-        <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 bg-slate-900 border border-slate-800 p-5 rounded-2xl shadow-lg">
-          <div>
+        <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 bg-slate-900 border border-slate-800 p-4 sm:p-5 rounded-2xl shadow-lg w-full max-w-full">
+          <div class="w-full lg:w-auto">
             <h2 class="text-xl font-black text-white tracking-tight">Sınav Neticeleri & Sıralama</h2>
-            <p class="text-xs text-slate-400 mt-0.5">${currentExam.title} (${rankings.length} Talebe Katıldı)</p>
+            <p class="text-xs text-slate-400 mt-0.5 truncate">${currentExam.title} (${rankings.length} Talebe Katıldı)</p>
           </div>
-          <div class="flex flex-wrap items-center gap-2">
-            <select onchange="App.handleResultsExamChange(this.value, '${instId}')" class="px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-bold text-xs">
+          <div class="flex flex-wrap items-center gap-2 w-full lg:w-auto">
+            <select onchange="App.handleResultsExamChange(this.value, '${instId}')" class="w-full sm:w-auto px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-bold text-xs max-w-full">
               ${exams.map(e => `<option value="${e.id}" ${e.id === currentExam.id ? 'selected' : ''}>${e.title}</option>`).join('')}
             </select>
-            <button onclick="App.showManualResultModal('${instId}', '${currentExam.id}')" class="px-3 py-2 bg-cyan-600/20 hover:bg-cyan-600 text-cyan-300 hover:text-white font-bold text-xs rounded-xl border border-cyan-500/40 transition flex items-center gap-1 cursor-pointer" title="Elle Öğrenci Notu / Cevabı Ekle">
+            <button onclick="App.showManualResultModal('${instId}', '${currentExam.id}')" class="flex-1 sm:flex-initial px-3 py-2 bg-cyan-600/20 hover:bg-cyan-600 text-cyan-300 hover:text-white font-bold text-xs rounded-xl border border-cyan-500/40 transition flex items-center justify-center gap-1 cursor-pointer" title="Elle Öğrenci Notu / Cevabı Ekle">
               <span>✍️</span> <span>Elle Not Gir</span>
             </button>
-            <button onclick="App.showItemAnalysisModal('${instId}', '${currentExam.id}', false)" class="px-3 py-2 bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-slate-950 font-bold text-xs rounded-xl border border-amber-500/40 transition flex items-center gap-1 cursor-pointer" title="Soru ve Madde Başarı Analizi">
+            <button onclick="App.showItemAnalysisModal('${instId}', '${currentExam.id}', false)" class="flex-1 sm:flex-initial px-3 py-2 bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-slate-950 font-bold text-xs rounded-xl border border-amber-500/40 transition flex items-center justify-center gap-1 cursor-pointer" title="Soru ve Madde Başarı Analizi">
               <span>📊</span> <span>Soru Analizi</span>
             </button>
-            <button onclick="App.showBatchWhatsAppModal('${instId}', '${currentExam.id}')" class="px-3 py-2 bg-emerald-600/20 hover:bg-emerald-600 text-emerald-300 hover:text-white font-bold text-xs rounded-xl border border-emerald-500/40 transition flex items-center gap-1 cursor-pointer" title="Sınıfa Toplu WhatsApp Karnesi Gönder">
+            <button onclick="App.showBatchWhatsAppModal('${instId}', '${currentExam.id}')" class="flex-1 sm:flex-initial px-3 py-2 bg-emerald-600/20 hover:bg-emerald-600 text-emerald-300 hover:text-white font-bold text-xs rounded-xl border border-emerald-500/40 transition flex items-center justify-center gap-1 cursor-pointer" title="Sınıfa Toplu WhatsApp Karnesi Gönder">
               <span>💬</span> <span>Toplu WhatsApp</span>
             </button>
-            <button onclick="App.downloadResultsCsv('${instId}', '${currentExam.id}', false)" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl border border-slate-700 transition flex items-center gap-1 cursor-pointer" title="Excel / CSV Olarak İndir">
+            <button onclick="App.downloadResultsCsv('${instId}', '${currentExam.id}', false)" class="flex-1 sm:flex-initial px-3 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl border border-slate-700 transition flex items-center justify-center gap-1 cursor-pointer" title="Excel / CSV Olarak İndir">
               <span>📥</span> <span>Excel İndir</span>
             </button>
-            <button onclick="App.printAllReportCards('${instId}', '${currentExam.id}')" class="px-3 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-slate-950 font-black text-xs rounded-xl shadow-lg transition flex items-center gap-1 cursor-pointer">
+            <button onclick="App.printAllReportCards('${instId}', '${currentExam.id}')" class="w-full sm:w-auto px-3.5 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-slate-950 font-black text-xs rounded-xl shadow-lg transition flex items-center justify-center gap-1 cursor-pointer">
               <span>📜</span> <span>Tüm Karneler</span>
             </button>
           </div>
         </div>
 
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-lg">
-          <div class="overflow-x-auto">
-            <table class="w-full text-left text-xs">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-lg w-full max-w-full">
+          <div class="w-full max-w-full overflow-x-auto" style="-webkit-overflow-scrolling: touch;">
+            <table class="w-full text-left text-xs min-w-[640px]">
               <thead class="bg-slate-950 border-b border-slate-800 text-slate-400 font-bold uppercase tracking-wider">
                 <tr>
                   <th class="p-3 text-center">Derece</th>
@@ -1900,7 +1902,7 @@ window.App = {
 
     return `
       <div class="space-y-6">
-        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-900 border border-slate-800 p-5 rounded-2xl shadow-lg">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-900 border border-slate-800 p-4 sm:p-5 rounded-2xl shadow-lg w-full max-w-full">
           <div>
             <div class="flex items-center gap-2">
               <span class="text-2xl">🌐</span>
@@ -1908,7 +1910,7 @@ window.App = {
             </div>
             <p class="text-xs text-slate-400 mt-1">Buradan açtığınız sınavlar sisteme kayıtlı tüm kurs ve okulların panellerinde anında görünür. Kurumlar optik formları okuttukça ortak derece sıralaması canlı oluşur.</p>
           </div>
-          <button onclick="App.showCreateExamModal(null, true)" class="px-4 py-2.5 bg-gradient-to-r from-cyan-500 to-emerald-500 hover:from-cyan-600 hover:to-emerald-600 text-slate-950 font-black text-xs rounded-xl shadow-lg transition flex items-center gap-1.5 cursor-pointer">
+          <button onclick="App.showCreateExamModal(null, true)" class="w-full sm:w-auto px-4 py-2.5 bg-gradient-to-r from-cyan-500 to-emerald-500 hover:from-cyan-600 hover:to-emerald-600 text-slate-950 font-black text-xs rounded-xl shadow-lg transition flex items-center justify-center gap-1.5 cursor-pointer">
             <span>+</span> <span>Yeni Merkezi Ortak Sınav Aç</span>
           </button>
         </div>
@@ -2020,8 +2022,8 @@ window.App = {
           </div>
         </div>
 
-        <div class="overflow-y-auto flex-1 rounded-2xl border border-slate-800">
-          <table class="w-full text-left text-xs">
+        <div class="overflow-y-auto overflow-x-auto w-full max-w-full flex-1 rounded-2xl border border-slate-800" style="-webkit-overflow-scrolling: touch;">
+          <table class="w-full text-left text-xs min-w-[640px]">
             <thead class="bg-slate-950 border-b border-slate-800 text-slate-400 font-bold uppercase tracking-wider sticky top-0">
               <tr>
                 <th class="p-3 text-center">Genel Derece</th>
@@ -2356,7 +2358,6 @@ window.App = {
             <span class="text-lg font-black text-purple-400 font-mono">${canceledCount}</span>
           </div>
         </div>
-
         <!-- Ders Filtresi -->
         <div class="flex items-center gap-2 mb-3">
           <span class="text-xs text-slate-400 font-bold">Ders Filtrele:</span>
@@ -2367,8 +2368,8 @@ window.App = {
         </div>
 
         <!-- Madde Analiz Tablosu -->
-        <div class="overflow-y-auto flex-1 rounded-2xl border border-slate-800">
-          <table class="w-full text-left text-xs">
+        <div class="overflow-y-auto overflow-x-auto w-full max-w-full flex-1 rounded-2xl border border-slate-800" style="-webkit-overflow-scrolling: touch;">
+          <table class="w-full text-left text-xs min-w-[640px]">
             <thead class="bg-slate-950 border-b border-slate-800 text-slate-400 font-bold uppercase tracking-wider sticky top-0">
               <tr>
                 <th class="p-2.5 text-center w-14">Soru No</th>
@@ -2486,8 +2487,8 @@ window.App = {
           </div>
         </div>
 
-        <div class="overflow-y-auto flex-1 rounded-2xl border border-slate-800 mb-4">
-          <table class="w-full text-left text-xs">
+        <div class="overflow-y-auto overflow-x-auto w-full max-w-full flex-1 rounded-2xl border border-slate-800 mb-4" style="-webkit-overflow-scrolling: touch;">
+          <table class="w-full text-left text-xs min-w-[560px]">
             <thead class="bg-slate-950 border-b border-slate-800 text-slate-400 font-bold uppercase tracking-wider sticky top-0">
               <tr>
                 <th class="p-2.5 text-center w-12">Sıra</th>

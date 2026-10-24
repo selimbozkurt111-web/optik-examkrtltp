@@ -49,6 +49,31 @@
   </script>
 
   <style>
+    /* Mobilde Yatay Sayfa Taşmasını Kesin Olarak Önleyen Kural */
+    html, body {
+      width: 100%;
+      max-width: 100vw;
+      overflow-x: hidden;
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      -webkit-text-size-adjust: 100%;
+    }
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+    #app-root {
+      width: 100%;
+      max-width: 100vw;
+      overflow-x: hidden;
+      position: relative;
+    }
+    /* Tablo ve Önizleme Konteynerleri için Akıcı Dokunmatik Kaydırma */
+    .overflow-x-auto {
+      -webkit-overflow-scrolling: touch;
+      max-width: 100%;
+    }
+
     /* Özel Scrollbar */
     ::-webkit-scrollbar {
       width: 6px;
@@ -237,12 +262,12 @@
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 
   <!-- JavaScript Modülleri (Önbellek Korumalı & Çift Dizin Destekli) -->
-  <script src="firebase-config.js?v=20261020" onerror="this.onerror=null;this.src='js/firebase-config.js?v=20261020';"></script>
-  <script src="cloud-sync.js?v=20261020" onerror="this.onerror=null;this.src='js/cloud-sync.js?v=20261020';"></script>
-  <script src="store.js?v=20261020" onerror="this.onerror=null;this.src='js/store.js?v=20261020';"></script>
-  <script src="optical-sheet-generator.js?v=20261020" onerror="this.onerror=null;this.src='js/optical-sheet-generator.js?v=20261020';"></script>
-  <script src="omr-scanner.js?v=20261020" onerror="this.onerror=null;this.src='js/omr-scanner.js?v=20261020';"></script>
-  <script src="app.js?v=20261020" onerror="this.onerror=null;this.src='js/app.js?v=20261020';"></script>
+  <script src="firebase-config.js?v=20261024" onerror="this.onerror=null;this.src='js/firebase-config.js?v=20261024';"></script>
+  <script src="cloud-sync.js?v=20261024" onerror="this.onerror=null;this.src='js/cloud-sync.js?v=20261024';"></script>
+  <script src="store.js?v=20261024" onerror="this.onerror=null;this.src='js/store.js?v=20261024';"></script>
+  <script src="optical-sheet-generator.js?v=20261024" onerror="this.onerror=null;this.src='js/optical-sheet-generator.js?v=20261024';"></script>
+  <script src="omr-scanner.js?v=20261024" onerror="this.onerror=null;this.src='js/omr-scanner.js?v=20261024';"></script>
+  <script src="app.js?v=20261024" onerror="this.onerror=null;this.src='js/app.js?v=20261024';"></script>
   <script>
     if (window.App && typeof window.App.init === 'function') {
       try {
