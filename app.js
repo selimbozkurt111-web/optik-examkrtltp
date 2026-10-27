@@ -2614,6 +2614,10 @@ window.App = {
         () => {
           const bookletSelect = document.getElementById('scanner-booklet-select');
           return (bookletSelect && bookletSelect.value !== 'auto') ? bookletSelect.value : null;
+        },
+        () => {
+          const studentSelect = document.getElementById('scanner-student-select');
+          return (studentSelect && studentSelect.value) ? studentSelect.value : null;
         }
       );
       this.showToast('⚡ Seri otomatik okuma devrede! Kağıtları sırayla kameraya tutun.', 'success');
@@ -2624,12 +2628,32 @@ window.App = {
     if (!result) return;
     const session = window.PortalStore.getCurrentSession();
     const effectiveInstId = instId || (session ? session.institutionId : null);
+
+    // 1. ÖNCELİKLİ ŞART: Karekod henüz algılanamadıysa dur ve uyar
+    if (result.stage === 'qr_search' || (!result.studentNo && !result.qrDetected)) {
+      const studentSelect = document.getElementById('scanner-student-select');
+      if (studentSelect && studentSelect.value) {
+        result.studentNo = studentSelect.value;
+      } else {
+        this.showToast('⚠️ Talebe karekodu okunamadı! Lütfen kağıdın sol üstündeki karekodu kameraya net tutunuz veya yukarıdan talebeyi seçiniz.', 'warning');
+        this.renderScanResultCard(result);
+        return;
+      }
+    }
+
+    // 2. ÖNCELİKLİ ŞART: Cevap anahtarı kodlanmamışsa DERHAL UYARI VER!
+    if (result.isMissingAnswerKey || result.stage === 'no_answer_key') {
+      this.showToast(`⚠️ "${result.examTitle || 'Sınav'}" (${result.booklet || 'A'} Kitapçığı) cevap anahtarı henüz kodlanmamış!`, 'error');
+      this.renderScanResultCard(result);
+      return;
+    }
+
     const students = window.PortalStore.getStudents(effectiveInstId);
     const matchedSt = students.find(s => s.studentNo === result.studentNo);
 
-    result.studentName = matchedSt ? `${matchedSt.firstName} ${matchedSt.lastName}` : (result.studentNo ? `Talebe #${result.studentNo}` : 'Boş Form');
-    result.className = matchedSt ? matchedSt.className : 'Genel';
-    result.parentPhone = matchedSt ? matchedSt.parentPhone : '';
+    result.studentName = matchedSt ? `${matchedSt.firstName} ${matchedSt.lastName}` : (result.studentName || `Talebe #${result.studentNo}`);
+    result.className = matchedSt ? matchedSt.className : (result.className || 'Genel');
+    result.parentPhone = matchedSt ? matchedSt.parentPhone : (result.parentPhone || '');
 
     if (result.isBlank) {
       this.showToast('ℹ️ Boş optik form algılandı: Kağıt üzerinde işaretleme tespit edilemedi (0 Net).', 'warning');
@@ -2653,7 +2677,7 @@ window.App = {
     const video = document.getElementById('omr-video');
     const canvas = document.getElementById('omr-canvas');
     const studentSelect = document.getElementById('scanner-student-select');
-    const studentNo = studentSelect ? studentSelect.value : null;
+    const studentNo = (studentSelect && studentSelect.value) ? studentSelect.value : null;
 
     if (!video || video.readyState < 2) {
       this.showToast('Kamera henüz hazır değil, lütfen birkaç saniye bekleyiniz.', 'warning');
@@ -2676,6 +2700,53 @@ window.App = {
   renderScanResultCard(result) {
     const container = document.getElementById('scan-result-card');
     if (!container) return;
+
+    // 1. Durum: Cevap anahtarı kodlanmamışsa belirgin uyarı kartı göster
+    if (result.isMissingAnswerKey || result.stage === 'no_answer_key') {
+      const session = window.PortalStore.getCurrentSession();
+      const instId = session ? session.institutionId : '';
+      container.innerHTML = `
+        <div class="bg-amber-950/60 border-2 border-amber-500 rounded-3xl p-6 shadow-2xl animate-fade-in text-center space-y-3">
+          <div class="w-14 h-14 bg-amber-500/20 text-amber-300 rounded-2xl flex items-center justify-center text-3xl mx-auto border border-amber-500/40 shadow-lg">
+            🔑
+          </div>
+          <h3 class="text-base font-black text-amber-200">Cevap Anahtarı Kodlanmamış!</h3>
+          <p class="text-xs text-slate-300 max-w-md mx-auto leading-relaxed">
+            <strong>${result.examTitle || 'Sınav'}</strong> için <strong>${result.booklet || 'A'} Kitapçığı</strong> cevap anahtarı henüz sisteme girilmemiştir. Hatalı net ve puan hesaplanmaması için optik okuma durduruldu.
+          </p>
+          <div class="p-2.5 bg-slate-900 rounded-xl border border-slate-800 text-[11px] text-slate-300 inline-flex items-center gap-2">
+            <span>Talebe: <strong class="text-white">${result.studentName || '#' + result.studentNo}</strong></span>
+            <span>•</span>
+            <span>Kitapçık: <strong class="text-cyan-400 font-bold">${result.booklet || 'A'}</strong></span>
+          </div>
+          <div class="pt-2">
+            <button onclick="App.showEditExamModal('${instId}', '${result.examId}')" class="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs rounded-xl shadow-lg transition inline-flex items-center gap-1.5 cursor-pointer">
+              <span>🔑</span> <span>Cevap Anahtarını Şimdi Gir & Düzenle →</span>
+            </button>
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    // 2. Durum: Eğer talebe karekodu henüz okunamadıysa uyarı kartı göster
+    if (result.stage === 'qr_search' || (!result.studentNo && !result.qrDetected)) {
+      container.innerHTML = `
+        <div class="bg-amber-950/40 border-2 border-amber-500/70 rounded-3xl p-5 shadow-2xl animate-fade-in text-center space-y-3">
+          <div class="w-12 h-12 bg-amber-500/20 text-amber-300 rounded-2xl flex items-center justify-center text-2xl mx-auto border border-amber-500/40">
+            ⚠️
+          </div>
+          <h3 class="text-base font-black text-amber-200">Talebe Karekodu Okunamadı</h3>
+          <p class="text-xs text-slate-300 max-w-md mx-auto leading-relaxed">
+            Kağıdın sol üstündeki karekod okunamadığı için sonuç kaydedilmedi. Lütfen kağıdı kameraya biraz yaklaştırınız veya yukarıdaki <strong>"Talebe Seç"</strong> açılır kutusundan talebenin adını seçip tekrar <strong>Tek Kare Oku</strong> butonuna basınız.
+          </p>
+          <div class="inline-flex items-center gap-2 px-3 py-1 bg-slate-900 rounded-xl border border-slate-800 text-[11px] text-slate-300 font-mono">
+            <span>Kitapçık: <strong class="text-cyan-400">${result.booklet || 'A'}</strong></span>
+          </div>
+        </div>
+      `;
+      return;
+    }
 
     const isBlank = !!result.isBlank;
 

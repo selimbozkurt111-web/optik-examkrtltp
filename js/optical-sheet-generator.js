@@ -210,7 +210,7 @@ const PureQrEngine = (() => {
       up = !up;
     }
 
-    const border = 2;
+    const border = 4;
     const viewBoxSize = N + border * 2;
     let rects = '';
     for (let r = 0; r < N; r++) {
@@ -667,6 +667,51 @@ window.OpticalSheetGenerator = {
             </tbody>
           </table>
         </div>
+
+        ${(result.topicAnalysis && result.topicAnalysis.length > 0) ? `
+        <!-- Konu ve Kazanım Analizi Bölümü -->
+        <div class="border border-slate-300 rounded-xl overflow-hidden mb-6">
+          <div class="bg-indigo-900 text-white px-3.5 py-2 font-bold text-xs uppercase flex items-center justify-between">
+            <span>Konu ve Kazanım Başarı Analizi</span>
+            <span class="text-[10px] text-indigo-200 font-normal">Soru & Konu Eşleşmesi</span>
+          </div>
+          <table class="w-full text-left">
+            <thead class="bg-indigo-50 border-b border-indigo-200 text-[10px] font-black text-indigo-900 uppercase">
+              <tr>
+                <th class="p-1.5 pl-3">Ders</th>
+                <th class="p-1.5">Konu / Kazanım</th>
+                <th class="p-1.5 text-center">Soru</th>
+                <th class="p-1.5 text-center">Doğru</th>
+                <th class="p-1.5 text-center">Yanlış</th>
+                <th class="p-1.5 min-w-[120px]">Başarı</th>
+              </tr>
+            </thead>
+            <tbody class="text-xs">
+              ${result.topicAnalysis.map((t, idx) => {
+                const barColor = t.percent >= 70 ? 'bg-emerald-500' : (t.percent >= 40 ? 'bg-amber-500' : 'bg-rose-500');
+                const badgeColor = t.percent >= 70 ? 'text-emerald-700 bg-emerald-100' : (t.percent >= 40 ? 'text-amber-700 bg-amber-100' : 'text-rose-700 bg-rose-100');
+                return `
+                  <tr class="${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'} border-b border-slate-100">
+                    <td class="p-1.5 pl-3 font-semibold text-slate-600 text-[11px]">${t.subject}</td>
+                    <td class="p-1.5 font-bold text-slate-800 text-[11px]">${t.topic}</td>
+                    <td class="p-1.5 text-center text-[11px] font-semibold text-slate-600">${t.total}</td>
+                    <td class="p-1.5 text-center text-[11px] font-bold text-emerald-600">${t.correct}</td>
+                    <td class="p-1.5 text-center text-[11px] font-bold text-rose-600">${t.wrong}</td>
+                    <td class="p-1.5">
+                      <div class="flex items-center gap-1.5">
+                        <div class="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+                          <div class="${barColor} h-2 rounded-full" style="width: ${t.percent}%"></div>
+                        </div>
+                        <span class="text-[10px] font-bold px-1.5 py-0.5 rounded ${badgeColor} min-w-[36px] text-center">%${t.percent}</span>
+                      </div>
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+        ` : ''}
 
         <!-- Rehberlik & Öğretmen Görüşü -->
         <div class="border border-slate-300 rounded-xl p-3.5 bg-slate-50/60 mb-6 text-xs">

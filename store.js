@@ -974,9 +974,28 @@ class MultiTenantStore {
   scoreStudentAnswers(studentAnswers, exam, booklet = 'A') {
     if (!exam) return null;
     const qCount = parseInt(exam.questionCount, 10) || 20;
+
+    // Cevap anahtarı kontrolü
     const rawKey = (exam.answerKeys && exam.answerKeys[booklet])
       ? exam.answerKeys[booklet].toUpperCase()
       : (exam.answerKeys && exam.answerKeys['A'] ? exam.answerKeys['A'].toUpperCase() : '');
+
+    const validKeyChars = rawKey.replace(/[^A-E*]/g, '');
+    if (!validKeyChars || validKeyChars.length === 0) {
+      return {
+        error: 'NO_ANSWER_KEY',
+        isMissingAnswerKey: true,
+        message: `Bu sınavın (${booklet} Kitapçığı) cevap anahtarı henüz kodlanmamıştır.`,
+        booklet: booklet,
+        answers: (typeof studentAnswers === 'string') ? studentAnswers : (studentAnswers || []).join(''),
+        subjectsResult: {},
+        totalCorrect: 0,
+        totalWrong: 0,
+        totalEmpty: qCount,
+        totalNet: 0,
+        totalScore: 0
+      };
+    }
 
     const canceled = Array.isArray(exam.canceledQuestions)
       ? exam.canceledQuestions.map(n => parseInt(n, 10))
@@ -1011,7 +1030,7 @@ class MultiTenantStore {
 
     for (let q = 1; q <= qCount; q++) {
       const isCanceled = canceled.includes(q);
-      const correctOpt = (rawKey[q - 1] || 'A').toUpperCase();
+      const correctOpt = rawKey[q - 1] ? rawKey[q - 1].toUpperCase() : '';
       const studentAns = (answersArr[q - 1] || ' ').toUpperCase().trim();
 
       const currentSub = subjects.find(s => q >= s.startQ && q <= s.endQ) || {
@@ -1039,6 +1058,9 @@ class MultiTenantStore {
         // İptal edilen soru: Herkese tam doğru kabul edilir
         subStat.correct++;
       } else if (!studentAns) {
+        subStat.empty++;
+      } else if (!correctOpt) {
+        // Bu soru için cevap anahtarında harf yoksa boş kabul et
         subStat.empty++;
       } else if (studentAns === correctOpt || correctOpt === '*') {
         subStat.correct++;

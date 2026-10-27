@@ -133,6 +133,124 @@ const DEFAULT_EXAM_TEMPLATES = [
   }
 ];
 
+// Standart MEB Ders Konu ve Kazanım Kütüphanesi (Seçmeli Havuz)
+const DEFAULT_SUBJECT_TOPICS = {
+  'Türkçe': [
+    'Sözcükte Anlam (Gerçek, Mecaz, Terim)',
+    'Söz Gruplarında Anlam (Deyimler & Atasözleri)',
+    'Cümlede Anlam (Öznel, Nesnel, Neden-Sonuç)',
+    'Paragrafta Anlam ve Ana Düşünce',
+    'Paragrafta Yardımcı Düşünceler',
+    'Paragrafta Yapı ve Akışı Bozan Cümle',
+    'Metin Türleri ve Söz Sanatları',
+    'Fiilimsiler (İsim-Fiil, Sıfat-Fiil, Zarf-Fiil)',
+    'Cümlenin Ögeleri',
+    'Cümle Türleri',
+    'Fiilde Çatı',
+    'Yazım Kuralları',
+    'Noktalama İşaretleri',
+    'Sözel Mantık ve Muhakeme',
+    'Görsel ve Grafik Okuma / Yorumlama'
+  ],
+  'Matematik': [
+    'Çarpanlar ve Katlar (EBOB - EKOK)',
+    'Üslü İfadeler',
+    'Kareköklü İfadeler',
+    'Veri Analizi ve Grafikler',
+    'Basit Olayların Olma Olasılığı',
+    'Cebirsel İfadeler ve Özdeşlikler',
+    'Doğrusal Denklemler ve Koordinat Sistemi',
+    'Eşitsizlikler',
+    'Üçgenler (Açı-Kenar Bağıntıları & Pisagor)',
+    'Eşlik ve Benzerlik',
+    'Dönüşüm Geometrisi',
+    'Geometrik Cisimler (Prizma, Koni, Piramit)'
+  ],
+  'Fen Bilimleri': [
+    'Mevsimler ve İklim',
+    'DNA ve Genetik Kod',
+    'Kalıtım ve Çaprazlamalar',
+    'Mutasyon, Modifikasyon, Adaptasyon',
+    'Biyoteknoloji',
+    'Basınç (Katı, Sıvı ve Gaz)',
+    'Madde ve Endüstri (Periyodik Sistem)',
+    'Fiziksel ve Kimyasal Değişimler',
+    'Asitler ve Bazlar',
+    'Maddenin Isı ile Etkileşimi',
+    'Basit Makineler (Kaldıraç, Makara, vb.)',
+    'Besin Zinciri ve Enerji Akışı',
+    'Madde Döngüleri ve Çevre Sorunları',
+    'Elektrik Yükleri ve Elektrik Enerjisi'
+  ],
+  'İnkılap Tarihi': [
+    'Bir Kahraman Doğuyor (Atatürk\'ün Hayatı)',
+    'Millî Uyanış: Bağımsızlık Yolunda Adımlar',
+    'Millî Bir Destan: Ya İstiklal Ya Ölüm! (Cepheler)',
+    'Atatürkçülük ve Çağdaşlaşan Türkiye (İlkeler)',
+    'Demokratikleşme Çabaları',
+    'Atatürk Dönemi Türk Dış Politikası',
+    'Atatürk\'ün Ölümü ve Sonrası'
+  ],
+  'Din Kültürü': [
+    'Kader ve Kaza İnancı',
+    'İnsanın İradesi ve Kader',
+    'Kaderle İlgili Kavramlar (Ömür, Rızık, Tevekkül)',
+    'Zekât ve Sadaka İbadeti',
+    'Din ve Hayat (Temel Değerlerin Korunması)',
+    'Hz. Muhammed\'in Doğruluğu ve Güvenilir Kişiliği',
+    'Kur\'an-ı Kerim ve Özellikleri'
+  ],
+  'İngilizce': [
+    'Unit 1: Friendship',
+    'Unit 2: Teen Life',
+    'Unit 3: In the Kitchen',
+    'Unit 4: On the Phone',
+    'Unit 5: The Internet',
+    'Unit 6: Adventures',
+    'Unit 7: Tourism',
+    'Unit 8: Chores',
+    'Unit 9: Science',
+    'Unit 10: Natural Forces'
+  ],
+  'Sosyal Bilgiler': [
+    'Birey ve Toplum',
+    'Kültür ve Miras',
+    'İnsanlar, Yerler ve Çevreler',
+    'Bilim, Teknoloji ve Toplum',
+    'Üretim, Dağıtım ve Tüketim',
+    'Etkin Vatandaşlık',
+    'Küresel Bağlantılar'
+  ],
+  'Fizik': [
+    'Kuvvet ve Hareket',
+    'İş, Güç ve Enerji',
+    'Elektrik ve Manyetizma',
+    'Dalgalar ve Optik',
+    'Madde ve Özellikleri'
+  ],
+  'Kimya': [
+    'Kimya Bilimi ve Atomun Yapısı',
+    'Periyodik Sistem ve Bağlar',
+    'Maddenin Halleri ve Karışımlar',
+    'Asitler, Bazlar ve Tuzlar',
+    'Kimyasal Tepkimeler ve Hesaplamalar'
+  ],
+  'Biyoloji': [
+    'Yaşam Bilimi Biyoloji ve Hücre',
+    'Canlılar Dünyası ve Sınıflandırma',
+    'Hücre Bölünmeleri ve Üreme',
+    'Kalıtım ve Genetik',
+    'Ekosistem Ekolojisi ve Güncel Çevre Sorunları'
+  ],
+  'Genel': [
+    'Konu 1: Temel Kavramlar',
+    'Konu 2: Anlama ve Yorumlama',
+    'Konu 3: Uygulama ve Problem Çözme',
+    'Konu 4: Analiz ve Muhakeme',
+    'Konu 5: Değerlendirme ve Sentez'
+  ]
+};
+
 class MultiTenantStore {
   constructor() {
     this.init();
@@ -704,6 +822,7 @@ class MultiTenantStore {
       targetClass: (examData.targetClass || 'TÜM KURUMLAR').trim().toUpperCase(),
       questionCount: parseInt(examData.questionCount, 10) || 20,
       bookletTypes: examData.bookletTypes || ['A', 'B', 'C', 'D'],
+      questionTopics: examData.questionTopics || {},
       subjects: examData.subjects || [
         { name: 'Genel', startQ: 1, endQ: parseInt(examData.questionCount, 10) || 20, wrongPenalty: 0.333, coeff: 1 }
       ],
@@ -764,6 +883,7 @@ class MultiTenantStore {
       targetClass: (examData.targetClass || 'TÜM SINIFLAR').trim().toUpperCase(),
       questionCount: parseInt(examData.questionCount, 10) || 20,
       bookletTypes: examData.bookletTypes || ['A', 'B', 'C', 'D'],
+      questionTopics: examData.questionTopics || {},
       subjects: examData.subjects || [
         { name: 'Genel', startQ: 1, endQ: parseInt(examData.questionCount, 10) || 20, wrongPenalty: 0.333, coeff: 1 }
       ],
@@ -833,13 +953,49 @@ class MultiTenantStore {
     }
   }
 
+  // Konu & Kazanım Havuzundan Derse Göre Konu Listesi Getirici
+  getSubjectTopics(subjectName) {
+    if (!subjectName) return DEFAULT_SUBJECT_TOPICS['Genel'] || [];
+    const clean = subjectName.toLowerCase().trim();
+    if (clean.includes('türk')) return DEFAULT_SUBJECT_TOPICS['Türkçe'];
+    if (clean.includes('mat')) return DEFAULT_SUBJECT_TOPICS['Matematik'];
+    if (clean.includes('fen')) return DEFAULT_SUBJECT_TOPICS['Fen Bilimleri'];
+    if (clean.includes('ink') || clean.includes('tarih')) return DEFAULT_SUBJECT_TOPICS['İnkılap Tarihi'];
+    if (clean.includes('sosyal')) return DEFAULT_SUBJECT_TOPICS['Sosyal Bilgiler'];
+    if (clean.includes('din')) return DEFAULT_SUBJECT_TOPICS['Din Kültürü'];
+    if (clean.includes('ing') || clean.includes('english')) return DEFAULT_SUBJECT_TOPICS['İngilizce'];
+    if (clean.includes('fizik')) return DEFAULT_SUBJECT_TOPICS['Fizik'];
+    if (clean.includes('kimya')) return DEFAULT_SUBJECT_TOPICS['Kimya'];
+    if (clean.includes('biyo')) return DEFAULT_SUBJECT_TOPICS['Biyoloji'];
+    return DEFAULT_SUBJECT_TOPICS['Genel'] || [];
+  }
+
   // --- Merkezi Puanlama & Cevap Değerlendirme Motoru ---
   scoreStudentAnswers(studentAnswers, exam, booklet = 'A') {
     if (!exam) return null;
     const qCount = parseInt(exam.questionCount, 10) || 20;
+
+    // Cevap anahtarı kontrolü
     const rawKey = (exam.answerKeys && exam.answerKeys[booklet])
       ? exam.answerKeys[booklet].toUpperCase()
       : (exam.answerKeys && exam.answerKeys['A'] ? exam.answerKeys['A'].toUpperCase() : '');
+
+    const validKeyChars = rawKey.replace(/[^A-E*]/g, '');
+    if (!validKeyChars || validKeyChars.length === 0) {
+      return {
+        error: 'NO_ANSWER_KEY',
+        isMissingAnswerKey: true,
+        message: `Bu sınavın (${booklet} Kitapçığı) cevap anahtarı henüz kodlanmamıştır.`,
+        booklet: booklet,
+        answers: (typeof studentAnswers === 'string') ? studentAnswers : (studentAnswers || []).join(''),
+        subjectsResult: {},
+        totalCorrect: 0,
+        totalWrong: 0,
+        totalEmpty: qCount,
+        totalNet: 0,
+        totalScore: 0
+      };
+    }
 
     const canceled = Array.isArray(exam.canceledQuestions)
       ? exam.canceledQuestions.map(n => parseInt(n, 10))
@@ -869,9 +1025,12 @@ class MultiTenantStore {
       ? studentAnswers.padEnd(qCount, ' ').substring(0, qCount).split('')
       : (Array.isArray(studentAnswers) ? studentAnswers : []);
 
+    const topicStats = {};
+    const qTopics = (exam && typeof exam.questionTopics === 'object') ? exam.questionTopics : {};
+
     for (let q = 1; q <= qCount; q++) {
       const isCanceled = canceled.includes(q);
-      const correctOpt = (rawKey[q - 1] || 'A').toUpperCase();
+      const correctOpt = rawKey[q - 1] ? rawKey[q - 1].toUpperCase() : '';
       const studentAns = (answersArr[q - 1] || ' ').toUpperCase().trim();
 
       const currentSub = subjects.find(s => q >= s.startQ && q <= s.endQ) || {
@@ -900,10 +1059,40 @@ class MultiTenantStore {
         subStat.correct++;
       } else if (!studentAns) {
         subStat.empty++;
+      } else if (!correctOpt) {
+        // Bu soru için cevap anahtarında harf yoksa boş kabul et
+        subStat.empty++;
       } else if (studentAns === correctOpt || correctOpt === '*') {
         subStat.correct++;
       } else {
         subStat.wrong++;
+      }
+
+      // Soru kazanım/konu analizi eşleştirmesi
+      const topicName = (qTopics[q] || qTopics[q.toString()] || '').trim();
+      if (topicName) {
+        if (!topicStats[topicName]) {
+          topicStats[topicName] = {
+            subject: currentSub.name,
+            topic: topicName,
+            total: 0,
+            correct: 0,
+            wrong: 0,
+            empty: 0,
+            questions: []
+          };
+        }
+        topicStats[topicName].total++;
+        topicStats[topicName].questions.push(q);
+        if (isCanceled) {
+          topicStats[topicName].correct++;
+        } else if (!studentAns) {
+          topicStats[topicName].empty++;
+        } else if (studentAns === correctOpt || correctOpt === '*') {
+          topicStats[topicName].correct++;
+        } else {
+          topicStats[topicName].wrong++;
+        }
       }
     }
 
@@ -929,6 +1118,23 @@ class MultiTenantStore {
     totalNet = parseFloat(totalNet.toFixed(2));
     totalScore = parseFloat(totalScore.toFixed(2));
 
+    const topicAnalysis = Object.values(topicStats).map(st => {
+      const net = Math.max(0, parseFloat((st.correct - (st.wrong * 0.333)).toFixed(2)));
+      const percent = st.total > 0 ? Math.round((st.correct / st.total) * 100) : 0;
+      return {
+        subject: st.subject,
+        topic: st.topic,
+        total: st.total,
+        correct: st.correct,
+        wrong: st.wrong,
+        empty: st.empty,
+        net: net,
+        percent: percent,
+        questions: st.questions,
+        status: percent >= 75 ? 'success' : (percent >= 50 ? 'warning' : 'danger')
+      };
+    });
+
     return {
       answers: answersArr.join(''),
       booklet,
@@ -937,7 +1143,8 @@ class MultiTenantStore {
       totalWrong,
       totalEmpty,
       totalNet,
-      totalScore
+      totalScore,
+      topicAnalysis
     };
   }
 
@@ -1205,6 +1412,55 @@ class MultiTenantStore {
     }
 
     return analysis;
+  }
+
+  // --- Sınav ve Kurum Bazlı Genel Konu/Kazanım Başarı Analizi ---
+  getExamTopicAnalysis(instId, examId) {
+    const results = this.getResultsByExam(instId, examId);
+    return this.calculateTopicStatistics(results);
+  }
+
+  getGlobalTopicAnalysis(examId) {
+    const institutions = this.getInstitutions();
+    let allResults = [];
+    institutions.forEach(inst => {
+      const list = this.getResultsByExam(inst.id, examId);
+      allResults = allResults.concat(list);
+    });
+    return this.calculateTopicStatistics(allResults);
+  }
+
+  calculateTopicStatistics(results) {
+    const topicSummary = {};
+    results.forEach(res => {
+      const list = res.topicAnalysis || [];
+      list.forEach(t => {
+        if (!topicSummary[t.topic]) {
+          topicSummary[t.topic] = {
+            subject: t.subject,
+            topic: t.topic,
+            totalQuestions: t.total,
+            totalAttempts: 0,
+            totalCorrect: 0,
+            totalWrong: 0,
+            totalEmpty: 0
+          };
+        }
+        topicSummary[t.topic].totalAttempts += t.total;
+        topicSummary[t.topic].totalCorrect += t.correct;
+        topicSummary[t.topic].totalWrong += t.wrong;
+        topicSummary[t.topic].totalEmpty += t.empty;
+      });
+    });
+
+    return Object.values(topicSummary).map(ts => {
+      const percent = ts.totalAttempts > 0 ? Math.round((ts.totalCorrect / ts.totalAttempts) * 100) : 0;
+      return {
+        ...ts,
+        percent,
+        status: percent >= 75 ? 'success' : (percent >= 50 ? 'warning' : 'danger')
+      };
+    }).sort((a, b) => a.percent - b.percent); // En çok eksik olan konu en başta
   }
 
   // --- Excel / CSV Toplu İndirme Motoru ---

@@ -210,7 +210,7 @@ const PureQrEngine = (() => {
       up = !up;
     }
 
-    const border = 2;
+    const border = 4;
     const viewBoxSize = N + border * 2;
     let rects = '';
     for (let r = 0; r < N; r++) {
