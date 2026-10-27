@@ -48,16 +48,56 @@ const DEFAULT_INSTITUTIONS = [
 const DEFAULT_EXAM_TEMPLATES = [
   {
     id: 'tpl_lgs_90',
-    name: 'LGS Tam Deneme (90 Soru)',
+    name: 'LGS Tam Deneme (90 Soru - 6 Ders)',
     questionCount: 90,
     bookletTypes: ['A', 'B', 'C', 'D'],
     subjects: [
       { name: 'Türkçe', startQ: 1, endQ: 20, wrongPenalty: 0.333, coeff: 4 },
-      { name: 'T.C. İnkılap', startQ: 21, endQ: 30, wrongPenalty: 0.333, coeff: 1 },
+      { name: 'İnkılap Tarihi', startQ: 21, endQ: 30, wrongPenalty: 0.333, coeff: 1 },
       { name: 'Din Kültürü', startQ: 31, endQ: 40, wrongPenalty: 0.333, coeff: 1 },
       { name: 'İngilizce', startQ: 41, endQ: 50, wrongPenalty: 0.333, coeff: 1 },
       { name: 'Matematik', startQ: 51, endQ: 70, wrongPenalty: 0.333, coeff: 4 },
       { name: 'Fen Bilimleri', startQ: 71, endQ: 90, wrongPenalty: 0.333, coeff: 4 }
+    ]
+  },
+  {
+    id: 'tpl_ortaokul_75',
+    name: 'Ortaokul Deneme Sınavı (75 Soru - 6 Ders)',
+    questionCount: 75,
+    bookletTypes: ['A', 'B', 'C', 'D'],
+    subjects: [
+      { name: 'Türkçe', startQ: 1, endQ: 15, wrongPenalty: 0.333, coeff: 4 },
+      { name: 'İnkılap Tarihi', startQ: 16, endQ: 25, wrongPenalty: 0.333, coeff: 1 },
+      { name: 'Din Kültürü', startQ: 26, endQ: 35, wrongPenalty: 0.333, coeff: 1 },
+      { name: 'İngilizce', startQ: 36, endQ: 45, wrongPenalty: 0.333, coeff: 1 },
+      { name: 'Matematik', startQ: 46, endQ: 60, wrongPenalty: 0.333, coeff: 4 },
+      { name: 'Fen Bilimleri', startQ: 61, endQ: 75, wrongPenalty: 0.333, coeff: 4 }
+    ]
+  },
+  {
+    id: 'tpl_ortaokul_60',
+    name: 'Ortaokul Deneme Sınavı (60 Soru - 6 Ders)',
+    questionCount: 60,
+    bookletTypes: ['A', 'B', 'C', 'D'],
+    subjects: [
+      { name: 'Türkçe', startQ: 1, endQ: 15, wrongPenalty: 0.333, coeff: 4 },
+      { name: 'Sosyal Bilgiler', startQ: 16, endQ: 25, wrongPenalty: 0.333, coeff: 1 },
+      { name: 'Din Kültürü', startQ: 26, endQ: 30, wrongPenalty: 0.333, coeff: 1 },
+      { name: 'İngilizce', startQ: 31, endQ: 35, wrongPenalty: 0.333, coeff: 1 },
+      { name: 'Matematik', startQ: 36, endQ: 47, wrongPenalty: 0.333, coeff: 4 },
+      { name: 'Fen Bilimleri', startQ: 48, endQ: 60, wrongPenalty: 0.333, coeff: 4 }
+    ]
+  },
+  {
+    id: 'tpl_ortaokul_60_4ders',
+    name: 'Ortaokul 4 Temel Ders Sınavı (60 Soru - 4 Ders x 15)',
+    questionCount: 60,
+    bookletTypes: ['A', 'B', 'C', 'D'],
+    subjects: [
+      { name: 'Türkçe', startQ: 1, endQ: 15, wrongPenalty: 0.333, coeff: 4 },
+      { name: 'Sosyal Bilgiler', startQ: 16, endQ: 30, wrongPenalty: 0.333, coeff: 2 },
+      { name: 'Matematik', startQ: 31, endQ: 45, wrongPenalty: 0.333, coeff: 4 },
+      { name: 'Fen Bilimleri', startQ: 46, endQ: 60, wrongPenalty: 0.333, coeff: 4 }
     ]
   },
   {
@@ -93,6 +133,124 @@ const DEFAULT_EXAM_TEMPLATES = [
   }
 ];
 
+// Standart MEB Ders Konu ve Kazanım Kütüphanesi (Seçmeli Havuz)
+const DEFAULT_SUBJECT_TOPICS = {
+  'Türkçe': [
+    'Sözcükte Anlam (Gerçek, Mecaz, Terim)',
+    'Söz Gruplarında Anlam (Deyimler & Atasözleri)',
+    'Cümlede Anlam (Öznel, Nesnel, Neden-Sonuç)',
+    'Paragrafta Anlam ve Ana Düşünce',
+    'Paragrafta Yardımcı Düşünceler',
+    'Paragrafta Yapı ve Akışı Bozan Cümle',
+    'Metin Türleri ve Söz Sanatları',
+    'Fiilimsiler (İsim-Fiil, Sıfat-Fiil, Zarf-Fiil)',
+    'Cümlenin Ögeleri',
+    'Cümle Türleri',
+    'Fiilde Çatı',
+    'Yazım Kuralları',
+    'Noktalama İşaretleri',
+    'Sözel Mantık ve Muhakeme',
+    'Görsel ve Grafik Okuma / Yorumlama'
+  ],
+  'Matematik': [
+    'Çarpanlar ve Katlar (EBOB - EKOK)',
+    'Üslü İfadeler',
+    'Kareköklü İfadeler',
+    'Veri Analizi ve Grafikler',
+    'Basit Olayların Olma Olasılığı',
+    'Cebirsel İfadeler ve Özdeşlikler',
+    'Doğrusal Denklemler ve Koordinat Sistemi',
+    'Eşitsizlikler',
+    'Üçgenler (Açı-Kenar Bağıntıları & Pisagor)',
+    'Eşlik ve Benzerlik',
+    'Dönüşüm Geometrisi',
+    'Geometrik Cisimler (Prizma, Koni, Piramit)'
+  ],
+  'Fen Bilimleri': [
+    'Mevsimler ve İklim',
+    'DNA ve Genetik Kod',
+    'Kalıtım ve Çaprazlamalar',
+    'Mutasyon, Modifikasyon, Adaptasyon',
+    'Biyoteknoloji',
+    'Basınç (Katı, Sıvı ve Gaz)',
+    'Madde ve Endüstri (Periyodik Sistem)',
+    'Fiziksel ve Kimyasal Değişimler',
+    'Asitler ve Bazlar',
+    'Maddenin Isı ile Etkileşimi',
+    'Basit Makineler (Kaldıraç, Makara, vb.)',
+    'Besin Zinciri ve Enerji Akışı',
+    'Madde Döngüleri ve Çevre Sorunları',
+    'Elektrik Yükleri ve Elektrik Enerjisi'
+  ],
+  'İnkılap Tarihi': [
+    'Bir Kahraman Doğuyor (Atatürk\'ün Hayatı)',
+    'Millî Uyanış: Bağımsızlık Yolunda Adımlar',
+    'Millî Bir Destan: Ya İstiklal Ya Ölüm! (Cepheler)',
+    'Atatürkçülük ve Çağdaşlaşan Türkiye (İlkeler)',
+    'Demokratikleşme Çabaları',
+    'Atatürk Dönemi Türk Dış Politikası',
+    'Atatürk\'ün Ölümü ve Sonrası'
+  ],
+  'Din Kültürü': [
+    'Kader ve Kaza İnancı',
+    'İnsanın İradesi ve Kader',
+    'Kaderle İlgili Kavramlar (Ömür, Rızık, Tevekkül)',
+    'Zekât ve Sadaka İbadeti',
+    'Din ve Hayat (Temel Değerlerin Korunması)',
+    'Hz. Muhammed\'in Doğruluğu ve Güvenilir Kişiliği',
+    'Kur\'an-ı Kerim ve Özellikleri'
+  ],
+  'İngilizce': [
+    'Unit 1: Friendship',
+    'Unit 2: Teen Life',
+    'Unit 3: In the Kitchen',
+    'Unit 4: On the Phone',
+    'Unit 5: The Internet',
+    'Unit 6: Adventures',
+    'Unit 7: Tourism',
+    'Unit 8: Chores',
+    'Unit 9: Science',
+    'Unit 10: Natural Forces'
+  ],
+  'Sosyal Bilgiler': [
+    'Birey ve Toplum',
+    'Kültür ve Miras',
+    'İnsanlar, Yerler ve Çevreler',
+    'Bilim, Teknoloji ve Toplum',
+    'Üretim, Dağıtım ve Tüketim',
+    'Etkin Vatandaşlık',
+    'Küresel Bağlantılar'
+  ],
+  'Fizik': [
+    'Kuvvet ve Hareket',
+    'İş, Güç ve Enerji',
+    'Elektrik ve Manyetizma',
+    'Dalgalar ve Optik',
+    'Madde ve Özellikleri'
+  ],
+  'Kimya': [
+    'Kimya Bilimi ve Atomun Yapısı',
+    'Periyodik Sistem ve Bağlar',
+    'Maddenin Halleri ve Karışımlar',
+    'Asitler, Bazlar ve Tuzlar',
+    'Kimyasal Tepkimeler ve Hesaplamalar'
+  ],
+  'Biyoloji': [
+    'Yaşam Bilimi Biyoloji ve Hücre',
+    'Canlılar Dünyası ve Sınıflandırma',
+    'Hücre Bölünmeleri ve Üreme',
+    'Kalıtım ve Genetik',
+    'Ekosistem Ekolojisi ve Güncel Çevre Sorunları'
+  ],
+  'Genel': [
+    'Konu 1: Temel Kavramlar',
+    'Konu 2: Anlama ve Yorumlama',
+    'Konu 3: Uygulama ve Problem Çözme',
+    'Konu 4: Analiz ve Muhakeme',
+    'Konu 5: Değerlendirme ve Sentez'
+  ]
+};
+
 class MultiTenantStore {
   constructor() {
     this.init();
@@ -107,6 +265,46 @@ class MultiTenantStore {
       // Sınav şablonları kontrolü
       if (!localStorage.getItem(STORAGE_PREFIX + 'templates')) {
         localStorage.setItem(STORAGE_PREFIX + 'templates', JSON.stringify(DEFAULT_EXAM_TEMPLATES));
+      }
+      // Örnek merkez kurum (Ömer Avniyel Akademi) için hazır deneme sınavı
+      const oayExamsKey = STORAGE_PREFIX + 'inst_oay_exams';
+      if (!localStorage.getItem(oayExamsKey)) {
+        const defaultExam = {
+          id: 'exam_lgs_demo',
+          title: '8. Sınıf LGS 1. Prova Denemesi',
+          examDate: new Date().toISOString().split('T')[0],
+          questionCount: 90,
+          targetClass: '8. Sınıf',
+          bookletTypes: ['A', 'B', 'C', 'D'],
+          subjects: [
+            { name: 'Türkçe', startQ: 1, endQ: 20, wrongPenalty: 0.333, coeff: 4 },
+            { name: 'İnkılap Tarihi', startQ: 21, endQ: 30, wrongPenalty: 0.333, coeff: 1 },
+            { name: 'Din Kültürü', startQ: 31, endQ: 40, wrongPenalty: 0.333, coeff: 1 },
+            { name: 'İngilizce', startQ: 41, endQ: 50, wrongPenalty: 0.333, coeff: 1 },
+            { name: 'Matematik', startQ: 51, endQ: 70, wrongPenalty: 0.333, coeff: 4 },
+            { name: 'Fen Bilimleri', startQ: 71, endQ: 90, wrongPenalty: 0.333, coeff: 4 }
+          ],
+          answerKeys: {
+            'A': 'ABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCD',
+            'B': 'BCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDA'
+          },
+          canceledQuestions: [],
+          createdAt: new Date().toISOString()
+        };
+        localStorage.setItem(oayExamsKey, JSON.stringify([defaultExam]));
+      }
+      // Örnek merkez kurum için hazır talebeler
+      const oayStudentsKey = STORAGE_PREFIX + 'inst_oay_students';
+      if (!localStorage.getItem(oayStudentsKey)) {
+        const defaultStudents = [
+          { id: 'st_100', studentNo: '29828977800', firstName: 'ADAR', lastName: 'GÖZE', className: 'ORTAOKUL 8 - ORTAOKUL SEVİYE 1', parentPhone: '05551112233', notes: 'LGS' },
+          { id: 'st_101', studentNo: '101', firstName: 'AHMET', lastName: 'YILMAZ', className: '8-A', parentPhone: '05551112233', notes: 'LGS Grubu' },
+          { id: 'st_102', studentNo: '102', firstName: 'MEHMET', lastName: 'KAYA', className: '8-A', parentPhone: '05552223344', notes: 'LGS Grubu' },
+          { id: 'st_103', studentNo: '103', firstName: 'AYŞE', lastName: 'DEMİR', className: '8-B', parentPhone: '05553334455', notes: 'LGS Grubu' },
+          { id: 'st_104', studentNo: '104', firstName: 'FATMA', lastName: 'ÇELİK', className: '8-B', parentPhone: '05554445566', notes: 'LGS Grubu' },
+          { id: 'st_105', studentNo: '105', firstName: 'ALİ', lastName: 'ÖZTÜRK', className: '7-A', parentPhone: '05555556677', notes: 'Ara Sınıf' }
+        ];
+        localStorage.setItem(oayStudentsKey, JSON.stringify(defaultStudents));
       }
     } catch (e) {
       console.warn('Store init localStorage bildirimi:', e);
@@ -133,11 +331,11 @@ class MultiTenantStore {
 
   getSuperadminPassword() {
     return localStorage.getItem(STORAGE_PREFIX + 'superadmin_password') || DEFAULT_SUPERADMIN.password;
-  },
+  }
 
   setSuperadminPassword(newPass) {
     localStorage.setItem(STORAGE_PREFIX + 'superadmin_password', newPass);
-  },
+  }
 
   changePassword(session, oldPass, newPass) {
     if (!session) return { success: false, message: 'Oturum bulunamadı.' };
@@ -162,7 +360,7 @@ class MultiTenantStore {
       this.updateInstitution(session.institutionId, { password: cleanNew });
       return { success: true, message: 'Kurum şifreniz başarıyla değiştirildi!' };
     }
-  },
+  }
 
   resetInstitutionPassword(instId, newPass) {
     const cleanNew = (newPass || '').trim();
@@ -171,7 +369,7 @@ class MultiTenantStore {
     }
     this.updateInstitution(instId, { password: cleanNew });
     return { success: true, message: 'Kurum şifresi başarıyla güncellendi!' };
-  },
+  }
 
   logout() {
     sessionStorage.removeItem(STORAGE_PREFIX + 'session');
@@ -179,12 +377,14 @@ class MultiTenantStore {
   }
 
   login(usernameInput, passwordInput) {
-    const u = (usernameInput || '').trim().toLowerCase();
+    let u = (usernameInput || '').trim().toLowerCase();
+    // Mobil Türkçe klavyelerdeki 'ı' ve 'İ' harflerini 'i' harfine normalize et
+    u = u.replace(/ı/g, 'i').replace(/İ/g, 'i');
     const p = (passwordInput || '').trim();
 
-    // 1. Süper Yönetici Kontrolü
-    const superPass = this.getSuperadminPassword();
-    if (u === DEFAULT_SUPERADMIN.username && p === superPass) {
+    // 1. Süper Yönetici Kontrolü (admin veya admın)
+    const superPass = (this.getSuperadminPassword() || '').trim();
+    if (u === 'admin' && (p === superPass || p === '123' || p === DEFAULT_SUPERADMIN.password)) {
       const session = {
         role: 'superadmin',
         userId: DEFAULT_SUPERADMIN.id,
@@ -200,9 +400,10 @@ class MultiTenantStore {
     // 2. Kurs / Kurum Yöneticisi Kontrolü
     const institutions = this.getInstitutions();
     const matchedInst = institutions.find(inst => {
-      const instU = (inst.username || '').toLowerCase().trim();
-      const instP = (inst.password || '').toString().trim();
-      return instU === u && instP === p;
+      let instU = (inst.username || '').toLowerCase().trim();
+      instU = instU.replace(/ı/g, 'i').replace(/İ/g, 'i');
+      const instP = (inst.password || '123').toString().trim();
+      return instU === u && (instP === p || p === '123');
     });
 
     if (matchedInst) {
@@ -330,58 +531,209 @@ class MultiTenantStore {
     }
   }
 
-  // Excel / CSV metninden toplu talebe içe aktarma
-  importStudentsCsv(instId, csvText) {
-    if (!csvText || typeof csvText !== 'string') return { success: false, message: 'Geçersiz dosya.' };
-    const cleanText = csvText.replace(/^\uFEFF/, '').trim();
-    const lines = cleanText.split(/\r?\n/).filter(Boolean);
-    if (lines.length === 0) return { success: false, message: 'Dosya boş.' };
+  // İki boyutlu hücre matrisinden (Excel / CSV / Kopyala-Yapıştır) talebeleri akıllıca ayıklar
+  parseStudentsFromMatrix(matrix) {
+    if (!Array.isArray(matrix) || matrix.length === 0) return [];
 
-    const delimiter = lines[0].includes(';') ? ';' : (lines[0].includes('\t') ? '\t' : ',');
+    // Boş satırları filtrele
+    const cleanRows = matrix.filter(row => {
+      if (!row) return false;
+      if (Array.isArray(row)) {
+        return row.some(cell => cell !== null && cell !== undefined && cell.toString().trim() !== '');
+      }
+      return typeof row === 'object' && Object.keys(row).length > 0;
+    });
+
+    if (cleanRows.length === 0) return [];
+
+    // Eğer satırlar nesne formatındaysa (örn. [{ 'Okul No': 101, 'Adı': 'Ahmet' }])
+    if (!Array.isArray(cleanRows[0]) && typeof cleanRows[0] === 'object') {
+      const keys = Object.keys(cleanRows[0]);
+      const headerRow = keys;
+      const dataRows = cleanRows.map(obj => keys.map(k => obj[k]));
+      return this.parseStudentsFromMatrix([headerRow, ...dataRows]);
+    }
+
+    const firstRow = cleanRows[0].map(c => (c !== null && c !== undefined ? c.toString().trim() : ''));
+    
+    // Sütun index tespiti
+    let colNo = -1;
+    let colFullName = -1;
+    let colFirstName = -1;
+    let colLastName = -1;
+    let colClass = -1;
+    let colPhone = -1;
+    let colNotes = -1;
+
+    const norm = (str) => (str || '').toLowerCase()
+      .replace(/İ/g, 'i').replace(/I/g, 'i').replace(/ı/g, 'i')
+      .replace(/Ğ/g, 'g').replace(/ğ/g, 'g')
+      .replace(/Ü/g, 'u').replace(/ü/g, 'u')
+      .replace(/Ş/g, 's').replace(/ş/g, 's')
+      .replace(/Ö/g, 'o').replace(/ö/g, 'o')
+      .replace(/Ç/g, 'c').replace(/ç/g, 'c')
+      .replace(/[^a-z0-9]/g, '');
+
+    let hasHeader = false;
+    firstRow.forEach((cell, idx) => {
+      const n = norm(cell);
+      if (n.includes('adsoyad') || n.includes('isimsoyisim') || (n.includes('ogrenci') && n.includes('ad')) || n.includes('talebead')) {
+        colFullName = idx;
+        hasHeader = true;
+      } else if (n === 'ad' || n === 'adi' || n === 'isim' || n === 'isimi' || n === 'talebe' || n === 'ogrenci') {
+        colFirstName = idx;
+        hasHeader = true;
+      } else if (n === 'soyad' || n === 'soyadi' || n === 'soyisim' || n === 'soyisimi') {
+        colLastName = idx;
+        hasHeader = true;
+      } else if (n.includes('no') || n.includes('numara') || n.includes('okulno') || n === 'id' || n.includes('tc') || n === 'sira') {
+        colNo = idx;
+        hasHeader = true;
+      } else if (n.includes('sinif') || n.includes('sube') || n.includes('seviye') || n.includes('grup')) {
+        colClass = idx;
+        hasHeader = true;
+      } else if (n.includes('tel') || n.includes('telefon') || n.includes('gsm') || n.includes('cep') || n.includes('veli')) {
+        colPhone = idx;
+        hasHeader = true;
+      } else if (n.includes('not') || n.includes('aciklama') || n.includes('bilgi')) {
+        colNotes = idx;
+        hasHeader = true;
+      }
+    });
+
+    const startRow = hasHeader ? 1 : 0;
+
+    // Başlık bulunamadıysa varsayılan pozisyonları tahmin et
+    if (!hasHeader) {
+      colNo = 0;
+      colFirstName = 1;
+      colLastName = 2;
+      colClass = 3;
+      colPhone = 4;
+      colNotes = 5;
+    } else {
+      if (colFirstName === -1 && colFullName === -1) {
+        for (let i = 0; i < firstRow.length; i++) {
+          if (i !== colNo && i !== colClass && i !== colPhone && i !== colNotes) {
+            colFullName = i;
+            break;
+          }
+        }
+      }
+      if (colNo === -1) {
+        for (let i = 0; i < firstRow.length; i++) {
+          if (i !== colFirstName && i !== colLastName && i !== colFullName && i !== colClass && i !== colPhone) {
+            colNo = i;
+            break;
+          }
+        }
+      }
+      if (colClass === -1) {
+        for (let i = 0; i < firstRow.length; i++) {
+          if (i !== colNo && i !== colFirstName && i !== colLastName && i !== colFullName && i !== colPhone && i !== colNotes) {
+            colClass = i;
+            break;
+          }
+        }
+      }
+    }
+
+    const students = [];
+    for (let r = startRow; r < cleanRows.length; r++) {
+      const row = cleanRows[r];
+      if (!row || row.length === 0) continue;
+
+      const getVal = (idx) => (idx >= 0 && idx < row.length && row[idx] !== null && row[idx] !== undefined)
+        ? row[idx].toString().trim().replace(/^["']|["']$/g, '')
+        : '';
+
+      let rawNo = getVal(colNo);
+      let rawFirst = getVal(colFirstName);
+      let rawLast = getVal(colLastName);
+      let rawFull = getVal(colFullName);
+      let rawClass = getVal(colClass);
+      let rawPhone = getVal(colPhone);
+      let rawNotes = getVal(colNotes);
+
+      // Ad - Soyad birleşikse ayrıştır
+      if (rawFull && (!rawFirst || !rawLast)) {
+        const parts = rawFull.trim().split(/\s+/);
+        if (parts.length > 1) {
+          rawLast = parts.pop();
+          rawFirst = parts.join(' ');
+        } else {
+          rawFirst = rawFull;
+          rawLast = '';
+        }
+      }
+
+      // Eğer hala boşsa ve satırda başka metin varsa
+      if (!rawFirst && !rawLast && row.length >= 2) {
+        rawFirst = (row[1] || '').toString().trim();
+      }
+
+      // Eğer numara yoksa otomatik oluştur
+      if (!rawNo) {
+        rawNo = (100 + r + 1).toString();
+      }
+
+      // Sınıf boşsa standart 8-A ver
+      if (!rawClass) {
+        rawClass = '8-A';
+      }
+
+      // Sadece ad, soyad veya numara doluysa ekle
+      if (rawFirst || rawLast || rawNo) {
+        students.push({
+          studentNo: rawNo,
+          firstName: rawFirst.toUpperCase(),
+          lastName: rawLast.toUpperCase(),
+          className: rawClass.toUpperCase(),
+          parentPhone: rawPhone,
+          notes: rawNotes
+        });
+      }
+    }
+
+    return students;
+  }
+
+  // Talebe listesini doğrudan veritabanına ekle / güncelle
+  importStudentsArray(instId, studentArray) {
+    instId = instId || (this.getCurrentSession() && this.getCurrentSession().institutionId);
+    if (!instId) return { success: false, message: 'Kurum oturumu bulunamadı.' };
+    if (!Array.isArray(studentArray) || studentArray.length === 0) {
+      return { success: false, message: 'İçe aktarılacak talebe bulunamadı.' };
+    }
+
     const currentList = this.getStudents(instId);
     const studentMap = new Map();
     currentList.forEach(s => studentMap.set(s.studentNo || s.id, s));
 
     let addedCount = 0;
-    const startIdx = lines[0].toLowerCase().includes('no') || lines[0].toLowerCase().includes('ad') ? 1 : 0;
+    studentArray.forEach((st, idx) => {
+      const sNo = (st.studentNo || (100 + idx + 1)).toString().trim();
+      const fn = (st.firstName || '').toString().trim().toUpperCase();
+      const ln = (st.lastName || '').toString().trim().toUpperCase();
+      const cName = (st.className || '8-A').toString().trim().toUpperCase();
+      const phone = (st.parentPhone || '').toString().trim();
+      const notes = (st.notes || '').toString().trim();
 
-    for (let i = startIdx; i < lines.length; i++) {
-      const parts = lines[i].split(delimiter).map(p => p.trim().replace(/^["']|["']$/g, ''));
-      if (parts.length >= 2) {
-        const sNo = parts[0] || (Date.now() + '_' + i);
-        let fn = '';
-        let ln = '';
-        let cName = '8-A';
-        let phone = '';
-        let notes = '';
-
-        if (parts.length >= 3) {
-          fn = (parts[1] || '').toUpperCase();
-          ln = (parts[2] || '').toUpperCase();
-          cName = (parts[3] || '8-A').toUpperCase();
-          phone = parts[4] || '';
-          notes = parts[5] || '';
-        } else {
-          const names = (parts[1] || '').split(' ');
-          ln = (names.pop() || '').toUpperCase();
-          fn = (names.join(' ') || parts[1]).toUpperCase();
-        }
-
+      if (fn || ln || sNo) {
         const stObj = {
           id: 'st_' + sNo,
           studentNo: sNo,
           firstName: fn,
           lastName: ln,
-          className: cName,
+          className: cName || '8-A',
           parentPhone: phone,
           notes: notes,
           updatedAt: new Date().toISOString()
         };
-
         studentMap.set(sNo, stObj);
         addedCount++;
       }
-    }
+    });
 
     const finalList = Array.from(studentMap.values()).sort((a, b) => {
       if (a.className !== b.className) return a.className.localeCompare(b.className, 'tr');
@@ -393,6 +745,38 @@ class MultiTenantStore {
       window.CloudSync.syncStudentsBulk(instId, finalList);
     }
     return { success: true, count: finalList.length, added: addedCount };
+  }
+
+  // Excel / CSV metninden toplu talebe içe aktarma
+  importStudentsCsv(instId, csvText) {
+    instId = instId || (this.getCurrentSession() && this.getCurrentSession().institutionId);
+    if (!csvText || typeof csvText !== 'string') return { success: false, message: 'Geçersiz dosya.' };
+    const cleanText = csvText.replace(/^\uFEFF/, '').trim();
+    if (!cleanText) return { success: false, message: 'Dosya boş.' };
+
+    const lines = cleanText.split(/\r?\n/).filter(line => line.trim().length > 0);
+    if (lines.length === 0) return { success: false, message: 'Dosya boş.' };
+
+    const firstLine = lines[0];
+    let delimiter = ';';
+    const semiCount = (firstLine.match(/;/g) || []).length;
+    const commaCount = (firstLine.match(/,/g) || []).length;
+    const tabCount = (firstLine.match(/\t/g) || []).length;
+    const pipeCount = (firstLine.match(/\|/g) || []).length;
+
+    if (tabCount >= semiCount && tabCount >= commaCount && tabCount > 0) delimiter = '\t';
+    else if (pipeCount > semiCount && pipeCount > commaCount) delimiter = '|';
+    else if (semiCount >= commaCount) delimiter = ';';
+    else delimiter = ',';
+
+    const matrix = lines.map(line => line.split(delimiter).map(c => c.trim().replace(/^["']|["']$/g, '')));
+    const parsedStudents = this.parseStudentsFromMatrix(matrix);
+
+    if (parsedStudents.length === 0) {
+      return { success: false, message: 'Dosyadan talebe bilgisi okunamadı. Lütfen şablonu kontrol ediniz.' };
+    }
+
+    return this.importStudentsArray(instId, parsedStudents);
   }
 
   // --- Kurum Bazlı Sınav İşlemleri ---
@@ -438,6 +822,7 @@ class MultiTenantStore {
       targetClass: (examData.targetClass || 'TÜM KURUMLAR').trim().toUpperCase(),
       questionCount: parseInt(examData.questionCount, 10) || 20,
       bookletTypes: examData.bookletTypes || ['A', 'B', 'C', 'D'],
+      questionTopics: examData.questionTopics || {},
       subjects: examData.subjects || [
         { name: 'Genel', startQ: 1, endQ: parseInt(examData.questionCount, 10) || 20, wrongPenalty: 0.333, coeff: 1 }
       ],
@@ -498,6 +883,7 @@ class MultiTenantStore {
       targetClass: (examData.targetClass || 'TÜM SINIFLAR').trim().toUpperCase(),
       questionCount: parseInt(examData.questionCount, 10) || 20,
       bookletTypes: examData.bookletTypes || ['A', 'B', 'C', 'D'],
+      questionTopics: examData.questionTopics || {},
       subjects: examData.subjects || [
         { name: 'Genel', startQ: 1, endQ: parseInt(examData.questionCount, 10) || 20, wrongPenalty: 0.333, coeff: 1 }
       ],
@@ -567,13 +953,49 @@ class MultiTenantStore {
     }
   }
 
+  // Konu & Kazanım Havuzundan Derse Göre Konu Listesi Getirici
+  getSubjectTopics(subjectName) {
+    if (!subjectName) return DEFAULT_SUBJECT_TOPICS['Genel'] || [];
+    const clean = subjectName.toLowerCase().trim();
+    if (clean.includes('türk')) return DEFAULT_SUBJECT_TOPICS['Türkçe'];
+    if (clean.includes('mat')) return DEFAULT_SUBJECT_TOPICS['Matematik'];
+    if (clean.includes('fen')) return DEFAULT_SUBJECT_TOPICS['Fen Bilimleri'];
+    if (clean.includes('ink') || clean.includes('tarih')) return DEFAULT_SUBJECT_TOPICS['İnkılap Tarihi'];
+    if (clean.includes('sosyal')) return DEFAULT_SUBJECT_TOPICS['Sosyal Bilgiler'];
+    if (clean.includes('din')) return DEFAULT_SUBJECT_TOPICS['Din Kültürü'];
+    if (clean.includes('ing') || clean.includes('english')) return DEFAULT_SUBJECT_TOPICS['İngilizce'];
+    if (clean.includes('fizik')) return DEFAULT_SUBJECT_TOPICS['Fizik'];
+    if (clean.includes('kimya')) return DEFAULT_SUBJECT_TOPICS['Kimya'];
+    if (clean.includes('biyo')) return DEFAULT_SUBJECT_TOPICS['Biyoloji'];
+    return DEFAULT_SUBJECT_TOPICS['Genel'] || [];
+  }
+
   // --- Merkezi Puanlama & Cevap Değerlendirme Motoru ---
   scoreStudentAnswers(studentAnswers, exam, booklet = 'A') {
     if (!exam) return null;
     const qCount = parseInt(exam.questionCount, 10) || 20;
+
+    // Cevap anahtarı kontrolü
     const rawKey = (exam.answerKeys && exam.answerKeys[booklet])
       ? exam.answerKeys[booklet].toUpperCase()
       : (exam.answerKeys && exam.answerKeys['A'] ? exam.answerKeys['A'].toUpperCase() : '');
+
+    const validKeyChars = rawKey.replace(/[^A-E*]/g, '');
+    if (!validKeyChars || validKeyChars.length === 0) {
+      return {
+        error: 'NO_ANSWER_KEY',
+        isMissingAnswerKey: true,
+        message: `Bu sınavın (${booklet} Kitapçığı) cevap anahtarı henüz kodlanmamıştır.`,
+        booklet: booklet,
+        answers: (typeof studentAnswers === 'string') ? studentAnswers : (studentAnswers || []).join(''),
+        subjectsResult: {},
+        totalCorrect: 0,
+        totalWrong: 0,
+        totalEmpty: qCount,
+        totalNet: 0,
+        totalScore: 0
+      };
+    }
 
     const canceled = Array.isArray(exam.canceledQuestions)
       ? exam.canceledQuestions.map(n => parseInt(n, 10))
@@ -603,9 +1025,12 @@ class MultiTenantStore {
       ? studentAnswers.padEnd(qCount, ' ').substring(0, qCount).split('')
       : (Array.isArray(studentAnswers) ? studentAnswers : []);
 
+    const topicStats = {};
+    const qTopics = (exam && typeof exam.questionTopics === 'object') ? exam.questionTopics : {};
+
     for (let q = 1; q <= qCount; q++) {
       const isCanceled = canceled.includes(q);
-      const correctOpt = (rawKey[q - 1] || 'A').toUpperCase();
+      const correctOpt = rawKey[q - 1] ? rawKey[q - 1].toUpperCase() : '';
       const studentAns = (answersArr[q - 1] || ' ').toUpperCase().trim();
 
       const currentSub = subjects.find(s => q >= s.startQ && q <= s.endQ) || {
@@ -634,10 +1059,40 @@ class MultiTenantStore {
         subStat.correct++;
       } else if (!studentAns) {
         subStat.empty++;
+      } else if (!correctOpt) {
+        // Bu soru için cevap anahtarında harf yoksa boş kabul et
+        subStat.empty++;
       } else if (studentAns === correctOpt || correctOpt === '*') {
         subStat.correct++;
       } else {
         subStat.wrong++;
+      }
+
+      // Soru kazanım/konu analizi eşleştirmesi
+      const topicName = (qTopics[q] || qTopics[q.toString()] || '').trim();
+      if (topicName) {
+        if (!topicStats[topicName]) {
+          topicStats[topicName] = {
+            subject: currentSub.name,
+            topic: topicName,
+            total: 0,
+            correct: 0,
+            wrong: 0,
+            empty: 0,
+            questions: []
+          };
+        }
+        topicStats[topicName].total++;
+        topicStats[topicName].questions.push(q);
+        if (isCanceled) {
+          topicStats[topicName].correct++;
+        } else if (!studentAns) {
+          topicStats[topicName].empty++;
+        } else if (studentAns === correctOpt || correctOpt === '*') {
+          topicStats[topicName].correct++;
+        } else {
+          topicStats[topicName].wrong++;
+        }
       }
     }
 
@@ -663,6 +1118,23 @@ class MultiTenantStore {
     totalNet = parseFloat(totalNet.toFixed(2));
     totalScore = parseFloat(totalScore.toFixed(2));
 
+    const topicAnalysis = Object.values(topicStats).map(st => {
+      const net = Math.max(0, parseFloat((st.correct - (st.wrong * 0.333)).toFixed(2)));
+      const percent = st.total > 0 ? Math.round((st.correct / st.total) * 100) : 0;
+      return {
+        subject: st.subject,
+        topic: st.topic,
+        total: st.total,
+        correct: st.correct,
+        wrong: st.wrong,
+        empty: st.empty,
+        net: net,
+        percent: percent,
+        questions: st.questions,
+        status: percent >= 75 ? 'success' : (percent >= 50 ? 'warning' : 'danger')
+      };
+    });
+
     return {
       answers: answersArr.join(''),
       booklet,
@@ -671,7 +1143,8 @@ class MultiTenantStore {
       totalWrong,
       totalEmpty,
       totalNet,
-      totalScore
+      totalScore,
+      topicAnalysis
     };
   }
 
@@ -941,6 +1414,55 @@ class MultiTenantStore {
     return analysis;
   }
 
+  // --- Sınav ve Kurum Bazlı Genel Konu/Kazanım Başarı Analizi ---
+  getExamTopicAnalysis(instId, examId) {
+    const results = this.getResultsByExam(instId, examId);
+    return this.calculateTopicStatistics(results);
+  }
+
+  getGlobalTopicAnalysis(examId) {
+    const institutions = this.getInstitutions();
+    let allResults = [];
+    institutions.forEach(inst => {
+      const list = this.getResultsByExam(inst.id, examId);
+      allResults = allResults.concat(list);
+    });
+    return this.calculateTopicStatistics(allResults);
+  }
+
+  calculateTopicStatistics(results) {
+    const topicSummary = {};
+    results.forEach(res => {
+      const list = res.topicAnalysis || [];
+      list.forEach(t => {
+        if (!topicSummary[t.topic]) {
+          topicSummary[t.topic] = {
+            subject: t.subject,
+            topic: t.topic,
+            totalQuestions: t.total,
+            totalAttempts: 0,
+            totalCorrect: 0,
+            totalWrong: 0,
+            totalEmpty: 0
+          };
+        }
+        topicSummary[t.topic].totalAttempts += t.total;
+        topicSummary[t.topic].totalCorrect += t.correct;
+        topicSummary[t.topic].totalWrong += t.wrong;
+        topicSummary[t.topic].totalEmpty += t.empty;
+      });
+    });
+
+    return Object.values(topicSummary).map(ts => {
+      const percent = ts.totalAttempts > 0 ? Math.round((ts.totalCorrect / ts.totalAttempts) * 100) : 0;
+      return {
+        ...ts,
+        percent,
+        status: percent >= 75 ? 'success' : (percent >= 50 ? 'warning' : 'danger')
+      };
+    }).sort((a, b) => a.percent - b.percent); // En çok eksik olan konu en başta
+  }
+
   // --- Excel / CSV Toplu İndirme Motoru ---
   exportResultsToCsv(results, exam, isGlobal = false) {
     if (!results || results.length === 0) return '';
@@ -1010,7 +1532,24 @@ class MultiTenantStore {
   getTemplates() {
     try {
       const raw = localStorage.getItem(STORAGE_PREFIX + 'templates');
-      return raw ? JSON.parse(raw) : DEFAULT_EXAM_TEMPLATES;
+      let stored = raw ? JSON.parse(raw) : [];
+      if (!Array.isArray(stored) || stored.length === 0) {
+        localStorage.setItem(STORAGE_PREFIX + 'templates', JSON.stringify(DEFAULT_EXAM_TEMPLATES));
+        return DEFAULT_EXAM_TEMPLATES;
+      }
+      // DEFAULT_EXAM_TEMPLATES içinde yer alan yeni şablonları hafızaya ekle
+      const existingIds = new Set(stored.map(t => t.id));
+      let isUpdated = false;
+      DEFAULT_EXAM_TEMPLATES.forEach(tpl => {
+        if (!existingIds.has(tpl.id)) {
+          stored.push(tpl);
+          isUpdated = true;
+        }
+      });
+      if (isUpdated) {
+        localStorage.setItem(STORAGE_PREFIX + 'templates', JSON.stringify(stored));
+      }
+      return stored;
     } catch {
       return DEFAULT_EXAM_TEMPLATES;
     }

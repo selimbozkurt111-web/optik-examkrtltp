@@ -60,7 +60,11 @@ window.App = {
   },
 
   handleLogin(e) {
-    e.preventDefault();
+    if (e && typeof e.preventDefault === 'function') e.preventDefault();
+    if (!window.PortalStore) {
+      this.showToast('Veri ambarı (store.js) hazırlanıyor, lütfen sayfayı yenileyiniz (Ctrl + F5).', 'warning');
+      return;
+    }
     const u = document.getElementById('login-username').value;
     const p = document.getElementById('login-password').value;
     const res = window.PortalStore.login(u, p);
@@ -74,6 +78,27 @@ window.App = {
       this.render();
     } else {
       this.showToast(res.message, 'error');
+    }
+  },
+
+  quickLogin(username, password) {
+    const uInput = document.getElementById('login-username');
+    const pInput = document.getElementById('login-password');
+    if (uInput) uInput.value = username;
+    if (pInput) pInput.value = password;
+    this.handleLogin({ preventDefault: () => {} });
+  },
+
+  togglePasswordVisibility(inputId, btnId) {
+    const input = document.getElementById(inputId);
+    const btn = document.getElementById(btnId);
+    if (!input) return;
+    if (input.type === 'password') {
+      input.type = 'text';
+      if (btn) btn.textContent = '🙈';
+    } else {
+      input.type = 'password';
+      if (btn) btn.textContent = '👁️';
     }
   },
 
@@ -143,9 +168,9 @@ window.App = {
       }
 
       appContainer.innerHTML = `
-        <div class="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
+        <div class="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans w-full max-w-full overflow-x-hidden">
           ${this.renderHeader(session)}
-          <main class="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-6">
+          <main class="flex-1 max-w-7xl w-full mx-auto p-2.5 sm:p-6 min-w-0 overflow-x-hidden">
             ${this.renderTabContent(session)}
           </main>
           ${this.renderFooter()}
@@ -175,83 +200,88 @@ window.App = {
   renderHeader(session) {
     const isSuper = session.role === 'superadmin';
     return `
-      <header class="bg-slate-900 border-b border-slate-800 sticky top-0 z-40 shadow-xl">
-        <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-slate-950 font-black text-xl shadow-lg shadow-emerald-500/20">
+      <header class="bg-slate-900 border-b border-slate-800 sticky top-0 z-40 shadow-xl w-full max-w-full">
+        <div class="max-w-7xl mx-auto px-2.5 sm:px-4 py-2 sm:py-3 flex items-center justify-between gap-2 min-w-0">
+          <div class="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+            <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-slate-950 font-black text-base sm:text-xl shadow-lg shadow-emerald-500/20 flex-shrink-0">
               📸
             </div>
-            <div>
-              <div class="flex items-center gap-2">
-                <h1 class="text-base sm:text-lg font-black tracking-tight text-white">Optik Sınav Portalı</h1>
-                <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${isSuper ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'}">
-                  ${isSuper ? 'Ana Yönetici' : 'Kurs Paneli'}
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center gap-1.5 sm:gap-2">
+                <h1 class="text-xs sm:text-base font-black tracking-tight text-white truncate">Optik Sınav Portalı</h1>
+                <span class="px-1.5 py-0.5 rounded-full text-[9px] sm:text-[10px] font-black uppercase whitespace-nowrap flex-shrink-0 ${isSuper ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'}">
+                  ${isSuper ? 'Ana Yönetici' : 'Kurs'}
                 </span>
               </div>
-              <p class="text-xs text-slate-400 font-medium">${session.institutionName}</p>
+              <p class="text-[10px] sm:text-xs text-slate-400 font-medium truncate">${session.institutionName}</p>
             </div>
           </div>
 
-          <div class="flex items-center gap-2">
+          <div class="flex items-center gap-1 sm:gap-1.5 flex-shrink-0">
             <!-- Tema Değiştir Butonu -->
-            <button onclick="App.showThemeModal()" title="Görünüm ve Tema Seçimi" class="px-2.5 py-1.5 rounded-xl text-xs font-bold border transition flex items-center gap-1.5 bg-slate-800 text-slate-300 border-slate-700 hover:text-white cursor-pointer">
+            <button onclick="App.showThemeModal()" title="Görünüm ve Tema Seçimi" class="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl text-xs font-bold border transition flex items-center gap-1 bg-slate-800 text-slate-300 border-slate-700 hover:text-white cursor-pointer">
               <span>🎨</span>
-              <span class="hidden sm:inline">Tema</span>
+              <span class="hidden md:inline">Tema</span>
             </button>
 
             <!-- Şifre Değiştir Butonu -->
-            <button onclick="App.showChangePasswordModal()" title="Şifre Değiştir" class="px-2.5 py-1.5 rounded-xl text-xs font-bold border transition flex items-center gap-1.5 bg-slate-800 text-amber-300 border-slate-700 hover:text-amber-200 cursor-pointer">
+            <button onclick="App.showChangePasswordModal()" title="Şifre Değiştir" class="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl text-xs font-bold border transition flex items-center gap-1 bg-slate-800 text-amber-300 border-slate-700 hover:text-amber-200 cursor-pointer">
               <span>🔑</span>
-              <span class="hidden sm:inline">Şifre</span>
+              <span class="hidden md:inline">Şifre</span>
             </button>
 
             <!-- Bulut Senkronizasyon Rozeti -->
-            <button id="cloud-sync-badge" onclick="App.showCloudSyncModal()" title="Bulut Senkronizasyon Ayarları" class="px-2.5 py-1.5 rounded-xl text-xs font-bold border transition flex items-center gap-1.5 bg-slate-800 text-slate-300 border-slate-700">
+            <button id="cloud-sync-badge" onclick="App.showCloudSyncModal()" title="Bulut Senkronizasyon Ayarları" class="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl text-xs font-bold border transition flex items-center gap-1 bg-slate-800 text-slate-300 border-slate-700">
               <span class="w-2 h-2 rounded-full bg-slate-400"></span>
-              <span class="hidden sm:inline">Bulut Durumu</span>
+              <span class="hidden md:inline">Bulut</span>
             </button>
 
             ${session.isImpersonating ? `
-              <button onclick="App.returnToSuperAdmin()" class="px-3 py-1.5 bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 border border-amber-500/40 rounded-xl text-xs font-bold transition flex items-center gap-1">
-                <span>👑</span> <span>Merkeze Dön</span>
+              <button onclick="App.returnToSuperAdmin()" class="px-2 sm:px-3 py-1.5 bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 border border-amber-500/40 rounded-xl text-xs font-bold transition flex items-center gap-1">
+                <span>👑</span> <span class="hidden sm:inline">Merkez</span>
               </button>
             ` : ''}
-            <button onclick="App.handleLogout()" class="px-3 py-1.5 bg-slate-800 hover:bg-rose-950/40 hover:text-rose-400 text-slate-300 border border-slate-700 hover:border-rose-800 rounded-xl text-xs font-bold transition flex items-center gap-1">
-              <span>Çıkış</span> <span>🚪</span>
+            <button onclick="App.handleLogout()" class="px-2 sm:px-3 py-1.5 bg-slate-800 hover:bg-rose-950/40 hover:text-rose-400 text-slate-300 border border-slate-700 hover:border-rose-800 rounded-xl text-xs font-bold transition flex items-center gap-1" title="Çıkış Yap">
+              <span class="hidden sm:inline">Çıkış</span> <span>🚪</span>
             </button>
           </div>
         </div>
 
-        <!-- Sekme Menüsü -->
-        <nav class="max-w-7xl mx-auto px-4 flex gap-1 sm:gap-2 overflow-x-auto border-t border-slate-800/80 pt-1 pb-1">
-          ${isSuper ? `
-            <button onclick="App.switchTab('kurumlar')" class="px-4 py-2 rounded-lg text-xs font-bold transition ${this.currentTab === 'kurumlar' ? 'bg-emerald-500 text-slate-950 font-black shadow-md' : 'text-slate-400 hover:text-white'}">
-              🏢 Kurs & Okul Yönetimi
-            </button>
-            <button onclick="App.switchTab('ortak_sinavlar')" class="px-4 py-2 rounded-lg text-xs font-bold transition ${this.currentTab === 'ortak_sinavlar' ? 'bg-emerald-500 text-slate-950 font-black shadow-md' : 'text-slate-400 hover:text-white'}">
-              🌐 Merkezi Ortak Sınavlar
-            </button>
-            <button onclick="App.switchTab('istatistikler')" class="px-4 py-2 rounded-lg text-xs font-bold transition ${this.currentTab === 'istatistikler' ? 'bg-emerald-500 text-slate-950 font-black shadow-md' : 'text-slate-400 hover:text-white'}">
-              📊 Sistem İstatistikleri
-            </button>
-          ` : `
-            <button onclick="App.switchTab('sinavlar')" class="px-3 sm:px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${this.currentTab === 'sinavlar' ? 'bg-emerald-500 text-slate-950 font-black shadow-md' : 'text-slate-400 hover:text-white'}">
-              <span>📝</span> <span>Sınavlar</span>
-            </button>
-            <button onclick="App.switchTab('ogrenciler')" class="px-3 sm:px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${this.currentTab === 'ogrenciler' ? 'bg-emerald-500 text-slate-950 font-black shadow-md' : 'text-slate-400 hover:text-white'}">
-              <span>👥</span> <span>Talebeler</span>
-            </button>
-            <button onclick="App.switchTab('optik_yazdir')" class="px-3 sm:px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${this.currentTab === 'optik_yazdir' ? 'bg-emerald-500 text-slate-950 font-black shadow-md' : 'text-slate-400 hover:text-white'}">
-              <span>🖨️</span> <span>Optik Form Yazdır</span>
-            </button>
-            <button onclick="App.switchTab('kamera_tara')" class="px-3 sm:px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${this.currentTab === 'kamera_tara' ? 'bg-emerald-500 text-slate-950 font-black shadow-md' : 'text-slate-400 hover:text-white'}">
-              <span>📱</span> <span>Kamera ile Oku</span>
-            </button>
-            <button onclick="App.switchTab('neticeler')" class="px-3 sm:px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${this.currentTab === 'neticeler' ? 'bg-emerald-500 text-slate-950 font-black shadow-md' : 'text-slate-400 hover:text-white'}">
-              <span>🏆</span> <span>Neticeler & Sıralama</span>
-            </button>
-          `}
-        </nav>
+        <!-- Sekme Menüsü: Mobilde Taşma Yapmayan Akıcı Kaydırma -->
+        <div class="w-full border-t border-slate-800/80 overflow-hidden">
+          <nav class="max-w-7xl mx-auto px-2 sm:px-4 flex gap-1 sm:gap-2 overflow-x-auto pt-1 pb-1 whitespace-nowrap" style="-webkit-overflow-scrolling: touch;">
+            ${isSuper ? `
+              <button onclick="App.switchTab('kurumlar')" class="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs font-bold transition flex-shrink-0 ${this.currentTab === 'kurumlar' ? 'bg-emerald-500 text-slate-950 font-black shadow-md' : 'text-slate-400 hover:text-white'}">
+                🏢 Kurs & Okul Yönetimi
+              </button>
+              <button onclick="App.switchTab('ortak_sinavlar')" class="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs font-bold transition flex-shrink-0 ${this.currentTab === 'ortak_sinavlar' ? 'bg-emerald-500 text-slate-950 font-black shadow-md' : 'text-slate-400 hover:text-white'}">
+                🌐 Merkezi Ortak Sınavlar
+              </button>
+              <button onclick="App.switchTab('istatistikler')" class="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs font-bold transition flex-shrink-0 ${this.currentTab === 'istatistikler' ? 'bg-emerald-500 text-slate-950 font-black shadow-md' : 'text-slate-400 hover:text-white'}">
+                📊 Sistem İstatistikleri
+              </button>
+              <button onclick="App.impersonateInstitution('inst_oay'); setTimeout(() => App.switchTab('kamera_tara'), 50);" class="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs font-bold transition flex-shrink-0 flex items-center gap-1.5 text-emerald-400 hover:text-emerald-300 border border-emerald-500/30 bg-emerald-500/10 cursor-pointer" title="Doğrudan Mobil Optik Okumayı Başlat">
+                <span>📱</span> <span>Kamera ile Oku</span>
+              </button>
+            ` : `
+              <button onclick="App.switchTab('sinavlar')" class="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs font-bold transition flex-shrink-0 flex items-center gap-1.5 ${this.currentTab === 'sinavlar' ? 'bg-emerald-500 text-slate-950 font-black shadow-md' : 'text-slate-400 hover:text-white'}">
+                <span>📝</span> <span>Sınavlar</span>
+              </button>
+              <button onclick="App.switchTab('ogrenciler')" class="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs font-bold transition flex-shrink-0 flex items-center gap-1.5 ${this.currentTab === 'ogrenciler' ? 'bg-emerald-500 text-slate-950 font-black shadow-md' : 'text-slate-400 hover:text-white'}">
+                <span>👥</span> <span>Talebeler</span>
+              </button>
+              <button onclick="App.switchTab('optik_yazdir')" class="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs font-bold transition flex-shrink-0 flex items-center gap-1.5 ${this.currentTab === 'optik_yazdir' ? 'bg-emerald-500 text-slate-950 font-black shadow-md' : 'text-slate-400 hover:text-white'}">
+                <span>🖨️</span> <span>Optik Form Yazdır</span>
+              </button>
+              <button onclick="App.switchTab('kamera_tara')" class="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs font-bold transition flex-shrink-0 flex items-center gap-1.5 ${this.currentTab === 'kamera_tara' ? 'bg-emerald-500 text-slate-950 font-black shadow-md' : 'text-slate-400 hover:text-white'}">
+                <span>📱</span> <span>Kamera ile Oku</span>
+              </button>
+              <button onclick="App.switchTab('neticeler')" class="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs font-bold transition flex-shrink-0 flex items-center gap-1.5 ${this.currentTab === 'neticeler' ? 'bg-emerald-500 text-slate-950 font-black shadow-md' : 'text-slate-400 hover:text-white'}">
+                <span>🏆</span> <span>Neticeler & Sıralama</span>
+              </button>
+            `}
+          </nav>
+        </div>
       </header>
     `;
   },
@@ -297,12 +327,19 @@ window.App = {
             <div>
               <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Kullanıcı Adı</label>
               <input type="text" id="login-username" required placeholder="admin veya kurs adınız"
+                autocapitalize="none" autocorrect="off" autocomplete="username" spellcheck="false"
                 class="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-white font-medium focus:border-emerald-500 focus:outline-none transition">
             </div>
 
             <div>
-              <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Şifre</label>
+              <div class="flex items-center justify-between mb-1.5">
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-400">Şifre</label>
+                <button type="button" id="toggle-pass-btn" onclick="App.togglePasswordVisibility('login-password', 'toggle-pass-btn')" class="text-xs text-slate-400 hover:text-white transition">
+                  👁️ Göster
+                </button>
+              </div>
               <input type="password" id="login-password" required placeholder="••••••••"
+                autocapitalize="none" autocorrect="off" autocomplete="current-password"
                 class="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-white font-medium focus:border-emerald-500 focus:outline-none transition">
             </div>
 
@@ -313,11 +350,15 @@ window.App = {
             </button>
           </form>
 
-          <div class="mt-6 pt-4 border-t border-slate-800/80 text-center">
-            <p class="text-[11px] text-slate-500">
-              💡 <strong>Ana Yönetici Girişi:</strong> Kullanıcı Adı: <code>admin</code> • Şifre: <code>123</code><br>
-              💡 <strong>Örnek Kurs Girişi:</strong> Kullanıcı Adı: <code>oay</code> • Şifre: <code>123</code>
-            </p>
+          <!-- Mobilde Tek Tıkla Hızlı Giriş Butonları -->
+          <div class="mt-4 pt-3 border-t border-slate-800/80 space-y-2">
+            <span class="block text-[10px] text-slate-400 font-bold uppercase tracking-wider text-center">⚡ Telefonda Tek Dokunuşla Hızlı Giriş</span>
+            <button type="button" onclick="App.quickLogin('admin', '123')" class="w-full py-2 px-3 bg-slate-800 hover:bg-slate-700 active:scale-95 text-amber-300 font-bold text-xs rounded-xl border border-amber-500/30 transition flex items-center justify-center gap-2 cursor-pointer shadow">
+              <span>👑</span> <span>Ana Yönetici Girişi (admin / 123)</span>
+            </button>
+            <button type="button" onclick="App.quickLogin('oay', '123')" class="w-full py-2 px-3 bg-slate-800 hover:bg-slate-700 active:scale-95 text-emerald-300 font-bold text-xs rounded-xl border border-emerald-500/30 transition flex items-center justify-center gap-2 cursor-pointer shadow">
+              <span>🏫</span> <span>Örnek Kurs Girişi (oay / 123)</span>
+            </button>
           </div>
         </div>
       </div>
@@ -329,12 +370,12 @@ window.App = {
     const list = window.PortalStore.getInstitutions();
     return `
       <div class="space-y-6">
-        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-900 border border-slate-800 p-5 rounded-2xl shadow-lg">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-900 border border-slate-800 p-4 sm:p-5 rounded-2xl shadow-lg w-full max-w-full">
           <div>
             <h2 class="text-xl font-black text-white tracking-tight">Kayıtlı Kurs & Okullar</h2>
             <p class="text-xs text-slate-400 mt-0.5">Sistemi kullanan tüm kurumları buradan açabilir, yönetebilir ve panellerine doğrudan geçebilirsiniz.</p>
           </div>
-          <button onclick="App.showAddInstitutionModal()" class="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black text-xs rounded-xl shadow-md transition flex items-center gap-1.5">
+          <button onclick="App.showAddInstitutionModal()" class="w-full sm:w-auto px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black text-xs rounded-xl shadow-md transition flex items-center justify-center gap-1.5 cursor-pointer">
             <span>+</span> <span>Yeni Kurs / Okul Ekle</span>
           </button>
         </div>
@@ -462,12 +503,12 @@ window.App = {
     const exams = window.PortalStore.getExams(instId);
     return `
       <div class="space-y-6">
-        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-900 border border-slate-800 p-5 rounded-2xl shadow-lg">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-900 border border-slate-800 p-4 sm:p-5 rounded-2xl shadow-lg w-full max-w-full">
           <div>
             <h2 class="text-xl font-black text-white tracking-tight">Deneme Sınavları</h2>
             <p class="text-xs text-slate-400 mt-0.5">Sınav tanımlayabilir, optik form basabilir veya kamerayla okumaya geçebilirsiniz.</p>
           </div>
-          <button onclick="App.showCreateExamModal('${instId}')" class="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black text-xs rounded-xl shadow-md transition flex items-center gap-1.5">
+          <button onclick="App.showCreateExamModal('${instId}')" class="w-full sm:w-auto px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black text-xs rounded-xl shadow-md transition flex items-center justify-center gap-1.5 cursor-pointer">
             <span>+</span> <span>Yeni Deneme Sınavı Oluştur</span>
           </button>
         </div>
@@ -548,6 +589,8 @@ window.App = {
     if (existing) existing.remove();
 
     const templates = window.PortalStore.getTemplates();
+    const students = instId ? window.PortalStore.getStudents(instId) : [];
+    const existingClasses = Array.from(new Set(students.map(s => (s.className || '').trim()).filter(Boolean))).sort();
 
     const modal = document.createElement('div');
     modal.id = 'create-exam-modal';
@@ -556,21 +599,21 @@ window.App = {
       <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-7 max-w-2xl w-full shadow-2xl relative max-h-[92vh] overflow-y-auto">
         <div class="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
           <div class="flex items-center gap-2.5">
-            <span class="text-2xl">\${isGlobal ? '🌐' : '📝'}</span>
+            <span class="text-2xl">${isGlobal ? '🌐' : '📝'}</span>
             <div>
-              <h3 class="text-base font-black text-white">\${isGlobal ? 'Merkezi Ortak Deneme Sınavı Oluştur' : 'Yeni Deneme Sınavı Oluştur'}</h3>
-              <p class="text-xs text-slate-400 font-medium">\${isGlobal ? 'Tüm kursların katılabileceği genel ortak sınav' : 'Kurumunuza özel deneme sınavı'}</p>
+              <h3 class="text-base font-black text-white">${isGlobal ? 'Merkezi Ortak Deneme Sınavı Oluştur' : 'Yeni Deneme Sınavı Oluştur'}</h3>
+              <p class="text-xs text-slate-400 font-medium">${isGlobal ? 'Tüm kursların katılabileceği genel ortak sınav' : 'Kurumunuza özel deneme sınavı'}</p>
             </div>
           </div>
           <button onclick="document.getElementById('create-exam-modal').remove()" class="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-sm font-bold cursor-pointer">✕</button>
         </div>
 
-        <form onsubmit="App.handleSaveExamForm(event, '\${instId || ''}', \${isGlobal})" class="space-y-4">
+        <form onsubmit="App.handleSaveExamForm(event, '${instId || ''}', ${isGlobal})" class="space-y-4">
           <!-- Hazır Şablon Seçimi -->
           <div class="bg-slate-950 p-3 rounded-2xl border border-slate-800">
             <label class="block text-[11px] font-bold uppercase text-emerald-400 mb-1">⚡ Hazır Sınav Formatı / Şablonu Seçiniz</label>
             <select id="exam-template-select" onchange="App.handleTemplateChange(this.value)" class="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-white font-bold text-xs focus:border-emerald-500 focus:outline-none">
-              \${templates.map(t => `<option value="\${t.id}">\${t.name}</option>`).join('')}
+              ${templates.map(t => `<option value="${t.id}">${t.name}</option>`).join('')}
               <option value="custom">Özel Ders Dağılımı (Serbest Tanımlama)</option>
             </select>
           </div>
@@ -582,18 +625,42 @@ window.App = {
             </div>
             <div>
               <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Sınav Tarihi</label>
-              <input type="date" id="exam-form-date" value="\${new Date().toISOString().split('T')[0]}" class="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white font-medium text-xs focus:border-emerald-500 focus:outline-none">
+              <input type="date" id="exam-form-date" value="${new Date().toISOString().split('T')[0]}" class="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white font-medium text-xs focus:border-emerald-500 focus:outline-none">
             </div>
           </div>
 
-          <div class="grid grid-cols-2 gap-3">
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Toplam Soru Sayısı</label>
-              <input type="number" id="exam-form-qcount" min="1" max="300" value="90" onchange="App.handleExamQCountChange(this.value)" class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-bold text-xs focus:border-emerald-500 focus:outline-none">
+              <input type="number" id="exam-form-qcount" min="1" max="300" value="90" readonly class="w-full px-3 py-2 bg-slate-950/80 border border-slate-800 rounded-xl text-emerald-400 font-black text-xs focus:outline-none cursor-default" title="Ders soru sayılarına göre otomatik hesaplanır">
             </div>
             <div>
-              <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Hedef Sınıf / Seviye</label>
-              <input type="text" id="exam-form-target" value="8. Sınıf" class="w-full px-3.5 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-medium text-xs focus:border-emerald-500 focus:outline-none">
+              <label class="block text-xs font-bold uppercase text-slate-400 mb-1">📖 Kitapçık Sayısı</label>
+              <select id="exam-form-booklet-count" onchange="App.handleBookletCountChange('create', this.value)" class="w-full px-3.5 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-bold text-xs focus:border-emerald-500 focus:outline-none">
+                <option value="1">1 Kitapçık (Yalnızca A)</option>
+                <option value="2">2 Kitapçık (A, B)</option>
+                <option value="3">3 Kitapçık (A, B, C)</option>
+                <option value="4" selected>4 Kitapçık (A, B, C, D)</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-bold uppercase text-slate-400 mb-1">🎯 Hedef Sınıf / Şube</label>
+              <select id="exam-form-target" onchange="App.handleTargetClassSelectChange(this, 'exam-form-target-custom')" class="w-full px-3.5 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-bold text-xs focus:border-emerald-500 focus:outline-none">
+                ${existingClasses.length > 0 ? `
+                  <optgroup label="🏫 Kurumdaki Talebe Şubeleri">
+                    ${existingClasses.map(c => `<option value="${c}">${c} Şubesi</option>`).join('')}
+                  </optgroup>
+                ` : ''}
+                <optgroup label="📚 Standart Sınıflar">
+                  <option value="8. Sınıf" selected>8. Sınıf (LGS)</option>
+                  <option value="7. Sınıf">7. Sınıf</option>
+                  <option value="6. Sınıf">6. Sınıf</option>
+                  <option value="5. Sınıf">5. Sınıf</option>
+                  <option value="Tüm Şubeler">Tüm Şubeler</option>
+                </optgroup>
+                <option value="custom">✍️ Diğer / Yeni Şube Yaz...</option>
+              </select>
+              <input type="text" id="exam-form-target-custom" placeholder="Örn: 8-C veya Seviye 1" class="hidden mt-1.5 w-full px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-white font-medium text-xs focus:border-emerald-500 focus:outline-none">
             </div>
           </div>
 
@@ -601,21 +668,21 @@ window.App = {
           <div class="bg-slate-950/80 p-3.5 rounded-2xl border border-slate-800 space-y-2">
             <div class="flex items-center justify-between pb-1">
               <div>
-                <label class="text-xs font-bold uppercase text-slate-300">📚 Ders Bölümleri & Katsayılar</label>
-                <p class="text-[10px] text-slate-500">Her dersin soru aralığını, puan katsayısını ve yanlış götürme oranını belirleyebilirsiniz.</p>
+                <label class="text-xs font-bold uppercase text-slate-300">📚 Ders Bölümleri & Soru Sayıları</label>
+                <p class="text-[10px] text-slate-500">Her dersin sadece kaç soru olduğunu giriniz; soru aralıkları ve toplam soru sayısı otomatik hesaplanır.</p>
               </div>
-              <button type="button" onclick="App.addSubjectRow('subject-rows-container')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-emerald-400 text-[11px] font-bold rounded-lg border border-slate-700 transition">
+              <button type="button" onclick="App.addSubjectRow('subject-rows-container')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-emerald-400 text-[11px] font-bold rounded-lg border border-slate-700 transition cursor-pointer">
                 + Ders Ekle
               </button>
             </div>
 
-            <div class="overflow-x-auto">
-              <table class="w-full text-left text-[11px]">
+            <div class="overflow-x-auto w-full max-w-full" style="-webkit-overflow-scrolling: touch;">
+              <table class="w-full text-left text-[11px] min-w-[460px]">
                 <thead class="text-slate-500 uppercase border-b border-slate-800 font-bold">
                   <tr>
                     <th class="p-1.5">Ders Adı</th>
-                    <th class="p-1.5 text-center">İlk Soru</th>
-                    <th class="p-1.5 text-center">Son Soru</th>
+                    <th class="p-1.5 text-center">Soru Sayısı</th>
+                    <th class="p-1.5 text-center">Aralık</th>
                     <th class="p-1.5 text-center">Ceza (Yanlış Götürme)</th>
                     <th class="p-1.5 text-center">Katsayı</th>
                     <th class="p-1.5 text-right">Sil</th>
@@ -629,12 +696,16 @@ window.App = {
           </div>
 
           <!-- 4 Kitapçık (A, B, C, D) Cevap Anahtarları -->
+          <!-- 4 Kitapçık (A, B, C, D) Ders Ders Cevap Anahtarları -->
           <div class="space-y-3 p-3.5 bg-slate-950/80 rounded-2xl border border-slate-800">
-            <div class="flex items-center justify-between">
-              <label class="text-xs font-bold text-white uppercase flex items-center gap-1.5">
-                <span>🔑</span> <span>Cevap Anahtarları (4 Kitapçık)</span>
-              </label>
-              <div class="flex gap-1" id="booklet-tab-buttons">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800/80 pb-2.5">
+              <div>
+                <label class="text-xs font-black text-white uppercase flex items-center gap-1.5">
+                  <span>🔑</span> <span>Ders Ders Cevap Anahtarları</span>
+                </label>
+                <p class="text-[10px] text-slate-400">Her dersin doğru cevaplarını ilgili ders kutusuna sırasıyla yazınız.</p>
+              </div>
+              <div class="flex items-center gap-1" id="booklet-tab-buttons">
                 <button type="button" onclick="App.switchBookletTab('A')" id="btn-tab-A" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-500 text-slate-950 transition">Kitapçık A</button>
                 <button type="button" onclick="App.switchBookletTab('B')" id="btn-tab-B" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 transition">Kitapçık B</button>
                 <button type="button" onclick="App.switchBookletTab('C')" id="btn-tab-C" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 transition">Kitapçık C</button>
@@ -642,44 +713,28 @@ window.App = {
               </div>
             </div>
 
-            <div id="booklet-pane-A" class="booklet-pane">
-              <div class="flex items-center justify-between mb-1">
-                <span class="text-[11px] font-bold text-emerald-400 uppercase">A Kitapçığı Cevapları:</span>
-                <button type="button" onclick="App.openScanAnswerKeyModal('exam-form-key-a')" class="text-[10px] font-bold text-cyan-400 hover:text-cyan-300 flex items-center gap-1 bg-cyan-950/40 px-2 py-0.5 rounded-lg border border-cyan-800/50 cursor-pointer">
-                  <span>📷</span> <span>Kameradan Tara</span>
-                </button>
+            <div id="create-booklet-pane-A" class="create-booklet-pane space-y-2"></div>
+            <div id="create-booklet-pane-B" class="create-booklet-pane space-y-2 hidden"></div>
+            <div id="create-booklet-pane-C" class="create-booklet-pane space-y-2 hidden"></div>
+            <div id="create-booklet-pane-D" class="create-booklet-pane space-y-2 hidden"></div>
+          </div>
+
+          <!-- Soru Konu ve Kazanımları (Seçmeli Havuz) -->
+          <div class="space-y-3 p-3.5 bg-slate-950/80 rounded-2xl border border-slate-800">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800/80 pb-2.5">
+              <div>
+                <label class="text-xs font-black text-white uppercase flex items-center gap-1.5">
+                  <span>🎯</span> <span>Soru Konu & Kazanımları (Seçmeli)</span>
+                </label>
+                <p class="text-[10px] text-slate-400">Her soru için açılır listeden konu seçiniz. Karnelerde konu başarı grafiği üretilir.</p>
               </div>
-              <textarea id="exam-form-key-a" rows="2" placeholder="Örn: ABCDABCD..." class="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs font-mono text-emerald-300 focus:border-emerald-500 focus:outline-none uppercase"></textarea>
+              <button type="button" onclick="App.toggleQuestionTopicsPanel('create')" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 transition cursor-pointer flex items-center gap-1">
+                <span id="btn-toggle-topics-create">Konuları Düzenle ▼</span>
+              </button>
             </div>
 
-            <div id="booklet-pane-B" class="booklet-pane hidden">
-              <div class="flex items-center justify-between mb-1">
-                <span class="text-[11px] font-bold text-amber-400 uppercase">B Kitapçığı Cevapları:</span>
-                <button type="button" onclick="App.openScanAnswerKeyModal('exam-form-key-b')" class="text-[10px] font-bold text-cyan-400 hover:text-cyan-300 flex items-center gap-1 bg-cyan-950/40 px-2 py-0.5 rounded-lg border border-cyan-800/50 cursor-pointer">
-                  <span>📷</span> <span>Kameradan Tara</span>
-                </button>
-              </div>
-              <textarea id="exam-form-key-b" rows="2" placeholder="Örn: BCDABCDA..." class="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs font-mono text-amber-300 focus:border-emerald-500 focus:outline-none uppercase"></textarea>
-            </div>
-
-            <div id="booklet-pane-C" class="booklet-pane hidden">
-              <div class="flex items-center justify-between mb-1">
-                <span class="text-[11px] font-bold text-cyan-400 uppercase">C Kitapçığı Cevapları:</span>
-                <button type="button" onclick="App.openScanAnswerKeyModal('exam-form-key-c')" class="text-[10px] font-bold text-cyan-400 hover:text-cyan-300 flex items-center gap-1 bg-cyan-950/40 px-2 py-0.5 rounded-lg border border-cyan-800/50 cursor-pointer">
-                  <span>📷</span> <span>Kameradan Tara</span>
-                </button>
-              </div>
-              <textarea id="exam-form-key-c" rows="2" placeholder="Örn: CDABCDAB..." class="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs font-mono text-cyan-300 focus:border-emerald-500 focus:outline-none uppercase"></textarea>
-            </div>
-
-            <div id="booklet-pane-D" class="booklet-pane hidden">
-              <div class="flex items-center justify-between mb-1">
-                <span class="text-[11px] font-bold text-purple-400 uppercase">D Kitapçığı Cevapları:</span>
-                <button type="button" onclick="App.openScanAnswerKeyModal('exam-form-key-d')" class="text-[10px] font-bold text-cyan-400 hover:text-cyan-300 flex items-center gap-1 bg-cyan-950/40 px-2 py-0.5 rounded-lg border border-cyan-800/50 cursor-pointer">
-                  <span>📷</span> <span>Kameradan Tara</span>
-                </button>
-              </div>
-              <textarea id="exam-form-key-d" rows="2" placeholder="Örn: DABCDABC..." class="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs font-mono text-purple-300 focus:border-emerald-500 focus:outline-none uppercase"></textarea>
+            <div id="create-topics-container" class="space-y-3">
+              <!-- JS ile render edilecek -->
             </div>
           </div>
 
@@ -696,76 +751,153 @@ window.App = {
     this.handleTemplateChange('tpl_lgs_90');
   },
 
+  handleTargetClassSelectChange(selectElem, customInputId) {
+    const customInput = document.getElementById(customInputId);
+    if (!customInput) return;
+    if (selectElem.value === 'custom') {
+      customInput.classList.remove('hidden');
+      customInput.focus();
+    } else {
+      customInput.classList.add('hidden');
+    }
+  },
+
   // Sınav Şablonu Seçildiğinde Alanları Otomatik Doldur
   handleTemplateChange(tplId) {
     const templates = window.PortalStore.getTemplates();
     const tpl = templates.find(t => t.id === tplId);
     const titleInput = document.getElementById('exam-form-title');
     const qCountInput = document.getElementById('exam-form-qcount');
-    const targetInput = document.getElementById('exam-form-target');
+    const targetSelect = document.getElementById('exam-form-target');
+    const targetCustom = document.getElementById('exam-form-target-custom');
 
     if (tpl) {
-      if (titleInput && (!titleInput.value || titleInput.value.includes('Deneme') || titleInput.value.includes('Prova'))) {
+      if (titleInput && (!titleInput.value || titleInput.value.includes('Deneme') || titleInput.value.includes('Prova') || titleInput.value.includes('Sınav'))) {
         titleInput.value = tpl.name;
       }
       if (qCountInput) {
         qCountInput.value = tpl.questionCount;
       }
-      if (targetInput) {
-        if (tpl.id.includes('lgs')) targetInput.value = '8. Sınıf';
-        else if (tpl.id.includes('tyt')) targetInput.value = '12. Sınıf / Mezun';
-        else targetInput.value = 'Tüm Sınıflar';
+      if (targetSelect) {
+        if (targetCustom) targetCustom.classList.add('hidden');
+        if (tpl.id.includes('lgs') || tpl.id.includes('ortaokul')) {
+          if (targetSelect.querySelector('option[value="8. Sınıf"]')) {
+            targetSelect.value = '8. Sınıf';
+          }
+        } else if (tpl.id.includes('tyt')) {
+          if (targetCustom) {
+            targetSelect.value = 'custom';
+            targetCustom.classList.remove('hidden');
+            targetCustom.value = '12. Sınıf / Mezun';
+          }
+        }
+      }
+      const bCountSelect = document.getElementById('exam-form-booklet-count');
+      if (bCountSelect && tpl.bookletTypes) {
+        bCountSelect.value = tpl.bookletTypes.length.toString();
+        this.handleBookletCountChange('create', tpl.bookletTypes.length);
       }
       this.renderSubjectRows(tpl.subjects || [], 'subject-rows-container');
       this.handleExamQCountChange(tpl.questionCount.toString());
+      this.renderQuestionTopics('create', tpl.subjects || [], {});
     } else {
       // Özel şablon
       const currentQ = qCountInput ? parseInt(qCountInput.value, 10) || 20 : 20;
-      this.renderSubjectRows([
+      const defaultSubs = [
         { name: 'Bölüm 1', startQ: 1, endQ: currentQ, wrongPenalty: 0.333, coeff: 1 }
-      ], 'subject-rows-container');
+      ];
+      this.renderSubjectRows(defaultSubs, 'subject-rows-container');
+      this.renderQuestionTopics('create', defaultSubs, {});
     }
   },
 
-  // Ders Satırlarını Tabloya Basma
+  // Ders Satırlarını Tabloya Basma (İlk Soru - Son Soru yerine sadece Soru Sayısı)
   renderSubjectRows(subjects, containerId = 'subject-rows-container') {
     const container = document.getElementById(containerId);
     if (!container) return;
 
-    container.innerHTML = subjects.map((sub, idx) => `
-      <tr class="subject-row">
-        <td class="p-1.5">
-          <input type="text" class="sub-name w-full px-2 py-1 bg-slate-900 border border-slate-800 rounded font-bold text-white text-xs" value="\${sub.name || 'Ders ' + (idx + 1)}">
-        </td>
-        <td class="p-1.5 text-center">
-          <input type="number" class="sub-start w-14 px-1.5 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs text-slate-200" value="\${sub.startQ || 1}">
-        </td>
-        <td class="p-1.5 text-center">
-          <input type="number" class="sub-end w-14 px-1.5 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs text-slate-200" value="\${sub.endQ || 20}">
-        </td>
-        <td class="p-1.5 text-center">
-          <select class="sub-penalty px-1.5 py-1 bg-slate-900 border border-slate-800 rounded text-xs text-slate-200 font-medium">
-            <option value="0.333" \${sub.wrongPenalty === 0.333 ? 'selected' : ''}>3 Yanlış 1 Doğru (0.33)</option>
-            <option value="0.25" \${sub.wrongPenalty === 0.25 ? 'selected' : ''}>4 Yanlış 1 Doğru (0.25)</option>
-            <option value="0" \${sub.wrongPenalty === 0 ? 'selected' : ''}>Ceza Yok (0.00)</option>
-          </select>
-        </td>
-        <td class="p-1.5 text-center">
-          <input type="number" step="0.1" class="sub-coeff w-14 px-1.5 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs text-emerald-400 font-bold" value="\${sub.coeff !== undefined ? sub.coeff : 1}">
-        </td>
-        <td class="p-1.5 text-right">
-          <button type="button" onclick="App.removeSubjectRow(this)" class="p-1 text-rose-400 hover:text-rose-300 text-xs">🗑️</button>
-        </td>
-      </tr>
-    `).join('');
+    let currentStart = 1;
+    container.innerHTML = subjects.map((sub, idx) => {
+      const qCount = (sub.endQ && sub.startQ) ? (sub.endQ - sub.startQ + 1) : (sub.questionCount || 20);
+      const startQ = currentStart;
+      const endQ = currentStart + qCount - 1;
+      currentStart = endQ + 1;
+
+      return `
+        <tr class="subject-row" data-start="${startQ}" data-end="${endQ}">
+          <td class="p-1.5">
+            <input type="text" class="sub-name w-full px-2 py-1 bg-slate-900 border border-slate-800 rounded font-bold text-white text-xs" value="${sub.name || 'Ders ' + (idx + 1)}">
+          </td>
+          <td class="p-1.5 text-center">
+            <input type="number" min="1" max="150" class="sub-qcount w-16 px-1.5 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs text-emerald-400 font-black" value="${qCount}" oninput="App.recalcSubjectRanges('${containerId}')" onchange="App.recalcSubjectRanges('${containerId}')">
+          </td>
+          <td class="p-1.5 text-center">
+            <span class="sub-range-badge text-[11px] font-mono text-slate-300 font-bold bg-slate-800/90 px-2 py-0.5 rounded border border-slate-700/60">${startQ} - ${endQ}</span>
+          </td>
+          <td class="p-1.5 text-center">
+            <select class="sub-penalty px-1.5 py-1 bg-slate-900 border border-slate-800 rounded text-xs text-slate-200 font-medium">
+              <option value="0.333" ${sub.wrongPenalty === 0.333 ? 'selected' : ''}>3 Yanlış 1 Doğru (0.33)</option>
+              <option value="0.25" ${sub.wrongPenalty === 0.25 ? 'selected' : ''}>4 Yanlış 1 Doğru (0.25)</option>
+              <option value="0" ${sub.wrongPenalty === 0 ? 'selected' : ''}>Ceza Yok (0.00)</option>
+            </select>
+          </td>
+          <td class="p-1.5 text-center">
+            <input type="number" step="0.1" class="sub-coeff w-14 px-1.5 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs text-emerald-400 font-bold" value="${sub.coeff !== undefined ? sub.coeff : 1}">
+          </td>
+          <td class="p-1.5 text-right">
+            <button type="button" onclick="App.removeSubjectRow(this, '${containerId}')" class="p-1 text-rose-400 hover:text-rose-300 text-xs cursor-pointer">🗑️</button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+    this.recalcSubjectRanges(containerId);
+  },
+
+  recalcSubjectRanges(containerId = 'subject-rows-container') {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    const rows = container.querySelectorAll('.subject-row');
+    let currentStart = 1;
+    let totalCount = 0;
+
+    rows.forEach(r => {
+      const qInput = r.querySelector('.sub-qcount');
+      const count = parseInt(qInput ? qInput.value : 0, 10) || 1;
+      const endQ = currentStart + count - 1;
+
+      r.dataset.start = currentStart;
+      r.dataset.end = endQ;
+
+      const badge = r.querySelector('.sub-range-badge');
+      if (badge) {
+        badge.textContent = `${currentStart} - ${endQ}`;
+      }
+
+      currentStart = endQ + 1;
+      totalCount += count;
+    });
+
+    const isEdit = containerId.includes('edit');
+    const totalInput = document.getElementById(isEdit ? 'edit-form-qcount' : 'exam-form-qcount');
+    if (totalInput && totalCount > 0) {
+      totalInput.value = totalCount;
+    }
+
+    // Dersler değiştikçe veya soru sayıları güncellendikçe ders ders cevap anahtarı kutularını yenile
+    const prefix = isEdit ? 'edit' : 'create';
+    const subjects = this.collectSubjectsFromForm(containerId);
+    if (subjects.length > 0) {
+      const currentKeys = this.collectBookletKeysFromInputs(prefix, subjects, totalCount);
+      this.renderBookletSubjectKeys(prefix, subjects, currentKeys);
+      const currentTopics = this.collectQuestionTopicsFromInputs(prefix, subjects);
+      this.renderQuestionTopics(prefix, subjects, currentTopics);
+    }
   },
 
   addSubjectRow(containerId = 'subject-rows-container') {
     const container = document.getElementById(containerId);
     if (!container) return;
-    const existingRows = container.querySelectorAll('.subject-row');
-    const nextStart = existingRows.length > 0 ? (parseInt(existingRows[existingRows.length - 1].querySelector('.sub-end').value, 10) + 1) : 1;
-    const nextEnd = nextStart + 19;
 
     const tr = document.createElement('tr');
     tr.className = 'subject-row';
@@ -774,10 +906,10 @@ window.App = {
         <input type="text" class="sub-name w-full px-2 py-1 bg-slate-900 border border-slate-800 rounded font-bold text-white text-xs" value="Yeni Ders">
       </td>
       <td class="p-1.5 text-center">
-        <input type="number" class="sub-start w-14 px-1.5 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs text-slate-200" value="\${nextStart}">
+        <input type="number" min="1" max="150" class="sub-qcount w-16 px-1.5 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs text-emerald-400 font-black" value="10" oninput="App.recalcSubjectRanges('${containerId}')" onchange="App.recalcSubjectRanges('${containerId}')">
       </td>
       <td class="p-1.5 text-center">
-        <input type="number" class="sub-end w-14 px-1.5 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs text-slate-200" value="\${nextEnd}">
+        <span class="sub-range-badge text-[11px] font-mono text-slate-300 font-bold bg-slate-800/90 px-2 py-0.5 rounded border border-slate-700/60">-</span>
       </td>
       <td class="p-1.5 text-center">
         <select class="sub-penalty px-1.5 py-1 bg-slate-900 border border-slate-800 rounded text-xs text-slate-200 font-medium">
@@ -790,15 +922,19 @@ window.App = {
         <input type="number" step="0.1" class="sub-coeff w-14 px-1.5 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs text-emerald-400 font-bold" value="1">
       </td>
       <td class="p-1.5 text-right">
-        <button type="button" onclick="App.removeSubjectRow(this)" class="p-1 text-rose-400 hover:text-rose-300 text-xs">🗑️</button>
+        <button type="button" onclick="App.removeSubjectRow(this, '${containerId}')" class="p-1 text-rose-400 hover:text-rose-300 text-xs cursor-pointer">🗑️</button>
       </td>
     `;
     container.appendChild(tr);
+    this.recalcSubjectRanges(containerId);
   },
 
-  removeSubjectRow(btn) {
+  removeSubjectRow(btn, containerId = 'subject-rows-container') {
     const row = btn.closest('.subject-row');
-    if (row) row.remove();
+    if (row) {
+      row.remove();
+      this.recalcSubjectRanges(containerId);
+    }
   },
 
   collectSubjectsFromForm(containerId = 'subject-rows-container') {
@@ -806,24 +942,460 @@ window.App = {
     if (!container) return [];
     const rows = container.querySelectorAll('.subject-row');
     const subjects = [];
+    let currentStart = 1;
 
-    rows.forEach(r => {
-      const name = (r.querySelector('.sub-name').value || 'Genel').trim();
-      const startQ = parseInt(r.querySelector('.sub-start').value, 10) || 1;
-      const endQ = parseInt(r.querySelector('.sub-end').value, 10) || startQ;
+    rows.forEach((r, idx) => {
+      const name = (r.querySelector('.sub-name').value || ('Ders ' + (idx + 1))).trim();
+      const qInput = r.querySelector('.sub-qcount');
+      const count = parseInt(qInput ? qInput.value : 0, 10) || 1;
+      const startQ = currentStart;
+      const endQ = currentStart + count - 1;
       const wrongPenalty = parseFloat(r.querySelector('.sub-penalty').value) || 0;
       const coeff = parseFloat(r.querySelector('.sub-coeff').value) || 1;
 
-      subjects.push({ name, startQ, endQ, wrongPenalty, coeff });
+      subjects.push({ name, startQ, endQ, wrongPenalty, coeff, questionCount: count });
+      currentStart = endQ + 1;
     });
 
     return subjects;
   },
 
+  // --- DERS DERS CEVAP ANAHTARI GİRİŞ MOTORU ---
+  renderBookletSubjectKeys(prefix, subjects, existingAnswerKeys = {}) {
+    if (!Array.isArray(subjects) || subjects.length === 0) return;
+
+    ['A', 'B', 'C', 'D'].forEach(letter => {
+      const container = document.getElementById(`${prefix}-booklet-pane-${letter}`);
+      if (!container) return;
+
+      const rawFullKey = (existingAnswerKeys && existingAnswerKeys[letter]) ? existingAnswerKeys[letter].toString().trim() : '';
+
+      let totalExamQ = 0;
+      let totalEnteredQ = 0;
+
+      const subjectCardsHtml = subjects.map((sub, idx) => {
+        const qCount = (sub.endQ && sub.startQ) ? (sub.endQ - sub.startQ + 1) : (sub.questionCount || 20);
+        const startQ = sub.startQ || (totalExamQ + 1);
+        const endQ = sub.endQ || (startQ + qCount - 1);
+        totalExamQ += qCount;
+
+        // Mevcut tam anahtardan bu dersin dilimini al
+        let subKey = '';
+        if (rawFullKey) {
+          subKey = rawFullKey.substring(startQ - 1, endQ).toUpperCase();
+        }
+
+        totalEnteredQ += subKey.length;
+        const isComplete = subKey.length === qCount;
+        const badgeClass = isComplete 
+          ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
+          : (subKey.length > 0 ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-slate-800 text-slate-400 border border-slate-700');
+
+        return `
+          <div class="bg-slate-900/90 border border-slate-800 hover:border-slate-700/80 p-2.5 rounded-xl transition">
+            <div class="flex items-center justify-between mb-1.5">
+              <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full ${isComplete ? 'bg-emerald-400' : 'bg-amber-400'}"></span>
+                <span class="text-xs font-bold text-white">${sub.name || ('Ders ' + (idx + 1))}</span>
+                <span class="text-[10px] font-mono text-slate-400 bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">
+                  ${startQ} - ${endQ} (${qCount} Soru)
+                </span>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <span id="badge-key-${prefix}-${letter}-${idx}" class="text-[10px] font-mono font-bold px-2 py-0.5 rounded ${badgeClass}">
+                  ${subKey.length} / ${qCount}${isComplete ? ' ✓' : ''}
+                </span>
+                <button type="button" onclick="App.openScanAnswerKeyModal('key-${prefix}-${letter}-${idx}', ${qCount})" title="Sadece bu dersin cevaplarını kameradan oku" class="text-[10px] font-bold text-cyan-400 hover:text-cyan-300 flex items-center gap-1 bg-cyan-950/40 px-2 py-0.5 rounded-lg border border-cyan-800/50 cursor-pointer">
+                  <span>📷</span> <span>Tara</span>
+                </button>
+              </div>
+            </div>
+            <input type="text" 
+              id="key-${prefix}-${letter}-${idx}" 
+              data-prefix="${prefix}" 
+              data-letter="${letter}" 
+              data-idx="${idx}" 
+              data-qcount="${qCount}"
+              value="${subKey}" 
+              maxlength="${qCount}"
+              placeholder="Örn: ${qCount} harf (A, B, C, D...)" 
+              oninput="App.handleSubjectKeyInput('${prefix}', '${letter}', ${idx}, ${qCount})" 
+              class="w-full px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-xs font-mono text-emerald-300 focus:border-emerald-500 focus:outline-none uppercase tracking-widest font-bold">
+          </div>
+        `;
+      }).join('');
+
+      const totalBadgeClass = totalEnteredQ === totalExamQ && totalExamQ > 0
+        ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+        : 'bg-slate-800 text-slate-300 border border-slate-700';
+
+      container.innerHTML = `
+        <div class="space-y-2">
+          <!-- Üst Bilgi ve Araç Çubuğu -->
+          <div class="flex flex-wrap items-center justify-between gap-2 bg-slate-900/60 p-2 rounded-xl border border-slate-800/80">
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-black text-white">${letter} Kitapçığı</span>
+              <span id="total-badge-${prefix}-${letter}" class="text-[11px] font-mono font-bold px-2 py-0.5 rounded ${totalBadgeClass}">
+                Toplam: ${totalEnteredQ} / ${totalExamQ} Soru ${totalEnteredQ === totalExamQ && totalExamQ > 0 ? '✓' : ''}
+              </span>
+            </div>
+            <div class="flex items-center gap-1.5">
+              ${letter !== 'A' ? `
+                <button type="button" onclick="App.copyBookletKeysFromA('${prefix}', '${letter}')" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-amber-300 text-[10px] font-bold rounded-lg border border-amber-500/30 transition flex items-center gap-1 cursor-pointer" title="A Kitapçığında girdiğiniz cevapları buraya kopyalar">
+                  <span>📋</span> <span>A'dan Kopyala</span>
+                </button>
+              ` : ''}
+              <button type="button" onclick="App.togglePasteBox('${prefix}', '${letter}')" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-cyan-300 text-[10px] font-bold rounded-lg border border-cyan-500/30 transition flex items-center gap-1 cursor-pointer" title="Uzun metin yapıştır">
+                <span>📝</span> <span>Toplu Metin Yapıştır</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Toplu Yapıştırma Kutusu (Açılır Kapanır) -->
+          <div id="paste-box-${prefix}-${letter}" class="hidden p-2.5 bg-slate-950 border border-cyan-800/60 rounded-xl space-y-1.5 animate-fade-in">
+            <label class="block text-[11px] font-bold text-cyan-300">Tüm Kitapçık Metnini Yapıştırın (Derslere Otomatik Dağıtılır):</label>
+            <div class="flex gap-2">
+              <input type="text" id="paste-input-${prefix}-${letter}" placeholder="Örn: ABCDABCD... (${totalExamQ} Harf)" class="flex-1 px-3 py-1.5 bg-slate-900 border border-slate-800 rounded-lg text-xs font-mono text-cyan-200 uppercase tracking-wider focus:outline-none focus:border-cyan-500">
+              <button type="button" onclick="App.applyPastedKeyToSubjects('${prefix}', '${letter}')" class="px-3 py-1.5 bg-cyan-500 hover:bg-cyan-600 text-slate-950 font-black text-xs rounded-lg transition cursor-pointer">
+                Dağıt
+              </button>
+            </div>
+          </div>
+
+          <!-- Ders Ders Kutular -->
+          <div class="space-y-2">
+            ${subjectCardsHtml}
+          </div>
+        </div>
+      `;
+    });
+  },
+
+  handleSubjectKeyInput(prefix, letter, idx, qCount) {
+    const input = document.getElementById(`key-${prefix}-${letter}-${idx}`);
+    const badge = document.getElementById(`badge-key-${prefix}-${letter}-${idx}`);
+    if (!input || !badge) return;
+
+    let val = (input.value || '').toUpperCase().replace(/[^A-E]/g, '');
+    if (val.length > qCount) {
+      val = val.substring(0, qCount);
+    }
+    input.value = val;
+
+    const isComplete = val.length === qCount;
+    badge.textContent = `${val.length} / ${qCount}${isComplete ? ' ✓' : ''}`;
+    badge.className = isComplete 
+      ? 'text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
+      : (val.length > 0 ? 'text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700');
+
+    this.updateTotalBookletBadge(prefix, letter);
+  },
+
+  updateTotalBookletBadge(prefix, letter) {
+    const container = document.getElementById(`${prefix}-booklet-pane-${letter}`);
+    if (!container) return;
+    const inputs = container.querySelectorAll(`input[id^="key-${prefix}-${letter}-"]`);
+    let totalEntered = 0;
+    let totalExpected = 0;
+
+    inputs.forEach(inp => {
+      totalEntered += (inp.value || '').length;
+      totalExpected += parseInt(inp.dataset.qcount || 0, 10);
+    });
+
+    const totalBadge = document.getElementById(`total-badge-${prefix}-${letter}`);
+    if (totalBadge) {
+      const isComplete = totalEntered === totalExpected && totalExpected > 0;
+      totalBadge.textContent = `Toplam: ${totalEntered} / ${totalExpected} Soru ${isComplete ? '✓' : ''}`;
+      totalBadge.className = isComplete 
+        ? 'text-[11px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
+        : 'text-[11px] font-mono font-bold px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700';
+    }
+  },
+
+  copyBookletKeysFromA(prefix, targetLetter) {
+    const paneA = document.getElementById(`${prefix}-booklet-pane-A`);
+    const targetPane = document.getElementById(`${prefix}-booklet-pane-${targetLetter}`);
+    if (!paneA || !targetPane) return;
+
+    const inputsA = paneA.querySelectorAll(`input[id^="key-${prefix}-A-"]`);
+    inputsA.forEach((inpA, idx) => {
+      const targetInput = document.getElementById(`key-${prefix}-${targetLetter}-${idx}`);
+      if (targetInput) {
+        targetInput.value = inpA.value;
+        const qCount = parseInt(targetInput.dataset.qcount || 0, 10);
+        this.handleSubjectKeyInput(prefix, targetLetter, idx, qCount);
+      }
+    });
+
+    this.showToast(`A Kitapçığı cevapları ${targetLetter} Kitapçığına kopyalandı!`, 'success');
+  },
+
+  togglePasteBox(prefix, letter) {
+    const box = document.getElementById(`paste-box-${prefix}-${letter}`);
+    if (box) {
+      box.classList.toggle('hidden');
+      if (!box.classList.contains('hidden')) {
+        const inp = document.getElementById(`paste-input-${prefix}-${letter}`);
+        if (inp) inp.focus();
+      }
+    }
+  },
+
+  applyPastedKeyToSubjects(prefix, letter) {
+    const pasteInput = document.getElementById(`paste-input-${prefix}-${letter}`);
+    if (!pasteInput) return;
+    const raw = (pasteInput.value || '').toUpperCase().replace(/[^A-E]/g, '');
+    if (!raw) {
+      this.showToast('Lütfen yapıştırılacak metin giriniz.', 'warning');
+      return;
+    }
+
+    const container = document.getElementById(`${prefix}-booklet-pane-${letter}`);
+    if (!container) return;
+    const inputs = container.querySelectorAll(`input[id^="key-${prefix}-${letter}-"]`);
+
+    let offset = 0;
+    inputs.forEach((inp, idx) => {
+      const qCount = parseInt(inp.dataset.qcount || 0, 10);
+      const slice = raw.substring(offset, offset + qCount);
+      inp.value = slice;
+      offset += qCount;
+      this.handleSubjectKeyInput(prefix, letter, idx, qCount);
+    });
+
+    this.showToast('✓ Metin tüm derslere başarıyla paylaştırıldı!', 'success');
+    this.togglePasteBox(prefix, letter);
+  },
+
+  collectBookletKeysFromInputs(prefix, subjects, totalQCount) {
+    const countElem = document.getElementById(prefix === 'edit' ? 'edit-form-booklet-count' : 'exam-form-booklet-count');
+    const bCount = countElem ? (parseInt(countElem.value, 10) || 4) : 4;
+    const activeLetters = ['A', 'B', 'C', 'D'].slice(0, bCount);
+
+    const keys = {};
+
+    activeLetters.forEach(letter => {
+      const container = document.getElementById(`${prefix}-booklet-pane-${letter}`);
+      if (container) {
+        const inputs = container.querySelectorAll(`input[id^="key-${prefix}-${letter}-"]`);
+        let fullKey = '';
+        inputs.forEach(inp => {
+          fullKey += (inp.value || '').toUpperCase().replace(/[^A-E]/g, '');
+        });
+        keys[letter] = fullKey;
+      }
+    });
+
+    // Eğer A boşsa varsayılan A... doldur
+    if (!keys['A']) {
+      keys['A'] = 'A'.repeat(totalQCount);
+    }
+    // Aktif kitapçıklardan boş olanlar A'yı devralır
+    activeLetters.forEach(l => {
+      if (!keys[l]) keys[l] = keys['A'];
+    });
+
+    return keys;
+  },
+
+  // --- Soru Bazlı Konu & Kazanım Seçim Motoru (Seçmeli Havuz) ---
+  toggleQuestionTopicsPanel(prefix) {
+    const container = document.getElementById(`${prefix}-topics-container`);
+    const btn = document.getElementById(`btn-toggle-topics-${prefix}`);
+    if (!container) return;
+    container.classList.toggle('hidden');
+    if (btn) {
+      btn.textContent = container.classList.contains('hidden') ? 'Konuları Düzenle ▼' : 'Kapat ▲';
+    }
+  },
+
+  renderQuestionTopics(prefix, subjects, existingTopics = {}) {
+    const container = document.getElementById(`${prefix}-topics-container`);
+    if (!container) return;
+    if (!Array.isArray(subjects) || subjects.length === 0) {
+      container.innerHTML = `<p class="text-xs text-slate-500 italic p-2">Önce dersleri tanımlayınız.</p>`;
+      return;
+    }
+
+    let html = '';
+    let currentStart = 1;
+
+    subjects.forEach((sub, subIdx) => {
+      const qCount = (sub.endQ && sub.startQ) ? (sub.endQ - sub.startQ + 1) : (sub.questionCount || 10);
+      const startQ = sub.startQ || currentStart;
+      const endQ = sub.endQ || (startQ + qCount - 1);
+      currentStart = endQ + 1;
+
+      const subName = sub.name || `Ders ${subIdx + 1}`;
+      const topicPool = (window.PortalStore && typeof window.PortalStore.getSubjectTopics === 'function')
+        ? window.PortalStore.getSubjectTopics(subName)
+        : [];
+
+      // Soru soru dropdown seçimleri
+      let questionsHtml = '';
+      for (let q = startQ; q <= endQ; q++) {
+        const curTopic = (existingTopics && (existingTopics[q] || existingTopics[q.toString()])) ? existingTopics[q].toString().trim() : '';
+        const isKnown = curTopic && topicPool.includes(curTopic);
+        const isCustom = curTopic && !isKnown;
+
+        questionsHtml += `
+          <div class="flex flex-col sm:flex-row sm:items-center gap-1.5 p-2 bg-slate-900/90 border border-slate-800 rounded-xl">
+            <div class="flex items-center gap-1.5 flex-shrink-0">
+              <span class="w-8 h-6 rounded bg-slate-800 text-emerald-400 font-mono font-bold text-xs flex items-center justify-center">
+                S.${q}
+              </span>
+            </div>
+            <div class="flex-1 min-w-0 flex items-center gap-1">
+              <select id="topic-select-${prefix}-${q}" onchange="App.handleTopicSelectChange(this, '${prefix}', ${q})" class="w-full bg-slate-950 border border-slate-800 rounded-lg text-slate-200 text-xs px-2 py-1.5 focus:border-emerald-500 focus:outline-none ${isCustom ? 'hidden' : ''}">
+                <option value="">-- Konu Seçiniz --</option>
+                ${topicPool.map(t => `<option value="${t}" ${t === curTopic ? 'selected' : ''}>${t}</option>`).join('')}
+                <option value="custom" ${isCustom ? 'selected' : ''}>✍️ Diğer / Yeni Konu Yaz...</option>
+              </select>
+              <div id="topic-custom-wrapper-${prefix}-${q}" class="flex-1 flex items-center gap-1 ${isCustom ? '' : 'hidden'}">
+                <input type="text" id="topic-custom-${prefix}-${q}" value="${isCustom ? curTopic : ''}" placeholder="Konu adını yazınız..." class="w-full bg-slate-950 border border-emerald-500 rounded-lg text-emerald-300 text-xs px-2 py-1.5 focus:outline-none">
+                <button type="button" onclick="App.revertToTopicSelect('${prefix}', ${q})" class="px-2 py-1 bg-slate-800 text-slate-300 rounded text-[11px] font-bold" title="Listeye Geri Dön">↩</button>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      html += `
+        <div class="bg-slate-950/60 border border-slate-800/90 rounded-2xl p-3 space-y-2.5">
+          <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-2 border-b border-slate-800/60 pb-2">
+            <div class="flex items-center gap-2">
+              <span class="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-400 font-bold text-xs">${subName}</span>
+              <span class="text-[11px] text-slate-400 font-mono">(${startQ} - ${endQ}. Sorular • ${qCount} Soru)</span>
+            </div>
+            
+            <!-- Hızlı Toplu Konu Seçici -->
+            <div class="flex items-center gap-1.5 bg-slate-900/80 px-2 py-1 rounded-xl border border-slate-800">
+              <span class="text-[10px] text-slate-400 font-medium whitespace-nowrap">⚡ Toplu konu ata:</span>
+              <select id="bulk-topic-${prefix}-${subIdx}" class="bg-slate-950 border border-slate-700 rounded-lg text-[11px] text-slate-200 px-2 py-1 focus:outline-none max-w-[180px]">
+                <option value="">-- Konu Seçiniz --</option>
+                ${topicPool.map(t => `<option value="${t}">${t}</option>`).join('')}
+              </select>
+              <button type="button" onclick="App.applyBulkTopicToSubject('${prefix}', ${subIdx}, ${startQ}, ${endQ})" class="px-2 py-1 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold text-[10px] rounded-lg transition cursor-pointer">
+                Tümüne Uygula
+              </button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-60 overflow-y-auto pr-1">
+            ${questionsHtml}
+          </div>
+        </div>
+      `;
+    });
+
+    container.innerHTML = html;
+  },
+
+  handleTopicSelectChange(selectElem, prefix, qNum) {
+    const customWrapper = document.getElementById(`topic-custom-wrapper-${prefix}-${qNum}`);
+    const customInp = document.getElementById(`topic-custom-${prefix}-${qNum}`);
+    if (!customWrapper) return;
+    if (selectElem.value === 'custom') {
+      selectElem.classList.add('hidden');
+      customWrapper.classList.remove('hidden');
+      if (customInp) customInp.focus();
+    } else {
+      customWrapper.classList.add('hidden');
+      selectElem.classList.remove('hidden');
+    }
+  },
+
+  revertToTopicSelect(prefix, qNum) {
+    const select = document.getElementById(`topic-select-${prefix}-${qNum}`);
+    const customWrapper = document.getElementById(`topic-custom-wrapper-${prefix}-${qNum}`);
+    const customInp = document.getElementById(`topic-custom-${prefix}-${qNum}`);
+    if (customWrapper) customWrapper.classList.add('hidden');
+    if (customInp) customInp.value = '';
+    if (select) {
+      select.classList.remove('hidden');
+      select.value = '';
+      select.focus();
+    }
+  },
+
+  applyBulkTopicToSubject(prefix, subIdx, startQ, endQ) {
+    const bulkSelect = document.getElementById(`bulk-topic-${prefix}-${subIdx}`);
+    if (!bulkSelect || !bulkSelect.value) {
+      this.showToast('Lütfen önce bir konu seçiniz.', 'warning');
+      return;
+    }
+    const val = bulkSelect.value;
+    for (let q = startQ; q <= endQ; q++) {
+      const select = document.getElementById(`topic-select-${prefix}-${q}`);
+      const customWrapper = document.getElementById(`topic-custom-wrapper-${prefix}-${q}`);
+      const customInp = document.getElementById(`topic-custom-${prefix}-${q}`);
+      if (select) {
+        select.value = val;
+        select.classList.remove('hidden');
+      }
+      if (customWrapper) customWrapper.classList.add('hidden');
+      if (customInp) customInp.value = '';
+    }
+    this.showToast(`✓ "${val}" konusu ${startQ}-${endQ}. sorulara topluca uygulandı!`, 'success');
+  },
+
+  collectQuestionTopicsFromInputs(prefix, subjects) {
+    const questionTopics = {};
+    if (!Array.isArray(subjects)) return questionTopics;
+
+    subjects.forEach(sub => {
+      const startQ = sub.startQ || 1;
+      const endQ = sub.endQ || startQ;
+      for (let q = startQ; q <= endQ; q++) {
+        const select = document.getElementById(`topic-select-${prefix}-${q}`);
+        const customInp = document.getElementById(`topic-custom-${prefix}-${q}`);
+        if (select) {
+          if (select.value === 'custom') {
+            const customVal = customInp ? customInp.value.trim() : '';
+            if (customVal) questionTopics[q] = customVal;
+          } else if (select.value) {
+            questionTopics[q] = select.value.trim();
+          }
+        }
+      }
+    });
+
+    return questionTopics;
+  },
+
+  // Kitapçık Sayısı Değiştirici
+  handleBookletCountChange(prefix, countVal) {
+    const count = Math.max(1, Math.min(4, parseInt(countVal, 10) || 4));
+    const allLetters = ['A', 'B', 'C', 'D'];
+    const activeLetters = allLetters.slice(0, count);
+
+    allLetters.forEach(l => {
+      const btn = document.getElementById(prefix === 'edit' ? `btn-edit-tab-${l}` : `btn-tab-${l}`);
+      const pane = document.getElementById(prefix === 'edit' ? `edit-booklet-pane-${l}` : `create-booklet-pane-${l}`);
+      if (btn) {
+        if (activeLetters.includes(l)) {
+          btn.classList.remove('hidden');
+        } else {
+          btn.classList.add('hidden');
+        }
+      }
+      if (pane && !activeLetters.includes(l)) {
+        pane.classList.add('hidden');
+      }
+    });
+
+    if (prefix === 'edit') {
+      this.switchEditBookletTab('A');
+    } else {
+      this.switchBookletTab('A');
+    }
+  },
+
   // Kitapçık Sekmesi Değiştirici
   switchBookletTab(letter) {
     ['A', 'B', 'C', 'D'].forEach(l => {
-      const pane = document.getElementById('booklet-pane-' + l);
+      const pane = document.getElementById('create-booklet-pane-' + l);
       const btn = document.getElementById('btn-tab-' + l);
       if (pane) {
         if (l === letter) pane.classList.remove('hidden');
@@ -844,23 +1416,33 @@ window.App = {
     const title = document.getElementById('exam-form-title').value.trim();
     const examDate = document.getElementById('exam-form-date') ? document.getElementById('exam-form-date').value : new Date().toISOString().split('T')[0];
     const qCount = parseInt(document.getElementById('exam-form-qcount').value, 10) || 20;
-    const target = document.getElementById('exam-form-target').value.trim();
 
-    const keyA = (document.getElementById('exam-form-key-a') ? document.getElementById('exam-form-key-a').value : '').trim().toUpperCase() || 'A'.repeat(qCount);
-    const keyB = (document.getElementById('exam-form-key-b') ? document.getElementById('exam-form-key-b').value : '').trim().toUpperCase() || keyA;
-    const keyC = (document.getElementById('exam-form-key-c') ? document.getElementById('exam-form-key-c').value : '').trim().toUpperCase() || keyA;
-    const keyD = (document.getElementById('exam-form-key-d') ? document.getElementById('exam-form-key-d').value : '').trim().toUpperCase() || keyA;
+    const bCountElem = document.getElementById('exam-form-booklet-count');
+    const bookletCount = bCountElem ? (parseInt(bCountElem.value, 10) || 4) : 4;
+    const bookletTypes = ['A', 'B', 'C', 'D'].slice(0, bookletCount);
+
+    const targetSelect = document.getElementById('exam-form-target');
+    const targetCustom = document.getElementById('exam-form-target-custom');
+    let target = '8. Sınıf';
+    if (targetSelect && targetSelect.value === 'custom') {
+      target = (targetCustom && targetCustom.value.trim()) || 'Özel';
+    } else if (targetSelect) {
+      target = targetSelect.value.trim();
+    }
 
     const subjects = this.collectSubjectsFromForm('subject-rows-container');
+    const answerKeys = this.collectBookletKeysFromInputs('create', subjects, qCount);
+    const questionTopics = this.collectQuestionTopicsFromInputs('create', subjects);
 
     const examData = {
       title,
       examDate,
       questionCount: qCount,
       targetClass: target,
-      bookletTypes: ['A', 'B', 'C', 'D'],
+      bookletTypes: bookletTypes,
+      questionTopics: questionTopics,
       subjects: subjects.length > 0 ? subjects : [{ name: 'Genel', startQ: 1, endQ: qCount, wrongPenalty: 0.333, coeff: 1 }],
-      answerKeys: { 'A': keyA, 'B': keyB, 'C': keyC, 'D': keyD },
+      answerKeys: answerKeys,
       canceledQuestions: []
     };
 
@@ -892,6 +1474,15 @@ window.App = {
     }
 
     const canceledList = Array.isArray(exam.canceledQuestions) ? exam.canceledQuestions : [];
+    const students = instId ? window.PortalStore.getStudents(instId) : [];
+    const existingClasses = Array.from(new Set(students.map(s => (s.className || '').trim()).filter(Boolean))).sort();
+    const currentTarget = exam.targetClass || '';
+    const isKnownClass = existingClasses.includes(currentTarget) || ['8. Sınıf', '7. Sınıf', '6. Sınıf', '5. Sınıf', 'Tüm Şubeler', 'TÜM SINIFLAR'].includes(currentTarget);
+
+    const activeBooklets = (Array.isArray(exam.bookletTypes) && exam.bookletTypes.length > 0)
+      ? exam.bookletTypes
+      : (exam.answerKeys ? Object.keys(exam.answerKeys).filter(k => ['A', 'B', 'C', 'D'].includes(k) && exam.answerKeys[k]) : ['A', 'B', 'C', 'D']);
+    const currentBookletCount = Math.max(1, Math.min(4, activeBooklets.length || 4));
 
     const modal = document.createElement('div');
     modal.id = 'edit-exam-modal';
@@ -903,32 +1494,56 @@ window.App = {
             <span class="text-2xl">✏️</span>
             <div>
               <h3 class="text-base font-black text-white">Sınavı Düzenle & Soru İptali</h3>
-              <p class="text-xs text-slate-400 font-medium">\${exam.title}</p>
+              <p class="text-xs text-slate-400 font-medium">${exam.title}</p>
             </div>
           </div>
           <button onclick="document.getElementById('edit-exam-modal').remove()" class="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-sm font-bold cursor-pointer">✕</button>
         </div>
 
-        <form onsubmit="App.handleSaveEditExamForm(event, '\${instId || ''}', '\${exam.id}', \${isGlobal})" class="space-y-4">
+        <form onsubmit="App.handleSaveEditExamForm(event, '${instId || ''}', '${exam.id}', ${isGlobal})" class="space-y-4">
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div class="sm:col-span-2">
               <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Sınav Adı / Başlığı</label>
-              <input type="text" id="edit-form-title" required value="\${exam.title}" class="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white font-medium text-xs focus:border-emerald-500 focus:outline-none">
+              <input type="text" id="edit-form-title" required value="${exam.title}" class="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white font-medium text-xs focus:border-emerald-500 focus:outline-none">
             </div>
             <div>
               <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Sınav Tarihi</label>
-              <input type="date" id="edit-form-date" value="\${exam.examDate || ''}" class="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white font-medium text-xs focus:border-emerald-500 focus:outline-none">
+              <input type="date" id="edit-form-date" value="${exam.examDate || ''}" class="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white font-medium text-xs focus:border-emerald-500 focus:outline-none">
             </div>
           </div>
 
-          <div class="grid grid-cols-2 gap-3">
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Toplam Soru Sayısı</label>
-              <input type="number" id="edit-form-qcount" value="\${exam.questionCount}" class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-bold text-xs focus:border-emerald-500 focus:outline-none">
+              <input type="number" id="edit-form-qcount" value="${exam.questionCount}" readonly class="w-full px-3 py-2 bg-slate-950/80 border border-slate-800 rounded-xl text-emerald-400 font-black text-xs focus:outline-none cursor-default" title="Ders soru sayılarına göre otomatik hesaplanır">
             </div>
             <div>
-              <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Hedef Sınıf / Seviye</label>
-              <input type="text" id="edit-form-target" value="\${exam.targetClass || ''}" class="w-full px-3.5 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-medium text-xs focus:border-emerald-500 focus:outline-none">
+              <label class="block text-xs font-bold uppercase text-slate-400 mb-1">📖 Kitapçık Sayısı</label>
+              <select id="edit-form-booklet-count" onchange="App.handleBookletCountChange('edit', this.value)" class="w-full px-3.5 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-bold text-xs focus:border-emerald-500 focus:outline-none">
+                <option value="1" ${currentBookletCount === 1 ? 'selected' : ''}>1 Kitapçık (Yalnızca A)</option>
+                <option value="2" ${currentBookletCount === 2 ? 'selected' : ''}>2 Kitapçık (A, B)</option>
+                <option value="3" ${currentBookletCount === 3 ? 'selected' : ''}>3 Kitapçık (A, B, C)</option>
+                <option value="4" ${currentBookletCount === 4 ? 'selected' : ''}>4 Kitapçık (A, B, C, D)</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-bold uppercase text-slate-400 mb-1">🎯 Hedef Sınıf / Şube</label>
+              <select id="edit-form-target" onchange="App.handleTargetClassSelectChange(this, 'edit-form-target-custom')" class="w-full px-3.5 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-bold text-xs focus:border-emerald-500 focus:outline-none">
+                ${existingClasses.length > 0 ? `
+                  <optgroup label="🏫 Kurumdaki Talebe Şubeleri">
+                    ${existingClasses.map(c => `<option value="${c}" ${c === currentTarget ? 'selected' : ''}>${c} Şubesi</option>`).join('')}
+                  </optgroup>
+                ` : ''}
+                <optgroup label="📚 Standart Sınıflar">
+                  <option value="8. Sınıf" ${currentTarget === '8. Sınıf' ? 'selected' : ''}>8. Sınıf (LGS)</option>
+                  <option value="7. Sınıf" ${currentTarget === '7. Sınıf' ? 'selected' : ''}>7. Sınıf</option>
+                  <option value="6. Sınıf" ${currentTarget === '6. Sınıf' ? 'selected' : ''}>6. Sınıf</option>
+                  <option value="5. Sınıf" ${currentTarget === '5. Sınıf' ? 'selected' : ''}>5. Sınıf</option>
+                  <option value="Tüm Şubeler" ${(currentTarget === 'Tüm Şubeler' || currentTarget === 'TÜM SINIFLAR') ? 'selected' : ''}>Tüm Şubeler</option>
+                </optgroup>
+                <option value="custom" ${!isKnownClass && currentTarget ? 'selected' : ''}>✍️ Diğer / Yeni Şube Yaz...</option>
+              </select>
+              <input type="text" id="edit-form-target-custom" value="${!isKnownClass ? currentTarget : ''}" placeholder="Şube adını yazınız (Örn: 8-C)" class="${!isKnownClass && currentTarget ? '' : 'hidden'} mt-1.5 w-full px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-white font-medium text-xs focus:border-emerald-500 focus:outline-none">
             </div>
           </div>
 
@@ -941,28 +1556,28 @@ window.App = {
             <p class="text-[11px] text-purple-200/80 leading-relaxed">
               İptal etmek istediğiniz soru numaralarını virgülle ayırarak giriniz (Örn: <code>14, 25</code>). İptal edilen sorular tüm öğrencilere <strong>tam doğru sayılır</strong> ve tüm sıralama puanları derhal yeniden hesaplanır.
             </p>
-            <input type="text" id="edit-form-canceled" placeholder="Örn: 14, 25" value="\${canceledList.join(', ')}" class="w-full px-3.5 py-2 bg-slate-950 border border-purple-800/80 rounded-xl text-purple-200 font-mono text-xs focus:border-purple-400 focus:outline-none">
+            <input type="text" id="edit-form-canceled" placeholder="Örn: 14, 25" value="${canceledList.join(', ')}" class="w-full px-3.5 py-2 bg-slate-950 border border-purple-800/80 rounded-xl text-purple-200 font-mono text-xs focus:border-purple-400 focus:outline-none">
           </div>
 
           <!-- Dersler Tablosu -->
           <div class="bg-slate-950/80 p-3.5 rounded-2xl border border-slate-800 space-y-2">
             <div class="flex items-center justify-between pb-1">
               <div>
-                <label class="text-xs font-bold uppercase text-slate-300">📚 Ders Bölümleri & Katsayılar</label>
-                <p class="text-[10px] text-slate-500">Ders aralıklarını, katsayıları ve ceza oranlarını düzenleyin.</p>
+                <label class="text-xs font-bold uppercase text-slate-300">📚 Ders Bölümleri & Soru Sayıları</label>
+                <p class="text-[10px] text-slate-500">Derslerin soru sayılarını, katsayılarını ve ceza oranlarını düzenleyin.</p>
               </div>
-              <button type="button" onclick="App.addSubjectRow('edit-subject-rows-container')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-emerald-400 text-[11px] font-bold rounded-lg border border-slate-700 transition">
+              <button type="button" onclick="App.addSubjectRow('edit-subject-rows-container')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-emerald-400 text-[11px] font-bold rounded-lg border border-slate-700 transition cursor-pointer">
                 + Ders Ekle
               </button>
             </div>
 
-            <div class="overflow-x-auto">
-              <table class="w-full text-left text-[11px]">
+            <div class="overflow-x-auto w-full max-w-full" style="-webkit-overflow-scrolling: touch;">
+              <table class="w-full text-left text-[11px] min-w-[460px]">
                 <thead class="text-slate-500 uppercase border-b border-slate-800 font-bold">
                   <tr>
                     <th class="p-1.5">Ders Adı</th>
-                    <th class="p-1.5 text-center">İlk Soru</th>
-                    <th class="p-1.5 text-center">Son Soru</th>
+                    <th class="p-1.5 text-center">Soru Sayısı</th>
+                    <th class="p-1.5 text-center">Aralık</th>
                     <th class="p-1.5 text-center">Ceza</th>
                     <th class="p-1.5 text-center">Katsayı</th>
                     <th class="p-1.5 text-right">Sil</th>
@@ -975,13 +1590,16 @@ window.App = {
             </div>
           </div>
 
-          <!-- 4 Kitapçık Cevap Anahtarları -->
+          <!-- 4 Kitapçık Ders Ders Cevap Anahtarları -->
           <div class="space-y-3 p-3.5 bg-slate-950/80 rounded-2xl border border-slate-800">
-            <div class="flex items-center justify-between">
-              <label class="text-xs font-bold text-white uppercase flex items-center gap-1.5">
-                <span>🔑</span> <span>Cevap Anahtarları</span>
-              </label>
-              <div class="flex gap-1">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800/80 pb-2.5">
+              <div>
+                <label class="text-xs font-black text-white uppercase flex items-center gap-1.5">
+                  <span>🔑</span> <span>Ders Ders Cevap Anahtarları</span>
+                </label>
+                <p class="text-[10px] text-slate-400">Her dersin doğru cevaplarını ilgili ders kutusuna sırasıyla giriniz.</p>
+              </div>
+              <div class="flex items-center gap-1">
                 <button type="button" onclick="App.switchEditBookletTab('A')" id="btn-edit-tab-A" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-500 text-slate-950 transition">Kitapçık A</button>
                 <button type="button" onclick="App.switchEditBookletTab('B')" id="btn-edit-tab-B" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 transition">Kitapçık B</button>
                 <button type="button" onclick="App.switchEditBookletTab('C')" id="btn-edit-tab-C" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 transition">Kitapçık C</button>
@@ -989,17 +1607,28 @@ window.App = {
               </div>
             </div>
 
-            <div id="edit-booklet-pane-A" class="edit-booklet-pane">
-              <textarea id="edit-form-key-a" rows="2" class="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs font-mono text-emerald-300 focus:border-emerald-500 focus:outline-none uppercase">\${(exam.answerKeys && exam.answerKeys['A']) || ''}</textarea>
+            <div id="edit-booklet-pane-A" class="edit-booklet-pane space-y-2"></div>
+            <div id="edit-booklet-pane-B" class="edit-booklet-pane space-y-2 hidden"></div>
+            <div id="edit-booklet-pane-C" class="edit-booklet-pane space-y-2 hidden"></div>
+            <div id="edit-booklet-pane-D" class="edit-booklet-pane space-y-2 hidden"></div>
+          </div>
+
+          <!-- Soru Konu ve Kazanımları (Seçmeli Havuz) -->
+          <div class="space-y-3 p-3.5 bg-slate-950/80 rounded-2xl border border-slate-800">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800/80 pb-2.5">
+              <div>
+                <label class="text-xs font-black text-white uppercase flex items-center gap-1.5">
+                  <span>🎯</span> <span>Soru Konu & Kazanımları (Seçmeli)</span>
+                </label>
+                <p class="text-[10px] text-slate-400">Her soru için açılır listeden konu seçiniz. Karnelerde konu başarı grafiği üretilir.</p>
+              </div>
+              <button type="button" onclick="App.toggleQuestionTopicsPanel('edit')" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 transition cursor-pointer flex items-center gap-1">
+                <span id="btn-toggle-topics-edit">Konuları Düzenle ▼</span>
+              </button>
             </div>
-            <div id="edit-booklet-pane-B" class="edit-booklet-pane hidden">
-              <textarea id="edit-form-key-b" rows="2" class="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs font-mono text-amber-300 focus:border-emerald-500 focus:outline-none uppercase">\${(exam.answerKeys && exam.answerKeys['B']) || ''}</textarea>
-            </div>
-            <div id="edit-booklet-pane-C" class="edit-booklet-pane hidden">
-              <textarea id="edit-form-key-c" rows="2" class="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs font-mono text-cyan-300 focus:border-emerald-500 focus:outline-none uppercase">\${(exam.answerKeys && exam.answerKeys['C']) || ''}</textarea>
-            </div>
-            <div id="edit-booklet-pane-D" class="edit-booklet-pane hidden">
-              <textarea id="edit-form-key-d" rows="2" class="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs font-mono text-purple-300 focus:border-emerald-500 focus:outline-none uppercase">\${(exam.answerKeys && exam.answerKeys['D']) || ''}</textarea>
+
+            <div id="edit-topics-container" class="space-y-3">
+              <!-- JS ile render edilecek -->
             </div>
           </div>
 
@@ -1014,6 +1643,9 @@ window.App = {
     document.body.appendChild(modal);
 
     this.renderSubjectRows(exam.subjects || [], 'edit-subject-rows-container');
+    this.renderBookletSubjectKeys('edit', exam.subjects || [], exam.answerKeys || {});
+    this.handleBookletCountChange('edit', currentBookletCount);
+    this.renderQuestionTopics('edit', exam.subjects || [], exam.questionTopics || {});
   },
 
   switchEditBookletTab(letter) {
@@ -1039,14 +1671,23 @@ window.App = {
     const title = document.getElementById('edit-form-title').value.trim();
     const examDate = document.getElementById('edit-form-date').value;
     const qCount = parseInt(document.getElementById('edit-form-qcount').value, 10) || 20;
-    const target = document.getElementById('edit-form-target').value.trim();
 
-    const keyA = document.getElementById('edit-form-key-a').value.trim().toUpperCase();
-    const keyB = document.getElementById('edit-form-key-b').value.trim().toUpperCase() || keyA;
-    const keyC = document.getElementById('edit-form-key-c').value.trim().toUpperCase() || keyA;
-    const keyD = document.getElementById('edit-form-key-d').value.trim().toUpperCase() || keyA;
+    const targetSelect = document.getElementById('edit-form-target');
+    const targetCustom = document.getElementById('edit-form-target-custom');
+    let target = '8. Sınıf';
+    if (targetSelect && targetSelect.value === 'custom') {
+      target = (targetCustom && targetCustom.value.trim()) || 'Özel';
+    } else if (targetSelect) {
+      target = targetSelect.value.trim();
+    }
 
     const subjects = this.collectSubjectsFromForm('edit-subject-rows-container');
+    const answerKeys = this.collectBookletKeysFromInputs('edit', subjects, qCount);
+    const questionTopics = this.collectQuestionTopicsFromInputs('edit', subjects);
+
+    const bCountElem = document.getElementById('edit-form-booklet-count');
+    const bookletCount = bCountElem ? (parseInt(bCountElem.value, 10) || 4) : 4;
+    const bookletTypes = ['A', 'B', 'C', 'D'].slice(0, bookletCount);
 
     const canceledRaw = document.getElementById('edit-form-canceled').value;
     const canceled = canceledRaw
@@ -1059,8 +1700,10 @@ window.App = {
       examDate,
       questionCount: qCount,
       targetClass: target,
+      bookletTypes,
+      questionTopics,
       subjects: subjects.length > 0 ? subjects : [{ name: 'Genel', startQ: 1, endQ: qCount, wrongPenalty: 0.333, coeff: 1 }],
-      answerKeys: { 'A': keyA, 'B': keyB, 'C': keyC, 'D': keyD },
+      answerKeys,
       canceledQuestions: canceled
     };
 
@@ -1107,12 +1750,12 @@ window.App = {
     }
   },
 
-  openScanAnswerKeyModal(targetInputId) {
+  openScanAnswerKeyModal(targetInputId, customQCount = null) {
     const existing = document.getElementById('scan-answer-key-modal');
     if (existing) existing.remove();
 
-    const qCountSelect = document.getElementById('exam-form-qcount');
-    const questionCount = qCountSelect ? parseInt(qCountSelect.value, 10) || 20 : 20;
+    const qCountSelect = document.getElementById('exam-form-qcount') || document.getElementById('edit-form-qcount');
+    const questionCount = customQCount || (qCountSelect ? parseInt(qCountSelect.value, 10) || 20 : 20);
 
     const modal = document.createElement('div');
     modal.id = 'scan-answer-key-modal';
@@ -1122,9 +1765,9 @@ window.App = {
         <div class="flex items-center justify-between pb-3 border-b border-slate-800 mb-3">
           <div class="flex items-center gap-2">
             <span class="text-xl">📷</span>
-            <h4 class="text-sm font-black text-white">Cevap Anahtarını Kameradan Tara</h4>
+            <h4 class="text-sm font-black text-white">Cevap Anahtarını Kameradan Tara (${questionCount} Soru)</h4>
           </div>
-          <button onclick="App.closeScanAnswerKeyModal()" class="w-7 h-7 rounded-lg bg-slate-800 text-slate-300 flex items-center justify-center text-xs font-bold">✕</button>
+          <button onclick="App.closeScanAnswerKeyModal()" class="w-7 h-7 rounded-lg bg-slate-800 text-slate-300 flex items-center justify-center text-xs font-bold cursor-pointer">✕</button>
         </div>
 
         <p class="text-xs text-slate-400 mb-3">Doğru cevapları işaretlediğiniz optik formu çerçeveye gösterip butona basınız.</p>
@@ -1137,8 +1780,8 @@ window.App = {
           </div>
         </div>
 
-        <button onclick="App.captureAnswerKey('${targetInputId}', ${questionCount})" class="w-full py-2.5 bg-cyan-500 hover:bg-cyan-600 text-slate-950 font-black text-xs rounded-xl shadow-lg transition flex items-center justify-center gap-2">
-          <span>🎯</span> <span>Cevapları Otomatik Çıkar</span>
+        <button onclick="App.captureAnswerKey('${targetInputId}', ${questionCount})" class="w-full py-2.5 bg-cyan-500 hover:bg-cyan-600 text-slate-950 font-black text-xs rounded-xl shadow-lg transition flex items-center justify-center gap-2 cursor-pointer">
+          <span>🎯</span> <span>Cevapları Otomatik Çıkar (${questionCount} Soru)</span>
         </button>
       </div>
     `;
@@ -1178,6 +1821,14 @@ window.App = {
       const targetInput = document.getElementById(targetInputId);
       if (targetInput) {
         targetInput.value = result.key;
+        if (targetInput.dataset && targetInput.dataset.prefix && targetInput.dataset.letter) {
+          this.handleSubjectKeyInput(
+            targetInput.dataset.prefix,
+            targetInput.dataset.letter,
+            parseInt(targetInput.dataset.idx, 10),
+            parseInt(targetInput.dataset.qcount, 10)
+          );
+        }
       }
       this.showToast(`✓ ${result.questionCount} soruluk cevap anahtarı başarıyla çıkarıldı!`, 'success');
       this.closeScanAnswerKeyModal();
@@ -1202,23 +1853,22 @@ window.App = {
             <h2 class="text-xl font-black text-white tracking-tight">Kayıtlı Talebeler (${students.length})</h2>
             <p class="text-xs text-slate-400 mt-0.5">Optik formlarda QR kod basmak ve karneleri göndermek için talebelerinizi ekleyiniz.</p>
           </div>
-          <div class="flex items-center gap-2">
-            <label class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl shadow cursor-pointer transition flex items-center gap-1.5">
-              <span>📥</span> <span>Excel'den Yükle</span>
-              <input type="file" accept=".csv" onchange="App.handleCsvUpload(event, '${instId}')" class="hidden">
-            </label>
-            <a href="ogrenciler_sablon.csv" download class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl transition" title="Excel Örnek Şablonu İndir">
-              📄 Şablon
-            </a>
-            <button onclick="App.showAddStudentModal('${instId}')" class="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black text-xs rounded-xl shadow transition">
-              + Talebe Ekle
+          <div class="flex flex-wrap items-center gap-2">
+            <button onclick="App.showBulkStudentModal('${instId}')" class="px-3.5 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-slate-950 font-black text-xs rounded-xl shadow-lg transition flex items-center gap-1.5 cursor-pointer">
+              <span>📥</span> <span>Excel'den Toplu Yükle</span>
+            </button>
+            <button onclick="App.downloadExcelTemplate()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl transition flex items-center gap-1.5 cursor-pointer" title="Excel Örnek Şablonu İndir">
+              <span>📄</span> <span>Excel Şablonu İndir</span>
+            </button>
+            <button onclick="App.showAddStudentModal('${instId}')" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-700 font-bold text-xs rounded-xl shadow transition cursor-pointer">
+              + Tek Talebe Ekle
             </button>
           </div>
         </div>
 
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-lg">
-          <div class="overflow-x-auto">
-            <table class="w-full text-left text-xs">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-lg w-full max-w-full">
+          <div class="w-full max-w-full overflow-x-auto" style="-webkit-overflow-scrolling: touch;">
+            <table class="w-full text-left text-xs min-w-[480px]">
               <thead class="bg-slate-950 border-b border-slate-800 text-slate-400 font-bold uppercase tracking-wider">
                 <tr>
                   <th class="p-3">No</th>
@@ -1232,7 +1882,7 @@ window.App = {
                 ${students.length === 0 ? `
                   <tr>
                     <td colspan="5" class="p-8 text-center text-slate-500">
-                      Henüz talebe eklenmedi. "Excel'den Yükle" veya "+ Talebe Ekle" butonunu kullanabilirsiniz.
+                      Henüz talebe eklenmedi. "Excel'den Toplu Yükle" veya "+ Tek Talebe Ekle" butonunu kullanabilirsiniz.
                     </td>
                   </tr>
                 ` : students.map(st => `
@@ -1278,22 +1928,316 @@ window.App = {
     }
   },
 
-  handleCsvUpload(event, instId) {
+  // --- TOPLU TALEBE YÜKLEME MODALI (EXCEL .xlsx, .xls, .csv & KOPYALA-YAPIŞTIR) ---
+  showBulkStudentModal(instId) {
+    const existing = document.getElementById('bulk-student-modal');
+    if (existing) existing.remove();
+
+    window._pendingBulkStudents = [];
+
+    const modal = document.createElement('div');
+    modal.id = 'bulk-student-modal';
+    modal.className = 'fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-sm animate-fade-in';
+    modal.innerHTML = `
+      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-7 max-w-2xl w-full shadow-2xl relative max-h-[92vh] flex flex-col">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-800 mb-4 flex-shrink-0">
+          <div class="flex items-center gap-2.5">
+            <span class="text-2xl">📥</span>
+            <div>
+              <h3 class="text-base font-black text-white">Excel'den Toplu Talebe Yükleme</h3>
+              <p class="text-xs text-slate-400 font-medium">Excel (.xlsx, .xls) veya CSV dosyanızı yükleyin ya da tablodan kopyalayıp yapıştırın.</p>
+            </div>
+          </div>
+          <button onclick="document.getElementById('bulk-student-modal').remove()" class="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-sm font-bold cursor-pointer">✕</button>
+        </div>
+
+        <!-- Sekmeler: Dosya Yükle vs Kopyala-Yapıştır -->
+        <div class="flex gap-2 mb-3 border-b border-slate-800 pb-2 flex-shrink-0">
+          <button type="button" id="tab-btn-bulk-file" onclick="App.switchBulkTab('file')" class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-emerald-500 text-slate-950 transition">
+            📁 Excel / CSV Dosyası Yükle
+          </button>
+          <button type="button" id="tab-btn-bulk-paste" onclick="App.switchBulkTab('paste')" class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-400 transition">
+            📋 Excel'den Kopyala - Yapıştır
+          </button>
+          <div class="ml-auto">
+            <button type="button" onclick="App.downloadExcelTemplate()" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-cyan-400 text-xs font-bold rounded-xl border border-cyan-800/40 transition flex items-center gap-1 cursor-pointer">
+              <span>📄</span> <span>Örnek Excel Şablonu</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="overflow-y-auto flex-1 space-y-4 pr-1">
+          <!-- 1. Dosya Yükleme Alanı -->
+          <div id="bulk-pane-file" class="space-y-3">
+            <div id="bulk-drop-zone" onclick="document.getElementById('bulk-file-input').click()" class="border-2 border-dashed border-slate-700 hover:border-emerald-500/70 bg-slate-950/60 p-6 rounded-2xl text-center cursor-pointer transition">
+              <span class="text-3xl block mb-2">📊</span>
+              <p class="text-xs font-bold text-white mb-1">Excel (.xlsx, .xls) veya CSV Dosyasını Seçin ya da Buraya Sürükleyin</p>
+              <p class="text-[11px] text-slate-400">Microsoft Excel, Google E-Tablolar veya e-Okul listeleriyle tam uyumludur.</p>
+              <input type="file" id="bulk-file-input" accept=".xlsx,.xls,.csv,.tsv,.txt" onchange="App.handleBulkFileSelect(event, '${instId}')" class="hidden">
+            </div>
+          </div>
+
+          <!-- 2. Kopyala Yapıştır Alanı -->
+          <div id="bulk-pane-paste" class="space-y-3 hidden">
+            <div>
+              <label class="block text-xs font-bold text-slate-300 mb-1">Excel Tablosundan Kopyaladığınız Hücreleri Buraya Yapıştırın:</label>
+              <textarea id="bulk-paste-input" oninput="App.handleBulkPasteInput('${instId}')" rows="5" placeholder="Excel'de satırları seçip Ctrl+C yapın, ardından buraya Ctrl+V ile yapıştırın...&#10;Örn: 101 [TAB] AHMET [TAB] YILMAZ [TAB] 8-A [TAB] 05551112233" class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs font-mono text-emerald-300 focus:border-emerald-500 focus:outline-none"></textarea>
+            </div>
+            <p class="text-[11px] text-slate-400">İpucu: Sütun sırası fark etmez. Sistem isimleri, numaraları ve şubeleri otomatik tespit eder.</p>
+          </div>
+
+          <!-- 3. Canlı Önizleme Alanı -->
+          <div id="bulk-preview-section" class="hidden space-y-2">
+            <div class="flex items-center justify-between">
+              <span id="bulk-preview-badge" class="px-2.5 py-1 rounded-lg text-xs font-black bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                0 Talebe Algılandı
+              </span>
+              <span class="text-[11px] text-slate-400">Lütfen aşağıdaki listeyi kontrol edip onaylayınız.</span>
+            </div>
+
+            <div class="border border-slate-800 rounded-xl overflow-hidden max-h-52 overflow-y-auto">
+              <table class="w-full text-left text-xs min-w-[400px]">
+                <thead class="bg-slate-950 text-slate-400 font-bold uppercase sticky top-0 border-b border-slate-800">
+                  <tr>
+                    <th class="p-2">No</th>
+                    <th class="p-2">Adı</th>
+                    <th class="p-2">Soyadı</th>
+                    <th class="p-2">Sınıfı</th>
+                    <th class="p-2">Veli Telefon</th>
+                  </tr>
+                </thead>
+                <tbody id="bulk-preview-tbody" class="divide-y divide-slate-800/60 bg-slate-900/80">
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Alt Kaydet Butonu -->
+        <div class="pt-3 border-t border-slate-800 mt-3 flex-shrink-0 flex items-center justify-between gap-3">
+          <button type="button" onclick="document.getElementById('bulk-student-modal').remove()" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl transition cursor-pointer">
+            Vazgeç
+          </button>
+          <button type="button" id="btn-save-bulk-students" onclick="App.saveBulkStudents('${instId}')" disabled class="px-5 py-2.5 bg-slate-800 text-slate-500 font-black text-xs rounded-xl transition flex items-center gap-2 cursor-not-allowed">
+            <span>💾</span> <span>Talebeleri Listeye Ekle</span>
+          </button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+  },
+
+  switchBulkTab(tab) {
+    const paneFile = document.getElementById('bulk-pane-file');
+    const panePaste = document.getElementById('bulk-pane-paste');
+    const btnFile = document.getElementById('tab-btn-bulk-file');
+    const btnPaste = document.getElementById('tab-btn-bulk-paste');
+
+    if (tab === 'file') {
+      if (paneFile) paneFile.classList.remove('hidden');
+      if (panePaste) panePaste.classList.add('hidden');
+      if (btnFile) btnFile.className = 'px-3.5 py-1.5 rounded-xl text-xs font-bold bg-emerald-500 text-slate-950 transition';
+      if (btnPaste) btnPaste.className = 'px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-400 transition';
+    } else {
+      if (paneFile) paneFile.classList.add('hidden');
+      if (panePaste) panePaste.classList.remove('hidden');
+      if (btnPaste) btnPaste.className = 'px-3.5 py-1.5 rounded-xl text-xs font-bold bg-emerald-500 text-slate-950 transition';
+      if (btnFile) btnFile.className = 'px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-400 transition';
+    }
+  },
+
+  async handleBulkFileSelect(event, instId) {
     const file = event.target.files && event.target.files[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const text = e.target.result;
-      const res = window.PortalStore.importStudentsCsv(instId, text);
+
+    try {
+      this.showToast('Dosya inceleniyor...', 'info');
+      const students = await this.parseStudentFile(file);
+      this.updateBulkPreview(students);
+    } catch (err) {
+      this.showToast('Dosya okunamadı: ' + err.message, 'error');
+    }
+    event.target.value = '';
+  },
+
+  handleBulkPasteInput(instId) {
+    const textarea = document.getElementById('bulk-paste-input');
+    if (!textarea) return;
+    const text = textarea.value;
+    const students = this.parseStudentText(text);
+    this.updateBulkPreview(students);
+  },
+
+  updateBulkPreview(students) {
+    window._pendingBulkStudents = Array.isArray(students) ? students : [];
+    const previewSection = document.getElementById('bulk-preview-section');
+    const tbody = document.getElementById('bulk-preview-tbody');
+    const badge = document.getElementById('bulk-preview-badge');
+    const saveBtn = document.getElementById('btn-save-bulk-students');
+
+    if (!previewSection || !tbody || !badge || !saveBtn) return;
+
+    if (window._pendingBulkStudents.length > 0) {
+      previewSection.classList.remove('hidden');
+      badge.textContent = `✓ ${window._pendingBulkStudents.length} Talebe Algılandı`;
+      badge.className = 'px-2.5 py-1 rounded-lg text-xs font-black bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
+
+      tbody.innerHTML = window._pendingBulkStudents.slice(0, 100).map(s => `
+        <tr class="hover:bg-slate-800/40">
+          <td class="p-2 font-mono font-bold text-emerald-400">${s.studentNo}</td>
+          <td class="p-2 font-bold text-white">${s.firstName}</td>
+          <td class="p-2 font-bold text-slate-200">${s.lastName}</td>
+          <td class="p-2 font-semibold text-slate-300">${s.className}</td>
+          <td class="p-2 font-mono text-slate-400">${s.parentPhone || '-'}</td>
+        </tr>
+      `).join('');
+
+      saveBtn.disabled = false;
+      saveBtn.className = 'px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-slate-950 font-black text-xs rounded-xl shadow-lg transition flex items-center gap-2 cursor-pointer';
+      saveBtn.innerHTML = `<span>💾</span> <span>${window._pendingBulkStudents.length} Talebeyi Listeye Ekle</span>`;
+    } else {
+      previewSection.classList.add('hidden');
+      saveBtn.disabled = true;
+      saveBtn.className = 'px-5 py-2.5 bg-slate-800 text-slate-500 font-black text-xs rounded-xl transition flex items-center gap-2 cursor-not-allowed';
+      saveBtn.innerHTML = `<span>💾</span> <span>Talebeleri Listeye Ekle</span>`;
+    }
+  },
+
+  saveBulkStudents(instId) {
+    const list = window._pendingBulkStudents || [];
+    if (list.length === 0) {
+      this.showToast('Lütfen önce Excel dosyası seçiniz veya yapıştırınız.', 'warning');
+      return;
+    }
+
+    const res = window.PortalStore.importStudentsArray(instId, list);
+    if (res && res.success) {
+      this.showToast(`✓ ${res.added} yeni talebe başarıyla kaydedildi! Toplam: ${res.count}`, 'success');
+      const modal = document.getElementById('bulk-student-modal');
+      if (modal) modal.remove();
+      this.render();
+    } else {
+      this.showToast('Kayıt başarısız: ' + (res ? res.message : 'Bilinmeyen hata'), 'error');
+    }
+  },
+
+  async parseStudentFile(file) {
+    const fileName = (file.name || '').toLowerCase();
+    const isExcel = fileName.endsWith('.xlsx') || fileName.endsWith('.xls');
+
+    if (isExcel) {
+      if (typeof XLSX === 'undefined') {
+        throw new Error('Excel okuma kütüphanesi yükleniyor, lütfen birkaç saniye sonra tekrar deneyiniz.');
+      }
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data, { type: 'array' });
+      const firstSheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[firstSheetName];
+      const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
+      return window.PortalStore.parseStudentsFromMatrix(rows);
+    } else {
+      const buffer = await file.arrayBuffer();
+      let text = new TextDecoder('utf-8').decode(buffer);
+      if (text.includes('\uFFFD')) {
+        try {
+          text = new TextDecoder('windows-1254').decode(buffer);
+        } catch (e) {}
+      }
+      return this.parseStudentText(text);
+    }
+  },
+
+  parseStudentText(rawText) {
+    if (!rawText || !rawText.trim()) return [];
+    const cleanText = rawText.replace(/^\uFEFF/, '').trim();
+    const lines = cleanText.split(/\r?\n/).filter(line => line.trim().length > 0);
+    if (lines.length === 0) return [];
+
+    const firstLine = lines[0];
+    let delimiter = ';';
+    const semiCount = (firstLine.match(/;/g) || []).length;
+    const commaCount = (firstLine.match(/,/g) || []).length;
+    const tabCount = (firstLine.match(/\t/g) || []).length;
+    const pipeCount = (firstLine.match(/\|/g) || []).length;
+
+    if (tabCount >= semiCount && tabCount >= commaCount && tabCount > 0) delimiter = '\t';
+    else if (pipeCount > semiCount && pipeCount > commaCount) delimiter = '|';
+    else if (semiCount >= commaCount) delimiter = ';';
+    else delimiter = ',';
+
+    const matrix = lines.map(line => line.split(delimiter).map(c => c.trim().replace(/^["']|["']$/g, '')));
+    return window.PortalStore.parseStudentsFromMatrix(matrix);
+  },
+
+  downloadExcelTemplate() {
+    try {
+      if (typeof XLSX !== 'undefined') {
+        const data = [
+          ['Okul No', 'Adı', 'Soyadı', 'Sınıfı', 'Veli Telefon', 'Notlar'],
+          [101, 'AHMET', 'YILMAZ', '8-A', '05551112233', 'LGS Grubu'],
+          [102, 'MEHMET', 'KAYA', '8-A', '05552223344', 'LGS Grubu'],
+          [103, 'AYŞE', 'DEMİR', '8-B', '05553334455', 'LGS Grubu'],
+          [104, 'FATMA', 'ÇELİK', '8-B', '05554445566', 'LGS Grubu'],
+          [105, 'ALİ', 'ÖZTÜRK', '7-A', '05555556677', 'Ara Sınıf']
+        ];
+        const ws = XLSX.utils.aoa_to_sheet(data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Talebeler');
+        XLSX.writeFile(wb, 'ogrenciler_sablon.xlsx');
+        this.showToast('✓ Excel şablonu başarıyla indirildi (ogrenciler_sablon.xlsx)', 'success');
+        return;
+      }
+    } catch (e) {
+      console.warn('XLSX indirme hatası, CSV üretiliyor:', e);
+    }
+
+    try {
+      const csvContent = '\uFEFF' + 
+        'Okul No;Adı;Soyadı;Sınıfı;Veli Telefon;Notlar\r\n' +
+        '101;AHMET;YILMAZ;8-A;05551112233;LGS Grubu\r\n' +
+        '102;MEHMET;KAYA;8-A;05552223344;LGS Grubu\r\n' +
+        '103;AYŞE;DEMİR;8-B;05553334455;LGS Grubu\r\n' +
+        '104;FATMA;ÇELİK;8-B;05554445566;LGS Grubu\r\n' +
+        '105;ALİ;ÖZTÜRK;7-A;05555556677;Ara Sınıf\r\n';
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'ogrenciler_sablon.csv');
+      document.body.appendChild(link);
+      link.click();
+      setTimeout(() => {
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }, 300);
+      this.showToast('✓ CSV şablonu başarıyla indirildi (ogrenciler_sablon.csv)', 'success');
+    } catch (err) {
+      this.showToast('Şablon oluşturulamadı: ' + err.message, 'error');
+    }
+  },
+
+  async handleCsvUpload(event, instId) {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+    try {
+      this.showToast('Dosya inceleniyor...', 'info');
+      const students = await this.parseStudentFile(file);
+      if (students.length === 0) {
+        this.showToast('Dosyada geçerli talebe kaydı bulunamadı.', 'warning');
+        return;
+      }
+      const res = window.PortalStore.importStudentsArray(instId, students);
       if (res && res.success) {
         this.showToast(`✓ ${res.added} yeni talebe başarıyla aktarıldı! Toplam: ${res.count}`, 'success');
         this.render();
       } else {
-        this.showToast('Dosya okuma hatası: ' + (res ? res.message : ''), 'error');
+        this.showToast('Aktarım hatası: ' + (res ? res.message : ''), 'error');
       }
-      event.target.value = '';
-    };
-    reader.readAsText(file);
+    } catch (err) {
+      this.showToast('Dosya okuma hatası: ' + err.message, 'error');
+    }
+    event.target.value = '';
   },
 
   // 6. KURS PANELİ: OPTİK FORM YAZDIRMA
@@ -1301,55 +2245,114 @@ window.App = {
     const exams = window.PortalStore.getExams(instId);
     const students = window.PortalStore.getStudents(instId);
     const session = window.PortalStore.getCurrentSession();
+    const uniqueClasses = Array.from(new Set(students.map(s => (s.className || '').trim()).filter(Boolean))).sort();
 
     return `
       <div class="space-y-6">
         <div class="bg-slate-900 border border-slate-800 p-5 rounded-2xl shadow-lg">
           <h2 class="text-xl font-black text-white tracking-tight">Optik Cevap Kağıdı Yazdır</h2>
-          <p class="text-xs text-slate-400 mt-0.5 mb-4">Seçtiğiniz sınav için öğrencilerin isimleri ve QR kodları hazır basılı A4 optik formlar üretin.</p>
+          <p class="text-xs text-slate-400 mt-0.5 mb-4">Seçtiğiniz sınav ve şube için talebelerin isimleri ve QR kodları hazır basılı A4 optik formlar üretin.</p>
 
-          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
               <label class="block text-xs font-bold text-slate-400 mb-1">Sınav Seçiniz</label>
-              <select id="print-exam-select" class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-medium text-xs">
+              <select id="print-exam-select" onchange="App.handlePrintFilterChange('${instId}')" class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-medium text-xs focus:border-emerald-500 focus:outline-none">
                 ${exams.map(e => `<option value="${e.id}">${e.title} (${e.questionCount} Soru)</option>`).join('')}
               </select>
             </div>
             <div>
+              <label class="block text-xs font-bold text-slate-400 mb-1">🎯 Sınıf / Şube Seçiniz</label>
+              <select id="print-class-select" onchange="App.handlePrintFilterChange('${instId}')" class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-medium text-xs focus:border-emerald-500 focus:outline-none">
+                <option value="all">Tüm Şubeler (${students.length} Talebe)</option>
+                ${uniqueClasses.map(c => {
+                  const count = students.filter(s => s.className === c).length;
+                  return `<option value="${c}">${c} Şubesi (${count} Talebe)</option>`;
+                }).join('')}
+              </select>
+            </div>
+            <div>
               <label class="block text-xs font-bold text-slate-400 mb-1">Baskı Türü</label>
-              <select id="print-type-select" class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-medium text-xs">
-                <option value="all_students">Tüm Talebelere Özel İsimli & QR Kodlu (${students.length} Sayfa)</option>
+              <select id="print-type-select" class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-medium text-xs focus:border-emerald-500 focus:outline-none">
+                <option value="all_students">Talebelere Özel İsimli & QR Kodlu</option>
                 <option value="blank_10">Boş Form (10 Adet)</option>
                 <option value="blank_25">Boş Form (25 Adet)</option>
+                <option value="blank_50">Boş Form (50 Adet)</option>
               </select>
             </div>
             <div class="flex items-end">
-              <button onclick="App.generateAndPrintSheets('${instId}')" class="w-full py-2.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black text-xs rounded-xl shadow transition flex items-center justify-center gap-1.5">
+              <button onclick="App.generateAndPrintSheets('${instId}')" class="w-full py-2.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black text-xs rounded-xl shadow transition flex items-center justify-center gap-1.5 cursor-pointer">
                 <span>🖨️</span> <span>Optik Kağıtları Bas</span>
               </button>
             </div>
           </div>
         </div>
 
-        <!-- Örnek Önizleme -->
-        <div class="border border-slate-800 rounded-2xl p-4 bg-slate-900/60 text-center">
-          <h4 class="text-xs font-bold text-slate-400 uppercase mb-3">Optik Kağıt Örneği</h4>
-          <div class="overflow-hidden max-h-[500px] border border-gray-400 rounded shadow-2xl inline-block bg-white text-black p-4 text-left scale-90 origin-top">
-            ${window.OpticalSheetGenerator.renderSheetHtml({
-              institutionName: session.institutionName,
-              examTitle: exams[0] ? exams[0].title : 'LGS DENEME SINAVI',
-              student: students[0] || { firstName: 'ÖRNEK', lastName: 'TALEBE', studentNo: '101', className: '8-A' },
-              questionCount: exams[0] ? exams[0].questionCount : 20,
-              subjects: exams[0] ? exams[0].subjects : [{ name: 'Genel', startQ: 1, endQ: 20 }]
-            })}
+        <!-- Örnek Önizleme (Yatay A4) -->
+        <div class="border border-slate-800 rounded-2xl p-3 sm:p-4 bg-slate-900/60 w-full max-w-full overflow-hidden">
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-3 px-1">
+            <h4 class="text-xs font-bold text-slate-400 uppercase flex items-center gap-1.5">
+              <span>📄</span> <span>Yatay A4 Optik Form Canlı Önizleme</span>
+            </h4>
+            <span class="text-[11px] text-emerald-400 font-mono">297mm × 210mm (Sıfır Taşma Formatı)</span>
+          </div>
+          <div class="w-full max-w-full overflow-x-auto pb-4" style="-webkit-overflow-scrolling: touch;">
+            <div id="optical-preview-container" class="w-[980px] min-w-[980px] max-w-[1050px] mx-auto border border-gray-400 rounded-xl shadow-2xl bg-white text-black p-2 text-left">
+              ${window.OpticalSheetGenerator.renderSheetHtml({
+                institutionName: session.institutionName || 'TABAKÇILAR B BLOK',
+                examTitle: exams[0] ? exams[0].title : 'İsabet Ortaokul 8. Sınıf Deneme 3 (23-28 Ara)',
+                student: students[0] || { firstName: 'ADAR', lastName: 'GÖZE', studentNo: '29828977800', className: 'ORTAOKUL 8 - ORTAOKUL SEVİYE 1' },
+                questionCount: exams[0] ? exams[0].questionCount : 90,
+                subjects: (exams[0] && exams[0].subjects && exams[0].subjects.length > 0) ? exams[0].subjects : [
+                  { name: 'Türkçe', startQ: 1, endQ: 20 },
+                  { name: 'İnkılap Tarihi', startQ: 21, endQ: 30 },
+                  { name: 'Din Kültürü', startQ: 31, endQ: 40 },
+                  { name: 'İngilizce', startQ: 41, endQ: 50 },
+                  { name: 'Matematik', startQ: 51, endQ: 70 },
+                  { name: 'Fen Bilimleri', startQ: 71, endQ: 90 }
+                ],
+                bookletTypes: exams[0] ? exams[0].bookletTypes : undefined
+              })}
+            </div>
           </div>
         </div>
       </div>
     `;
   },
 
+  handlePrintFilterChange(instId) {
+    const examSelect = document.getElementById('print-exam-select');
+    const classSelect = document.getElementById('print-class-select');
+    const previewContainer = document.getElementById('optical-preview-container');
+    if (!examSelect || !previewContainer) return;
+
+    const examId = examSelect.value;
+    const exam = window.PortalStore.getExamById(instId, examId) || window.PortalStore.getExams(instId)[0];
+    const session = window.PortalStore.getCurrentSession();
+    let students = window.PortalStore.getStudents(instId);
+    const selectedClass = classSelect ? classSelect.value : 'all';
+    if (selectedClass && selectedClass !== 'all') {
+      students = students.filter(s => s.className === selectedClass);
+    }
+    const sampleStudent = students[0] || { 
+      firstName: 'ÖRNEK', 
+      lastName: 'TALEBE', 
+      studentNo: '29828977800', 
+      className: selectedClass !== 'all' ? selectedClass : (exam ? exam.targetClass : '8-A') 
+    };
+
+    previewContainer.innerHTML = window.OpticalSheetGenerator.renderSheetHtml({
+      institutionName: session.institutionName || 'TABAKÇILAR B BLOK',
+      examTitle: exam ? exam.title : 'Deneme Sınavı',
+      student: sampleStudent,
+      questionCount: exam ? exam.questionCount : 75,
+      subjects: (exam && exam.subjects) ? exam.subjects : [],
+      bookletTypes: exam ? exam.bookletTypes : undefined
+    });
+  },
+
   generateAndPrintSheets(instId) {
     const examSelect = document.getElementById('print-exam-select');
+    const classSelect = document.getElementById('print-class-select');
     const typeSelect = document.getElementById('print-type-select');
     if (!examSelect) return;
 
@@ -1361,13 +2364,17 @@ window.App = {
     }
 
     const session = window.PortalStore.getCurrentSession();
-    const students = window.PortalStore.getStudents(instId);
-    const printType = typeSelect.value;
+    let students = window.PortalStore.getStudents(instId);
+    const selectedClass = classSelect ? classSelect.value : 'all';
+    if (selectedClass && selectedClass !== 'all') {
+      students = students.filter(s => s.className === selectedClass);
+    }
+    const printType = typeSelect ? typeSelect.value : 'all_students';
 
     let sheetsHtml = '';
     if (printType === 'all_students') {
       if (students.length === 0) {
-        this.showToast('Kayıtlı talebe bulunamadı. Boş form basılıyor.', 'info');
+        this.showToast('Seçilen şubede kayıtlı talebe bulunamadı. Boş form basılıyor.', 'info');
         for (let i = 0; i < 5; i++) {
           sheetsHtml += window.OpticalSheetGenerator.renderSheetHtml({
             institutionName: session.institutionName,
@@ -1376,6 +2383,7 @@ window.App = {
             student: null,
             questionCount: exam.questionCount,
             subjects: exam.subjects,
+            bookletTypes: exam.bookletTypes,
             examId: exam.id
           });
         }
@@ -1388,12 +2396,13 @@ window.App = {
             student: st,
             questionCount: exam.questionCount,
             subjects: exam.subjects,
+            bookletTypes: exam.bookletTypes,
             examId: exam.id
           });
         });
       }
     } else {
-      const count = printType === 'blank_25' ? 25 : 10;
+      const count = printType === 'blank_50' ? 50 : (printType === 'blank_25' ? 25 : 10);
       for (let i = 0; i < count; i++) {
         sheetsHtml += window.OpticalSheetGenerator.renderSheetHtml({
           institutionName: session.institutionName,
@@ -1402,6 +2411,7 @@ window.App = {
           student: null,
           questionCount: exam.questionCount,
           subjects: exam.subjects,
+          bookletTypes: exam.bookletTypes,
           examId: exam.id
         });
       }
@@ -1423,23 +2433,30 @@ window.App = {
     return `
       <div class="space-y-4">
         <!-- Üst Kontrol Çubuğu -->
-        <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl flex flex-wrap items-center justify-between gap-3 shadow-lg">
-          <div class="flex items-center gap-3">
-            <select id="scanner-exam-select" onchange="App.handleScannerExamChange('${instId}')" class="px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-bold text-xs">
+        <div class="bg-slate-900 border border-slate-800 p-3.5 sm:p-4 rounded-2xl flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 shadow-lg w-full max-w-full overflow-hidden">
+          <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 w-full lg:w-auto flex-1 min-w-0">
+            <select id="scanner-exam-select" onchange="App.handleScannerExamChange('${instId}')" class="w-full sm:w-auto px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-bold text-xs">
               ${exams.map(e => `<option value="${e.id}" ${this.activeExamId === e.id ? 'selected' : ''}>${e.title} (${e.questionCount} Soru)</option>`).join('')}
             </select>
-            <select id="scanner-student-select" class="px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-medium text-xs">
+            <select id="scanner-student-select" class="w-full sm:w-auto px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-medium text-xs">
               <option value="">-- Talebe Seç (veya QR Koddan Oku) --</option>
               ${students.map(s => `<option value="${s.studentNo}">${s.studentNo} - ${s.firstName} ${s.lastName} (${s.className})</option>`).join('')}
             </select>
+            <select id="scanner-booklet-select" class="w-full sm:w-auto px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-medium text-xs" title="Kitapçık Türü">
+              <option value="auto">📖 Kitapçık: Otomatik (OMR/QR)</option>
+              <option value="A">Kitapçık A</option>
+              <option value="B">Kitapçık B</option>
+              <option value="C">Kitapçık C</option>
+              <option value="D">Kitapçık D</option>
+            </select>
           </div>
 
-          <div class="flex items-center gap-2">
+          <div class="flex flex-wrap items-center gap-2 w-full lg:w-auto">
             <!-- Seri Otomatik Okuma Butonu -->
-            <button id="btn-continuous-scan" onclick="App.toggleContinuousScan('${instId}')" class="px-4 py-2.5 bg-cyan-600/30 hover:bg-cyan-600 text-cyan-300 hover:text-white font-black text-xs rounded-xl border border-cyan-500/50 shadow-lg transition flex items-center gap-1.5 cursor-pointer">
-              <span>⚡</span> <span id="continuous-btn-text">Seri Otomatik Okuma (Başlat)</span>
+            <button id="btn-continuous-scan" onclick="App.toggleContinuousScan('${instId}')" class="flex-1 sm:flex-initial px-3.5 py-2.5 bg-cyan-600/30 hover:bg-cyan-600 text-cyan-300 hover:text-white font-black text-xs rounded-xl border border-cyan-500/50 shadow-lg transition flex items-center justify-center gap-1.5 cursor-pointer">
+              <span>⚡</span> <span id="continuous-btn-text">Seri Otomatik Okuma</span>
             </button>
-            <button onclick="App.triggerScan()" class="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black text-xs rounded-xl shadow-lg transition flex items-center gap-2 cursor-pointer">
+            <button onclick="App.triggerScan()" class="flex-1 sm:flex-initial px-3.5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black text-xs rounded-xl shadow-lg transition flex items-center justify-center gap-1.5 cursor-pointer">
               <span>📸</span> <span>Tek Kare Oku</span>
             </button>
             <div class="px-3 py-2 bg-slate-950 rounded-xl border border-slate-800 text-xs text-slate-400 font-mono hidden sm:flex items-center gap-1.5">
@@ -1454,16 +2471,29 @@ window.App = {
 
         <!-- Canlı Kamera Ekranı -->
         <div class="relative bg-black rounded-3xl overflow-hidden border-2 border-slate-800 max-w-2xl mx-auto shadow-2xl" style="aspect-ratio: 4/3;">
-          <video id="omr-video" playsinline autoplay muted class="w-full h-full object-cover"></video>
+          <video id="omr-video" playsinline webkit-playsinline autoplay muted class="w-full h-full object-cover"></video>
           <canvas id="omr-canvas" class="hidden"></canvas>
+
+          <!-- Kamera Başlatma / İzin İsteme Katmanı (Mobil Uyumlu) -->
+          <div id="camera-start-prompt" class="absolute inset-0 bg-slate-950/85 backdrop-blur-sm flex flex-col items-center justify-center p-4 text-center z-20 transition-all">
+            <div class="w-14 h-14 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-3xl mb-2.5 border border-emerald-500/40 shadow-lg animate-pulse">
+              📷
+            </div>
+            <h4 class="text-sm font-black text-white mb-1">Kamerayı Başlat</h4>
+            <p class="text-xs text-slate-300 max-w-xs mb-3">Telefonunuzun kamerasını açarak sınav kağıtlarını canlı okutabilirsiniz.</p>
+            <button onclick="App.startCameraExplicitly('${instId}')" class="px-6 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black text-xs rounded-xl shadow-lg transition flex items-center gap-2 cursor-pointer active:scale-95">
+              <span>📸</span> <span>Kamerayı Aç ve İzin Ver</span>
+            </button>
+            <p class="text-[10px] text-slate-400 mt-2">Tarayıcınız izin isterse lütfen <strong>"İzin Ver"</strong> seçeneğine dokununuz.</p>
+          </div>
 
           <!-- Nişangah Çerçevesi (Kağıt Hizalama Rehberi) -->
           <div class="absolute inset-8 sm:inset-12 border-2 border-dashed border-emerald-400/70 rounded-2xl pointer-events-none flex flex-col justify-between p-3">
             <div class="flex justify-between items-center text-[11px] font-mono font-bold text-emerald-400 bg-black/60 px-2 py-0.5 rounded backdrop-blur-sm w-fit">
-              <span>[+] Optik Kağıdı Bu Çerçeveye Hizalayınız</span>
+              <span>[+] Yatay A4 Kağıdı Bu Çerçeveye Hizalayınız</span>
             </div>
             <div class="text-center text-[10px] text-emerald-300 font-bold bg-black/60 py-1 rounded backdrop-blur-sm">
-              4 Köşe Noktasını ve QR Kodu Kameraya Gösteriniz
+              4 Köşe Noktası ve QR Kod Çerçeve İçinde Olmalıdır
             </div>
           </div>
         </div>
@@ -1476,20 +2506,65 @@ window.App = {
 
   initCameraScanner() {
     const session = window.PortalStore.getCurrentSession();
-    if (!session || !session.institutionId) return;
+    const effectiveInstId = (session && session.institutionId) ? session.institutionId : 'inst_oay';
 
-    const exams = window.PortalStore.getExams(session.institutionId);
-    if (exams.length === 0) {
-      this.showToast('Önce bir deneme sınavı tanımlamalısınız.', 'warning');
-      return;
+    let exams = window.PortalStore.getExams(effectiveInstId);
+    if (!exams || exams.length === 0) {
+      const defaultExam = {
+        id: 'exam_lgs_auto',
+        title: '8. Sınıf LGS 1. Prova Denemesi',
+        examDate: new Date().toISOString().split('T')[0],
+        questionCount: 90,
+        targetClass: '8. Sınıf',
+        bookletTypes: ['A', 'B', 'C', 'D'],
+        subjects: [
+          { name: 'Türkçe', startQ: 1, endQ: 20, wrongPenalty: 0.333, coeff: 4 },
+          { name: 'T.C. İnkılap', startQ: 21, endQ: 30, wrongPenalty: 0.333, coeff: 1 },
+          { name: 'Din Kültürü', startQ: 31, endQ: 40, wrongPenalty: 0.333, coeff: 1 },
+          { name: 'İngilizce', startQ: 41, endQ: 50, wrongPenalty: 0.333, coeff: 1 },
+          { name: 'Matematik', startQ: 51, endQ: 70, wrongPenalty: 0.333, coeff: 4 },
+          { name: 'Fen Bilimleri', startQ: 71, endQ: 90, wrongPenalty: 0.333, coeff: 4 }
+        ],
+        answerKeys: {
+          'A': 'ABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCD',
+          'B': 'BCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDABCDA'
+        },
+        canceledQuestions: [],
+        createdAt: new Date().toISOString()
+      };
+      window.PortalStore.saveExams(effectiveInstId, [defaultExam]);
+      exams = [defaultExam];
     }
 
     const currentExam = exams.find(e => e.id === this.activeExamId) || exams[0];
     this.activeExamId = currentExam.id;
 
     setTimeout(() => {
-      window.OmrScanner.startCamera('omr-video', currentExam, session.institutionId);
-    }, 150);
+      this.startCameraExplicitly(effectiveInstId, currentExam);
+    }, 120);
+  },
+
+  async startCameraExplicitly(instId, exam) {
+    const session = window.PortalStore.getCurrentSession();
+    const effectiveInstId = instId || (session ? session.institutionId : null) || 'inst_oay';
+    const effectiveExam = exam || (this.activeExamId ? window.PortalStore.getExamById(effectiveInstId, this.activeExamId) : null) || (window.PortalStore.getExams(effectiveInstId)[0]);
+
+    if (!effectiveExam) {
+      this.showToast('Lütfen önce bir sınav seçiniz.', 'warning');
+      return;
+    }
+
+    const promptEl = document.getElementById('camera-start-prompt');
+    const res = await window.OmrScanner.startCamera('omr-video', effectiveExam, effectiveInstId);
+    if (res && res.success) {
+      if (promptEl) promptEl.classList.add('hidden');
+      this.showToast('✓ Kamera başarıyla açıldı. Kağıdı çerçeveye tutunuz.', 'success');
+    } else {
+      if (promptEl) promptEl.classList.remove('hidden');
+      if (res && res.message) {
+        this.showToast(res.message, 'warning');
+      }
+    }
   },
 
   handleScannerExamChange(instId) {
@@ -1536,6 +2611,14 @@ window.App = {
         },
         (statusMsg) => {
           if (statusBadge) statusBadge.textContent = statusMsg;
+        },
+        () => {
+          const bookletSelect = document.getElementById('scanner-booklet-select');
+          return (bookletSelect && bookletSelect.value !== 'auto') ? bookletSelect.value : null;
+        },
+        () => {
+          const studentSelect = document.getElementById('scanner-student-select');
+          return (studentSelect && studentSelect.value) ? studentSelect.value : null;
         }
       );
       this.showToast('⚡ Seri otomatik okuma devrede! Kağıtları sırayla kameraya tutun.', 'success');
@@ -1546,23 +2629,47 @@ window.App = {
     if (!result) return;
     const session = window.PortalStore.getCurrentSession();
     const effectiveInstId = instId || (session ? session.institutionId : null);
+
+    // 1. ÖNCELİKLİ ŞART: Karekod henüz algılanamadıysa dur ve uyar
+    if (result.stage === 'qr_search' || (!result.studentNo && !result.qrDetected)) {
+      const studentSelect = document.getElementById('scanner-student-select');
+      if (studentSelect && studentSelect.value) {
+        result.studentNo = studentSelect.value;
+      } else {
+        this.showToast('⚠️ Talebe karekodu okunamadı! Lütfen kağıdın sol üstündeki karekodu kameraya net tutunuz veya yukarıdan talebeyi seçiniz.', 'warning');
+        this.renderScanResultCard(result);
+        return;
+      }
+    }
+
+    // 2. ÖNCELİKLİ ŞART: Cevap anahtarı kodlanmamışsa DERHAL UYARI VER!
+    if (result.isMissingAnswerKey || result.stage === 'no_answer_key') {
+      this.showToast(`⚠️ "${result.examTitle || 'Sınav'}" (${result.booklet || 'A'} Kitapçığı) cevap anahtarı henüz kodlanmamış!`, 'error');
+      this.renderScanResultCard(result);
+      return;
+    }
+
     const students = window.PortalStore.getStudents(effectiveInstId);
     const matchedSt = students.find(s => s.studentNo === result.studentNo);
 
-    result.studentName = matchedSt ? `${matchedSt.firstName} ${matchedSt.lastName}` : `Talebe #${result.studentNo}`;
-    result.className = matchedSt ? matchedSt.className : 'Genel';
-    result.parentPhone = matchedSt ? matchedSt.parentPhone : '';
+    result.studentName = matchedSt ? `${matchedSt.firstName} ${matchedSt.lastName}` : (result.studentName || `Talebe #${result.studentNo}`);
+    result.className = matchedSt ? matchedSt.className : (result.className || 'Genel');
+    result.parentPhone = matchedSt ? matchedSt.parentPhone : (result.parentPhone || '');
 
-    // Neticeyi kaydet
-    window.PortalStore.saveExamResult(effectiveInstId, result);
+    if (result.isBlank) {
+      this.showToast('ℹ️ Boş optik form algılandı: Kağıt üzerinde işaretleme tespit edilemedi (0 Net).', 'warning');
+    } else {
+      // Neticeyi kaydet
+      window.PortalStore.saveExamResult(effectiveInstId, result);
 
-    const counter = document.getElementById('continuous-counter');
-    if (counter) {
-      const cur = parseInt(counter.textContent, 10) || 0;
-      counter.textContent = (cur + 1).toString();
+      const counter = document.getElementById('continuous-counter');
+      if (counter) {
+        const cur = parseInt(counter.textContent, 10) || 0;
+        counter.textContent = (cur + 1).toString();
+      }
+
+      this.showToast(`✓ ${result.studentName} okundu! (${result.totalNet} Net - ${result.totalScore} Puan)`, 'success');
     }
-
-    this.showToast(`✓ ${result.studentName} okundu! (${result.totalNet} Net - ${result.totalScore} Puan)`, 'success');
     this.renderScanResultCard(result);
   },
 
@@ -1571,10 +2678,21 @@ window.App = {
     const video = document.getElementById('omr-video');
     const canvas = document.getElementById('omr-canvas');
     const studentSelect = document.getElementById('scanner-student-select');
-    const studentNo = studentSelect ? studentSelect.value : null;
+    const studentNo = (studentSelect && studentSelect.value) ? studentSelect.value : null;
 
-    const result = window.OmrScanner.scanCurrentFrame(video, canvas, studentNo, 'A');
-    if (!result) return;
+    if (!video || video.readyState < 2) {
+      this.showToast('Kamera henüz hazır değil, lütfen birkaç saniye bekleyiniz.', 'warning');
+      return;
+    }
+
+    const bookletSelect = document.getElementById('scanner-booklet-select');
+    const selectedBooklet = (bookletSelect && bookletSelect.value !== 'auto') ? bookletSelect.value : null;
+
+    const result = window.OmrScanner.scanCurrentFrame(video, canvas, studentNo, selectedBooklet);
+    if (!result) {
+      this.showToast('Optik form algılanamadı. Lütfen beyaz A4 kağıdı kamera çerçevesine net şekilde hizalayınız.', 'warning');
+      return;
+    }
 
     const session = window.PortalStore.getCurrentSession();
     this.handleScannedPaper(session ? session.institutionId : null, result);
@@ -1584,16 +2702,69 @@ window.App = {
     const container = document.getElementById('scan-result-card');
     if (!container) return;
 
+    // 1. Durum: Cevap anahtarı kodlanmamışsa belirgin uyarı kartı göster
+    if (result.isMissingAnswerKey || result.stage === 'no_answer_key') {
+      const session = window.PortalStore.getCurrentSession();
+      const instId = session ? session.institutionId : '';
+      container.innerHTML = `
+        <div class="bg-amber-950/60 border-2 border-amber-500 rounded-3xl p-6 shadow-2xl animate-fade-in text-center space-y-3">
+          <div class="w-14 h-14 bg-amber-500/20 text-amber-300 rounded-2xl flex items-center justify-center text-3xl mx-auto border border-amber-500/40 shadow-lg">
+            🔑
+          </div>
+          <h3 class="text-base font-black text-amber-200">Cevap Anahtarı Kodlanmamış!</h3>
+          <p class="text-xs text-slate-300 max-w-md mx-auto leading-relaxed">
+            <strong>${result.examTitle || 'Sınav'}</strong> için <strong>${result.booklet || 'A'} Kitapçığı</strong> cevap anahtarı henüz sisteme girilmemiştir. Hatalı net ve puan hesaplanmaması için optik okuma durduruldu.
+          </p>
+          <div class="p-2.5 bg-slate-900 rounded-xl border border-slate-800 text-[11px] text-slate-300 inline-flex items-center gap-2">
+            <span>Talebe: <strong class="text-white">${result.studentName || '#' + result.studentNo}</strong></span>
+            <span>•</span>
+            <span>Kitapçık: <strong class="text-cyan-400 font-bold">${result.booklet || 'A'}</strong></span>
+          </div>
+          <div class="pt-2">
+            <button onclick="App.showEditExamModal('${instId}', '${result.examId}')" class="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs rounded-xl shadow-lg transition inline-flex items-center gap-1.5 cursor-pointer">
+              <span>🔑</span> <span>Cevap Anahtarını Şimdi Gir & Düzenle →</span>
+            </button>
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    // 2. Durum: Eğer talebe karekodu henüz okunamadıysa uyarı kartı göster
+    if (result.stage === 'qr_search' || (!result.studentNo && !result.qrDetected)) {
+      container.innerHTML = `
+        <div class="bg-amber-950/40 border-2 border-amber-500/70 rounded-3xl p-5 shadow-2xl animate-fade-in text-center space-y-3">
+          <div class="w-12 h-12 bg-amber-500/20 text-amber-300 rounded-2xl flex items-center justify-center text-2xl mx-auto border border-amber-500/40">
+            ⚠️
+          </div>
+          <h3 class="text-base font-black text-amber-200">Talebe Karekodu Okunamadı</h3>
+          <p class="text-xs text-slate-300 max-w-md mx-auto leading-relaxed">
+            Kağıdın sol üstündeki karekod okunamadığı için sonuç kaydedilmedi. Lütfen kağıdı kameraya biraz yaklaştırınız veya yukarıdaki <strong>"Talebe Seç"</strong> açılır kutusundan talebenin adını seçip tekrar <strong>Tek Kare Oku</strong> butonuna basınız.
+          </p>
+          <div class="inline-flex items-center gap-2 px-3 py-1 bg-slate-900 rounded-xl border border-slate-800 text-[11px] text-slate-300 font-mono">
+            <span>Kitapçık: <strong class="text-cyan-400">${result.booklet || 'A'}</strong></span>
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    const isBlank = !!result.isBlank;
+
     container.innerHTML = `
-      <div class="bg-slate-900 border-2 border-emerald-500 rounded-3xl p-5 shadow-2xl animate-fade-in">
+      <div class="bg-slate-900 border-2 ${isBlank ? 'border-amber-500 shadow-amber-500/10' : 'border-emerald-500 shadow-emerald-500/10'} rounded-3xl p-5 shadow-2xl animate-fade-in">
         <div class="flex items-center justify-between border-b border-slate-800 pb-3 mb-3">
           <div>
-            <span class="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Son Okunan Kağıt</span>
-            <h3 class="text-lg font-black text-white">${result.studentName}</h3>
-            <span class="text-xs text-slate-400 font-mono">No: ${result.studentNo} • Sınıf: ${result.className}</span>
+            ${isBlank ? `
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-amber-500/20 text-amber-300 border border-amber-500/40">⚠️ Boş Form Okundu (İşaretleme Yok)</span>
+            ` : `
+              <span class="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Son Okunan Kağıt</span>
+            `}
+            <h3 class="text-lg font-black text-white mt-0.5">${result.studentName}</h3>
+            <span class="text-xs text-slate-400 font-mono">${result.studentNo ? `No: ${result.studentNo} • ` : ''}Sınıf: ${result.className} • Kitapçık: <span class="text-emerald-400 font-bold">${result.booklet || 'A'}</span></span>
           </div>
           <div class="text-right">
-            <span class="text-2xl font-black text-emerald-400 font-mono">${result.totalScore}</span>
+            <span class="text-2xl font-black ${isBlank ? 'text-amber-400' : 'text-emerald-400'} font-mono">${result.totalScore}</span>
             <span class="block text-[10px] font-bold text-slate-400 uppercase">Toplam Puan</span>
           </div>
         </div>
@@ -1609,7 +2780,7 @@ window.App = {
           </div>
           <div class="bg-slate-950 p-2 rounded-xl border border-slate-800">
             <span class="block text-[10px] text-slate-500 font-bold uppercase">Boş</span>
-            <span class="text-base font-black text-slate-400 font-mono">${result.totalEmpty}</span>
+            <span class="text-base font-black text-slate-300 font-mono font-bold">${result.totalEmpty}</span>
           </div>
           <div class="bg-slate-950 p-2 rounded-xl border border-slate-800">
             <span class="block text-[10px] text-slate-500 font-bold uppercase">Toplam Net</span>
@@ -1617,13 +2788,38 @@ window.App = {
           </div>
         </div>
 
+        ${(result.topicAnalysis && result.topicAnalysis.length > 0) ? `
+          <div class="bg-slate-950/70 border border-slate-800 rounded-2xl p-3 mb-4">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-[11px] font-bold text-indigo-400 uppercase tracking-wider flex items-center gap-1">
+                <span>🎯</span> <span>Konu Başarı Analizi</span>
+              </span>
+              <span class="text-[10px] text-slate-400 font-mono">${result.topicAnalysis.length} Konu</span>
+            </div>
+            <div class="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+              ${result.topicAnalysis.slice(0, 6).map(t => `
+                <div class="flex items-center justify-between text-[11px]">
+                  <span class="text-slate-300 truncate max-w-[180px]">${t.subject}: <strong class="text-white">${t.topic}</strong></span>
+                  <div class="flex items-center gap-1.5 font-mono">
+                    <span class="${t.percent >= 70 ? 'text-emerald-400' : (t.percent >= 40 ? 'text-amber-400' : 'text-rose-400')} font-bold">%${t.percent}</span>
+                    <span class="text-slate-500 text-[10px]">(${t.correct}/${t.total} D)</span>
+                  </div>
+                </div>
+              `).join('')}
+              ${result.topicAnalysis.length > 6 ? `
+                <div class="text-[10px] text-indigo-300 text-center pt-1">+${result.topicAnalysis.length - 6} konu daha (Karneden inceleyin)</div>
+              ` : ''}
+            </div>
+          </div>
+        ` : ''}
+
         <div class="flex gap-2">
-          ${result.parentPhone ? `
-            <button onclick="App.sendWhatsAppCard('${encodeURIComponent(result.parentPhone)}', '${encodeURIComponent(result.studentName)}', '${result.totalNet}', '${result.totalScore}')" class="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs rounded-xl shadow transition flex items-center justify-center gap-1.5">
+          ${(result.parentPhone && !isBlank) ? `
+            <button onclick="App.sendWhatsAppCard('${encodeURIComponent(result.parentPhone)}', '${encodeURIComponent(result.studentName)}', '${result.totalNet}', '${result.totalScore}', '${encodeURIComponent(JSON.stringify(result.topicAnalysis || []))}')" class="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs rounded-xl shadow transition flex items-center justify-center gap-1.5 cursor-pointer">
               <span>💬</span> <span>Veliye WhatsApp Karnesi Gönder</span>
             </button>
           ` : ''}
-          <button onclick="App.switchTab('neticeler')" class="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs rounded-xl transition">
+          <button onclick="App.switchTab('neticeler')" class="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs rounded-xl transition cursor-pointer">
             Tüm Neticeler & Sıralama →
           </button>
         </div>
@@ -1631,10 +2827,28 @@ window.App = {
     `;
   },
 
-  sendWhatsAppCard(phone, name, net, score) {
+  sendWhatsAppCard(phone, name, net, score, topicsJson = null) {
     const cleanPhone = phone.replace(/\D/g, '');
     const cleanName = decodeURIComponent(name);
-    const message = `*DENEME SINAVI SONUÇ BİLGİLENDİRMESİ*\n\nSayın Velimiz,\nTalebeniz *${cleanName}* deneme sınavını tamamlamıştır:\n\n• Toplam Net: *${net}*\n• Sınav Puanı: *${score}*\n\nTalebemizi tebrik eder, başarılarının devamını dileriz.`;
+    let topicText = '';
+    if (topicsJson) {
+      try {
+        const topics = typeof topicsJson === 'string' ? JSON.parse(decodeURIComponent(topicsJson)) : topicsJson;
+        if (Array.isArray(topics) && topics.length > 0) {
+          const weakTopics = topics.filter(t => t.percent < 60);
+          const strongTopics = topics.filter(t => t.percent >= 80);
+          if (weakTopics.length > 0) {
+            topicText += `\n\n📌 *Tekrar Edilmesi Önerilen Konular:*\n` + weakTopics.slice(0, 4).map(t => `• ${t.topic} (%${t.percent} başarı - ${t.correct}/${t.total} D)`).join('\n');
+          }
+          if (strongTopics.length > 0) {
+            topicText += `\n\n🌟 *Güçlü Konular:*\n` + strongTopics.slice(0, 3).map(t => `• ${t.topic} (%${t.percent})`).join('\n');
+          }
+        }
+      } catch (e) {
+        console.error('WhatsApp konu parse hatası', e);
+      }
+    }
+    const message = `*DENEME SINAVI SONUÇ BİLGİLENDİRMESİ*\n\nSayın Velimiz,\nTalebeniz *${cleanName}* deneme sınavını tamamlamıştır:\n\n• Toplam Net: *${net}*\n• Sınav Puanı: *${score}*${topicText}\n\nTalebemizi tebrik eder, başarılarının devamını dileriz.`;
     const url = `https://wa.me/90${cleanPhone.startsWith('0') ? cleanPhone.substring(1) : cleanPhone}?text=${encodeURIComponent(message)}`;
     window.open(url, '_blank');
   },
@@ -1652,36 +2866,39 @@ window.App = {
 
     return `
       <div class="space-y-6">
-        <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 bg-slate-900 border border-slate-800 p-5 rounded-2xl shadow-lg">
-          <div>
+        <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 bg-slate-900 border border-slate-800 p-4 sm:p-5 rounded-2xl shadow-lg w-full max-w-full">
+          <div class="w-full lg:w-auto">
             <h2 class="text-xl font-black text-white tracking-tight">Sınav Neticeleri & Sıralama</h2>
-            <p class="text-xs text-slate-400 mt-0.5">${currentExam.title} (${rankings.length} Talebe Katıldı)</p>
+            <p class="text-xs text-slate-400 mt-0.5 truncate">${currentExam.title} (${rankings.length} Talebe Katıldı)</p>
           </div>
-          <div class="flex flex-wrap items-center gap-2">
-            <select onchange="App.handleResultsExamChange(this.value, '${instId}')" class="px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-bold text-xs">
+          <div class="flex flex-wrap items-center gap-2 w-full lg:w-auto">
+            <select onchange="App.handleResultsExamChange(this.value, '${instId}')" class="w-full sm:w-auto px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-bold text-xs max-w-full">
               ${exams.map(e => `<option value="${e.id}" ${e.id === currentExam.id ? 'selected' : ''}>${e.title}</option>`).join('')}
             </select>
-            <button onclick="App.showManualResultModal('${instId}', '${currentExam.id}')" class="px-3 py-2 bg-cyan-600/20 hover:bg-cyan-600 text-cyan-300 hover:text-white font-bold text-xs rounded-xl border border-cyan-500/40 transition flex items-center gap-1 cursor-pointer" title="Elle Öğrenci Notu / Cevabı Ekle">
+            <button onclick="App.showManualResultModal('${instId}', '${currentExam.id}')" class="flex-1 sm:flex-initial px-3 py-2 bg-cyan-600/20 hover:bg-cyan-600 text-cyan-300 hover:text-white font-bold text-xs rounded-xl border border-cyan-500/40 transition flex items-center justify-center gap-1 cursor-pointer" title="Elle Öğrenci Notu / Cevabı Ekle">
               <span>✍️</span> <span>Elle Not Gir</span>
             </button>
-            <button onclick="App.showItemAnalysisModal('${instId}', '${currentExam.id}', false)" class="px-3 py-2 bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-slate-950 font-bold text-xs rounded-xl border border-amber-500/40 transition flex items-center gap-1 cursor-pointer" title="Soru ve Madde Başarı Analizi">
+            <button onclick="App.showItemAnalysisModal('${instId}', '${currentExam.id}', false)" class="flex-1 sm:flex-initial px-3 py-2 bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-slate-950 font-bold text-xs rounded-xl border border-amber-500/40 transition flex items-center justify-center gap-1 cursor-pointer" title="Soru ve Madde Başarı Analizi">
               <span>📊</span> <span>Soru Analizi</span>
             </button>
-            <button onclick="App.showBatchWhatsAppModal('${instId}', '${currentExam.id}')" class="px-3 py-2 bg-emerald-600/20 hover:bg-emerald-600 text-emerald-300 hover:text-white font-bold text-xs rounded-xl border border-emerald-500/40 transition flex items-center gap-1 cursor-pointer" title="Sınıfa Toplu WhatsApp Karnesi Gönder">
+            <button onclick="App.showTopicAnalysisModal('${instId}', '${currentExam.id}', false)" class="flex-1 sm:flex-initial px-3 py-2 bg-indigo-600/20 hover:bg-indigo-600 text-indigo-300 hover:text-white font-bold text-xs rounded-xl border border-indigo-500/40 transition flex items-center justify-center gap-1 cursor-pointer" title="Konu ve Kazanım Başarı Analizi">
+              <span>🎯</span> <span>Konu Analizi</span>
+            </button>
+            <button onclick="App.showBatchWhatsAppModal('${instId}', '${currentExam.id}')" class="flex-1 sm:flex-initial px-3 py-2 bg-emerald-600/20 hover:bg-emerald-600 text-emerald-300 hover:text-white font-bold text-xs rounded-xl border border-emerald-500/40 transition flex items-center justify-center gap-1 cursor-pointer" title="Sınıfa Toplu WhatsApp Karnesi Gönder">
               <span>💬</span> <span>Toplu WhatsApp</span>
             </button>
-            <button onclick="App.downloadResultsCsv('${instId}', '${currentExam.id}', false)" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl border border-slate-700 transition flex items-center gap-1 cursor-pointer" title="Excel / CSV Olarak İndir">
+            <button onclick="App.downloadResultsCsv('${instId}', '${currentExam.id}', false)" class="flex-1 sm:flex-initial px-3 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl border border-slate-700 transition flex items-center justify-center gap-1 cursor-pointer" title="Excel / CSV Olarak İndir">
               <span>📥</span> <span>Excel İndir</span>
             </button>
-            <button onclick="App.printAllReportCards('${instId}', '${currentExam.id}')" class="px-3 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-slate-950 font-black text-xs rounded-xl shadow-lg transition flex items-center gap-1 cursor-pointer">
+            <button onclick="App.printAllReportCards('${instId}', '${currentExam.id}')" class="w-full sm:w-auto px-3.5 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-slate-950 font-black text-xs rounded-xl shadow-lg transition flex items-center justify-center gap-1 cursor-pointer">
               <span>📜</span> <span>Tüm Karneler</span>
             </button>
           </div>
         </div>
 
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-lg">
-          <div class="overflow-x-auto">
-            <table class="w-full text-left text-xs">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-lg w-full max-w-full">
+          <div class="w-full max-w-full overflow-x-auto" style="-webkit-overflow-scrolling: touch;">
+            <table class="w-full text-left text-xs min-w-[640px]">
               <thead class="bg-slate-950 border-b border-slate-800 text-slate-400 font-bold uppercase tracking-wider">
                 <tr>
                   <th class="p-3 text-center">Derece</th>
@@ -1721,11 +2938,14 @@ window.App = {
                         <button onclick="App.showManualResultModal('${instId}', '${currentExam.id}', '${r.studentNo}')" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-amber-300 rounded-lg text-[11px] font-bold transition cursor-pointer" title="Cevapları / Puanı Elle Düzenle">
                           ✍️
                         </button>
+                        <button onclick="App.showStudentTopicAnalysisModal('${instId}', '${currentExam.id}', '${r.studentNo}')" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-indigo-300 rounded-lg text-[11px] font-bold transition cursor-pointer" title="Talebenin Konu ve Kazanım Karnesi">
+                          🎯
+                        </button>
                         <button onclick="App.printSingleReportCard('${instId}', '${currentExam.id}', '${r.studentNo}')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 rounded-lg text-[11px] font-bold transition flex items-center gap-1 cursor-pointer" title="Renkli & Grafikli A4 Karne Bas">
                           <span>📜</span> <span>Karne</span>
                         </button>
                         ${r.parentPhone ? `
-                          <button onclick="App.sendWhatsAppCard('${encodeURIComponent(r.parentPhone)}', '${encodeURIComponent(r.studentName)}', '${r.totalNet}', '${r.totalScore}')" class="px-2.5 py-1 bg-emerald-600/30 hover:bg-emerald-600 text-emerald-300 hover:text-white rounded-lg text-[11px] font-bold transition cursor-pointer" title="WhatsApp Gönder">
+                          <button onclick="App.sendWhatsAppCard('${encodeURIComponent(r.parentPhone)}', '${encodeURIComponent(r.studentName)}', '${r.totalNet}', '${r.totalScore}', '${encodeURIComponent(JSON.stringify(r.topicAnalysis || []))}')" class="px-2.5 py-1 bg-emerald-600/30 hover:bg-emerald-600 text-emerald-300 hover:text-white rounded-lg text-[11px] font-bold transition cursor-pointer" title="WhatsApp Gönder">
                             💬
                           </button>
                         ` : ''}
@@ -1789,7 +3009,7 @@ window.App = {
 
     return `
       <div class="space-y-6">
-        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-900 border border-slate-800 p-5 rounded-2xl shadow-lg">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-900 border border-slate-800 p-4 sm:p-5 rounded-2xl shadow-lg w-full max-w-full">
           <div>
             <div class="flex items-center gap-2">
               <span class="text-2xl">🌐</span>
@@ -1797,7 +3017,7 @@ window.App = {
             </div>
             <p class="text-xs text-slate-400 mt-1">Buradan açtığınız sınavlar sisteme kayıtlı tüm kurs ve okulların panellerinde anında görünür. Kurumlar optik formları okuttukça ortak derece sıralaması canlı oluşur.</p>
           </div>
-          <button onclick="App.showCreateExamModal(null, true)" class="px-4 py-2.5 bg-gradient-to-r from-cyan-500 to-emerald-500 hover:from-cyan-600 hover:to-emerald-600 text-slate-950 font-black text-xs rounded-xl shadow-lg transition flex items-center gap-1.5 cursor-pointer">
+          <button onclick="App.showCreateExamModal(null, true)" class="w-full sm:w-auto px-4 py-2.5 bg-gradient-to-r from-cyan-500 to-emerald-500 hover:from-cyan-600 hover:to-emerald-600 text-slate-950 font-black text-xs rounded-xl shadow-lg transition flex items-center justify-center gap-1.5 cursor-pointer">
             <span>+</span> <span>Yeni Merkezi Ortak Sınav Aç</span>
           </button>
         </div>
@@ -1846,6 +3066,9 @@ window.App = {
                     <div class="flex gap-1.5">
                       <button onclick="App.showItemAnalysisModal(null, '${gExam.id}', true)" class="flex-1 py-1.5 bg-slate-800 hover:bg-slate-700 text-amber-300 font-bold text-xs rounded-xl transition flex items-center justify-center gap-1" title="Madde & Soru Analizi">
                         <span>📊</span> <span>Analiz</span>
+                      </button>
+                      <button onclick="App.showTopicAnalysisModal(null, '${gExam.id}', true)" class="flex-1 py-1.5 bg-slate-800 hover:bg-slate-700 text-indigo-300 font-bold text-xs rounded-xl transition flex items-center justify-center gap-1" title="Konu & Kazanım Analizi">
+                        <span>🎯</span> <span>Konu</span>
                       </button>
                       <button onclick="App.showEditExamModal(null, '${gExam.id}', true)" class="flex-1 py-1.5 bg-slate-800 hover:bg-slate-700 text-emerald-300 font-bold text-xs rounded-xl transition flex items-center justify-center gap-1" title="Sınavı Düzenle & Soru İptali">
                         <span>✏️</span> <span>Düzenle</span>
@@ -1902,6 +3125,9 @@ window.App = {
             <button onclick="App.showItemAnalysisModal(null, '${exam.id}', true)" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-amber-300 text-xs font-bold rounded-xl border border-slate-700 transition flex items-center gap-1 cursor-pointer">
               <span>📊</span> <span>Soru Analizi</span>
             </button>
+            <button onclick="App.showTopicAnalysisModal(null, '${exam.id}', true)" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-indigo-300 text-xs font-bold rounded-xl border border-slate-700 transition flex items-center gap-1 cursor-pointer">
+              <span>🎯</span> <span>Konu Analizi</span>
+            </button>
             <button onclick="App.downloadResultsCsv(null, '${exam.id}', true)" class="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 text-xs font-black rounded-xl shadow transition flex items-center gap-1 cursor-pointer">
               <span>📥</span> <span>Excel İndir (CSV)</span>
             </button>
@@ -1909,8 +3135,8 @@ window.App = {
           </div>
         </div>
 
-        <div class="overflow-y-auto flex-1 rounded-2xl border border-slate-800">
-          <table class="w-full text-left text-xs">
+        <div class="overflow-y-auto overflow-x-auto w-full max-w-full flex-1 rounded-2xl border border-slate-800" style="-webkit-overflow-scrolling: touch;">
+          <table class="w-full text-left text-xs min-w-[640px]">
             <thead class="bg-slate-950 border-b border-slate-800 text-slate-400 font-bold uppercase tracking-wider sticky top-0">
               <tr>
                 <th class="p-3 text-center">Genel Derece</th>
@@ -2256,8 +3482,8 @@ window.App = {
         </div>
 
         <!-- Madde Analiz Tablosu -->
-        <div class="overflow-y-auto flex-1 rounded-2xl border border-slate-800">
-          <table class="w-full text-left text-xs">
+        <div class="overflow-y-auto overflow-x-auto w-full max-w-full flex-1 rounded-2xl border border-slate-800" style="-webkit-overflow-scrolling: touch;">
+          <table class="w-full text-left text-xs min-w-[640px]">
             <thead class="bg-slate-950 border-b border-slate-800 text-slate-400 font-bold uppercase tracking-wider sticky top-0">
               <tr>
                 <th class="p-2.5 text-center w-14">Soru No</th>
@@ -2327,8 +3553,248 @@ window.App = {
 
   toggleCancelQuestionFromModal(instId, examId, qNum, isGlobal) {
     window.PortalStore.cancelQuestion(instId, examId, qNum, isGlobal);
-    this.showToast(`✓ #\${qNum}. soru iptal durumu güncellendi ve tüm sonuçlar baştan hesaplandı!`, 'success');
+    this.showToast(`✓ #${qNum}. soru iptal durumu güncellendi ve tüm sonuçlar baştan hesaplandı!`, 'success');
     this.showItemAnalysisModal(instId, examId, isGlobal);
+  },
+
+  // ==========================================
+  // 11-B. KONU VE KAZANIM BAŞARI ANALİZİ (Topic Analysis)
+  // ==========================================
+  showTopicAnalysisModal(instId, examId, isGlobal = false) {
+    const existing = document.getElementById('topic-analysis-modal');
+    if (existing) existing.remove();
+
+    const exam = isGlobal 
+      ? window.PortalStore.getGlobalExams().find(e => e.id === examId)
+      : window.PortalStore.getExamById(instId, examId);
+
+    if (!exam) {
+      this.showToast('Sınav bulunamadı.', 'error');
+      return;
+    }
+
+    const topics = isGlobal 
+      ? window.PortalStore.getGlobalTopicAnalysis(examId)
+      : window.PortalStore.getExamTopicAnalysis(instId, examId);
+
+    const subjects = exam.subjects || [{ name: 'Genel' }];
+    const strongCount = topics.filter(t => t.percent >= 70).length;
+    const warningCount = topics.filter(t => t.percent >= 40 && t.percent < 70).length;
+    const dangerCount = topics.filter(t => t.percent < 40).length;
+
+    const modal = document.createElement('div');
+    modal.id = 'topic-analysis-modal';
+    modal.className = 'fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-sm animate-fade-in';
+    modal.innerHTML = `
+      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-7 max-w-4xl w-full shadow-2xl relative max-h-[92vh] flex flex-col">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-4 border-b border-slate-800 mb-4 gap-3">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="text-2xl">🎯</span>
+              <h3 class="text-base sm:text-lg font-black text-white">${exam.title} - Konu ve Kazanım Analizi</h3>
+            </div>
+            <p class="text-xs text-slate-400 mt-0.5">
+              ${isGlobal ? 'Ortak Deneme Tüm Kurumlar Katılımı' : 'Kurum Sınav Sonuçları'} (${topics.length} Konu & Kazanım)
+            </p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button onclick="document.getElementById('topic-analysis-modal').remove()" class="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-sm font-bold cursor-pointer">✕</button>
+          </div>
+        </div>
+
+        <!-- Özet İstatistik Kartları -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-4">
+          <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800 text-center">
+            <span class="block text-[10px] text-slate-500 font-bold uppercase">Toplam Konu</span>
+            <span class="text-lg font-black text-white font-mono">${topics.length}</span>
+          </div>
+          <div class="bg-slate-950 p-2.5 rounded-xl border border-emerald-950/50 text-center">
+            <span class="block text-[10px] text-emerald-400 font-bold uppercase">Güçlü Konular (%70+)</span>
+            <span class="text-lg font-black text-emerald-400 font-mono">${strongCount}</span>
+          </div>
+          <div class="bg-slate-950 p-2.5 rounded-xl border border-amber-950/50 text-center">
+            <span class="block text-[10px] text-amber-400 font-bold uppercase">Geliştirilmeli (%40-%69)</span>
+            <span class="text-lg font-black text-amber-400 font-mono">${warningCount}</span>
+          </div>
+          <div class="bg-slate-950 p-2.5 rounded-xl border border-rose-950/50 text-center">
+            <span class="block text-[10px] text-rose-400 font-bold uppercase">Kritik Eksikler (<%40)</span>
+            <span class="text-lg font-black text-rose-400 font-mono">${dangerCount}</span>
+          </div>
+        </div>
+
+        <!-- Ders Filtresi -->
+        <div class="flex items-center gap-2 mb-3">
+          <span class="text-xs text-slate-400 font-bold">Ders Filtrele:</span>
+          <select id="topic-subject-filter" onchange="App.filterTopicAnalysisTable(this.value)" class="px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white font-bold">
+            <option value="all">Tüm Dersler (${topics.length} Konu)</option>
+            ${subjects.map(s => `<option value="${s.name}">${s.name}</option>`).join('')}
+          </select>
+        </div>
+
+        <!-- Konu Analiz Tablosu -->
+        <div class="overflow-y-auto overflow-x-auto w-full max-w-full flex-1 rounded-2xl border border-slate-800" style="-webkit-overflow-scrolling: touch;">
+          <table class="w-full text-left text-xs min-w-[640px]">
+            <thead class="bg-slate-950 border-b border-slate-800 text-slate-400 font-bold uppercase tracking-wider sticky top-0">
+              <tr>
+                <th class="p-2.5">Ders</th>
+                <th class="p-2.5">Konu / Kazanım</th>
+                <th class="p-2.5 text-center">İlgili Sorular</th>
+                <th class="p-2.5">Başarı Yüzdesi</th>
+                <th class="p-2.5 text-center">Ort. Doğru</th>
+                <th class="p-2.5 text-center">Ort. Yanlış</th>
+                <th class="p-2.5 text-center">Durum</th>
+              </tr>
+            </thead>
+            <tbody id="topic-analysis-tbody" class="divide-y divide-slate-800/80">
+              ${topics.length === 0 ? `
+                <tr>
+                  <td colspan="7" class="p-8 text-center text-slate-500">
+                    Bu sınavda henüz sorulara konu/kazanım atanmamış veya taranmış öğrenci kağıdı bulunmuyor. Sınav düzenleme ekranından sorulara MEB konu havuzundan konu atayabilirsiniz.
+                  </td>
+                </tr>
+              ` : topics.map(item => `
+                <tr class="topic-analysis-row hover:bg-slate-800/40 transition" data-subject="${item.subject}">
+                  <td class="p-2.5 font-bold text-white">${item.subject}</td>
+                  <td class="p-2.5 font-medium text-slate-200">${item.topic}</td>
+                  <td class="p-2.5 text-center font-mono text-[11px] text-cyan-300">
+                    ${(item.questionNumbers || []).map(q => '#' + q).join(', ')}
+                  </td>
+                  <td class="p-2.5">
+                    <div class="flex items-center gap-2">
+                      <div class="w-24 bg-slate-800 h-2 rounded-full overflow-hidden">
+                        <div class="h-full rounded-full ${item.percent >= 70 ? 'bg-emerald-500' : (item.percent >= 40 ? 'bg-amber-500' : 'bg-rose-500')}" style="width: ${item.percent}%"></div>
+                      </div>
+                      <span class="font-mono font-bold text-[11px] text-slate-300">${item.percent}%</span>
+                    </div>
+                  </td>
+                  <td class="p-2.5 text-center font-mono font-bold text-emerald-400">${item.avgCorrect}</td>
+                  <td class="p-2.5 text-center font-mono font-bold text-rose-400">${item.avgWrong}</td>
+                  <td class="p-2.5 text-center">
+                    <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${item.status === 'success' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : (item.status === 'warning' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' : 'bg-rose-500/20 text-rose-300 border border-rose-500/40')}">
+                      ${item.status === 'success' ? 'Güçlü' : (item.status === 'warning' ? 'Geliştirilmeli' : 'Kritik Eksik')}
+                    </span>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+  },
+
+  filterTopicAnalysisTable(subjectName) {
+    const rows = document.querySelectorAll('.topic-analysis-row');
+    rows.forEach(r => {
+      if (subjectName === 'all' || r.getAttribute('data-subject') === subjectName) {
+        r.classList.remove('hidden');
+      } else {
+        r.classList.add('hidden');
+      }
+    });
+  },
+
+  showStudentTopicAnalysisModal(instId, examId, studentNo) {
+    const existing = document.getElementById('student-topic-modal');
+    if (existing) existing.remove();
+
+    const exam = window.PortalStore.getExamById(instId, examId) || window.PortalStore.getGlobalExams().find(e => e.id === examId);
+    const rankings = instId ? window.PortalStore.calculateExamRankings(instId, examId) : window.PortalStore.calculateGlobalRankings(examId);
+    const result = rankings.find(r => r.studentNo === studentNo);
+
+    if (!result) {
+      this.showToast('Talebe sınav kaydı bulunamadı.', 'error');
+      return;
+    }
+
+    const topics = result.topicAnalysis || [];
+    const weakTopics = topics.filter(t => t.percent < 60);
+
+    const modal = document.createElement('div');
+    modal.id = 'student-topic-modal';
+    modal.className = 'fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-sm animate-fade-in';
+    modal.innerHTML = `
+      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-7 max-w-3xl w-full shadow-2xl relative max-h-[92vh] flex flex-col">
+        <div class="flex items-center justify-between pb-4 border-b border-slate-800 mb-4">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="text-2xl">🎯</span>
+              <h3 class="text-base sm:text-lg font-black text-white">${result.studentName} - Konu & Kazanım Karnesi</h3>
+            </div>
+            <p class="text-xs text-slate-400 mt-0.5">
+              No: <strong class="text-emerald-400 font-mono">${result.studentNo}</strong> • Sınıf: ${result.className} • Toplam Net: <strong class="text-cyan-400 font-mono">${result.totalNet}</strong> • Puan: <strong class="text-amber-400 font-mono">${result.totalScore}</strong>
+            </p>
+          </div>
+          <button onclick="document.getElementById('student-topic-modal').remove()" class="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-sm font-bold cursor-pointer">✕</button>
+        </div>
+
+        ${weakTopics.length > 0 ? `
+          <div class="bg-rose-950/30 border border-rose-500/40 rounded-2xl p-3.5 mb-4">
+            <span class="text-xs font-bold text-rose-300 uppercase block mb-1">⚠️ Tekrar Edilmesi Önerilen Konular (${weakTopics.length}):</span>
+            <div class="flex flex-wrap gap-1.5">
+              ${weakTopics.map(t => `
+                <span class="px-2.5 py-1 rounded-lg bg-rose-500/20 text-rose-200 border border-rose-500/30 text-xs font-semibold">
+                  ${t.subject}: <strong>${t.topic}</strong> (%${t.percent})
+                </span>
+              `).join('')}
+            </div>
+          </div>
+        ` : ''}
+
+        <div class="overflow-y-auto overflow-x-auto w-full max-w-full flex-1 rounded-2xl border border-slate-800 mb-4" style="-webkit-overflow-scrolling: touch;">
+          <table class="w-full text-left text-xs min-w-[500px]">
+            <thead class="bg-slate-950 border-b border-slate-800 text-slate-400 font-bold uppercase tracking-wider sticky top-0">
+              <tr>
+                <th class="p-2.5">Ders</th>
+                <th class="p-2.5">Konu / Kazanım</th>
+                <th class="p-2.5 text-center">Soru Sayısı</th>
+                <th class="p-2.5 text-center">Doğru</th>
+                <th class="p-2.5 text-center">Yanlış</th>
+                <th class="p-2.5 text-center">Boş</th>
+                <th class="p-2.5">Başarı</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-800/80">
+              ${topics.length === 0 ? `
+                <tr>
+                  <td colspan="7" class="p-8 text-center text-slate-500">Bu sınav soruları için henüz konu tanımlanmamıştır.</td>
+                </tr>
+              ` : topics.map(t => `
+                <tr class="hover:bg-slate-800/40 transition">
+                  <td class="p-2.5 font-bold text-white">${t.subject}</td>
+                  <td class="p-2.5 font-medium text-slate-200">${t.topic}</td>
+                  <td class="p-2.5 text-center font-mono font-bold text-slate-400">${t.total}</td>
+                  <td class="p-2.5 text-center font-mono font-bold text-emerald-400">${t.correct}</td>
+                  <td class="p-2.5 text-center font-mono font-bold text-rose-400">${t.wrong}</td>
+                  <td class="p-2.5 text-center font-mono font-bold text-slate-400">${t.empty}</td>
+                  <td class="p-2.5">
+                    <div class="flex items-center gap-2">
+                      <div class="w-20 bg-slate-800 h-2 rounded-full overflow-hidden">
+                        <div class="h-full rounded-full ${t.percent >= 70 ? 'bg-emerald-500' : (t.percent >= 40 ? 'bg-amber-500' : 'bg-rose-500')}" style="width: ${t.percent}%"></div>
+                      </div>
+                      <span class="font-mono font-bold text-[11px] text-slate-300 min-w-[32px]">${t.percent}%</span>
+                    </div>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="flex justify-end gap-2">
+          ${result.parentPhone ? `
+            <button onclick="App.sendWhatsAppCard('${encodeURIComponent(result.parentPhone)}', '${encodeURIComponent(result.studentName)}', '${result.totalNet}', '${result.totalScore}', '${encodeURIComponent(JSON.stringify(topics))}')" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow transition flex items-center gap-1.5 cursor-pointer">
+              <span>💬</span> <span>Konulu WhatsApp Karnesi Gönder</span>
+            </button>
+          ` : ''}
+          <button onclick="document.getElementById('student-topic-modal').remove()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl transition cursor-pointer">
+            Kapat
+          </button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
   },
 
   // ==========================================
@@ -2375,8 +3841,8 @@ window.App = {
           </div>
         </div>
 
-        <div class="overflow-y-auto flex-1 rounded-2xl border border-slate-800 mb-4">
-          <table class="w-full text-left text-xs">
+        <div class="overflow-y-auto overflow-x-auto w-full max-w-full flex-1 rounded-2xl border border-slate-800 mb-4" style="-webkit-overflow-scrolling: touch;">
+          <table class="w-full text-left text-xs min-w-[560px]">
             <thead class="bg-slate-950 border-b border-slate-800 text-slate-400 font-bold uppercase tracking-wider sticky top-0">
               <tr>
                 <th class="p-2.5 text-center w-12">Sıra</th>
@@ -2404,7 +3870,7 @@ window.App = {
                   <td class="p-2.5 text-center font-mono font-black text-amber-400">\${r.totalScore}</td>
                   <td class="p-2.5 text-right">
                     \${r.parentPhone ? `
-                      <button onclick="App.markWhatsAppSent('wa-row-\${r.studentNo}', '\${encodeURIComponent(r.parentPhone)}', '\${encodeURIComponent(r.studentName)}', '\${r.totalNet}', '\${r.totalScore}')" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] rounded-xl shadow transition flex items-center gap-1.5 ml-auto cursor-pointer">
+                      <button onclick="App.markWhatsAppSent('wa-row-\${r.studentNo}', '\${encodeURIComponent(r.parentPhone)}', '\${encodeURIComponent(r.studentName)}', '\${r.totalNet}', '\${r.totalScore}', '\${encodeURIComponent(JSON.stringify(r.topicAnalysis || []))}')" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] rounded-xl shadow transition flex items-center gap-1.5 ml-auto cursor-pointer">
                         <span>💬</span> <span>Gönder</span>
                       </button>
                     ` : `
@@ -2432,8 +3898,8 @@ window.App = {
     });
   },
 
-  markWhatsAppSent(rowId, phone, name, net, score) {
-    this.sendWhatsAppCard(phone, name, net, score);
+  markWhatsAppSent(rowId, phone, name, net, score, topicsJson = null) {
+    this.sendWhatsAppCard(phone, name, net, score, topicsJson);
     const row = document.getElementById(rowId);
     if (row) {
       const btn = row.querySelector('button');
