@@ -508,9 +508,14 @@ window.App = {
             <h2 class="text-xl font-black text-white tracking-tight">Deneme Sınavları</h2>
             <p class="text-xs text-slate-400 mt-0.5">Sınav tanımlayabilir, optik form basabilir veya kamerayla okumaya geçebilirsiniz.</p>
           </div>
-          <button onclick="App.showCreateExamModal('${instId}')" class="w-full sm:w-auto px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black text-xs rounded-xl shadow-md transition flex items-center justify-center gap-1.5 cursor-pointer">
-            <span>+</span> <span>Yeni Deneme Sınavı Oluştur</span>
-          </button>
+          <div class="flex items-center gap-2 w-full sm:w-auto">
+            <button onclick="App.showImportTxtResultsModal('${instId}')" class="flex-1 sm:flex-initial px-3.5 py-2.5 bg-indigo-600/30 hover:bg-indigo-600 text-indigo-300 hover:text-white font-bold text-xs rounded-xl border border-indigo-500/40 shadow-md transition flex items-center justify-center gap-1.5 cursor-pointer" title="Optik Okuyucu TXT / DAT Dosyası Yükle">
+              <span>📄</span> <span>TXT Optik Yükle</span>
+            </button>
+            <button onclick="App.showCreateExamModal('${instId}')" class="flex-1 sm:flex-initial px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black text-xs rounded-xl shadow-md transition flex items-center justify-center gap-1.5 cursor-pointer">
+              <span>+</span> <span>Yeni Deneme Sınavı Oluştur</span>
+            </button>
+          </div>
         </div>
 
         ${exams.length === 0 ? `
@@ -550,6 +555,9 @@ window.App = {
                     <div class="flex gap-2">
                       <button onclick="App.startScanForExam('${instId}', '${exam.id}')" class="flex-1 py-2 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black text-xs rounded-xl shadow transition flex items-center justify-center gap-1">
                         <span>📱</span> <span>Kamerayla Oku</span>
+                      </button>
+                      <button onclick="App.showImportTxtResultsModal('${instId}', '${exam.id}')" class="px-2.5 py-2 bg-indigo-600/20 hover:bg-indigo-600 text-indigo-300 hover:text-white font-bold text-xs rounded-xl border border-indigo-500/40 transition" title="Optik Okuyucu TXT / DAT Dosyası Yükle">
+                        📄
                       </button>
                       <button onclick="App.showManualResultModal('${instId}', '${exam.id}')" class="px-2.5 py-2 bg-cyan-600/20 hover:bg-cyan-600 text-cyan-300 hover:text-white font-bold text-xs rounded-xl border border-cyan-500/40 transition" title="Elle Not / Cevap Gir">
                         ✍️
@@ -2458,6 +2466,9 @@ window.App = {
             <button onclick="App.triggerScan()" class="flex-1 sm:flex-initial px-3.5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black text-xs rounded-xl shadow-lg transition flex items-center justify-center gap-1.5 cursor-pointer">
               <span>📸</span> <span>Tek Kare Oku</span>
             </button>
+            <button onclick="App.showImportTxtResultsModal('${instId}', '${this.activeExamId}')" class="flex-1 sm:flex-initial px-3.5 py-2.5 bg-indigo-600/30 hover:bg-indigo-600 text-indigo-300 hover:text-white font-black text-xs rounded-xl border border-indigo-500/50 shadow-lg transition flex items-center justify-center gap-1.5 cursor-pointer" title="Optik Okuyucu TXT Dosyası Yükle">
+              <span>📄</span> <span>TXT Yükle</span>
+            </button>
             <div class="px-3 py-2 bg-slate-950 rounded-xl border border-slate-800 text-xs text-slate-400 font-mono hidden sm:flex items-center gap-1.5">
               <span>Okunan:</span>
               <strong id="continuous-counter" class="text-emerald-400 font-black text-sm">0</strong>
@@ -2825,12 +2836,6 @@ window.App = {
       </div>
     `;
   },
-            Tüm Neticeler & Sıralama →
-          </button>
-        </div>
-      </div>
-    `;
-  },
 
   sendWhatsAppCard(phone, name, net, score, topicsJson = null) {
     const cleanPhone = phone.replace(/\D/g, '');
@@ -2880,6 +2885,9 @@ window.App = {
             <select onchange="App.handleResultsExamChange(this.value, '${instId}')" class="w-full sm:w-auto px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-bold text-xs max-w-full">
               ${exams.map(e => `<option value="${e.id}" ${e.id === currentExam.id ? 'selected' : ''}>${e.title}</option>`).join('')}
             </select>
+            <button onclick="App.showImportTxtResultsModal('${instId}', '${currentExam.id}')" class="flex-1 sm:flex-initial px-3 py-2 bg-indigo-600/30 hover:bg-indigo-600 text-indigo-300 hover:text-white font-bold text-xs rounded-xl border border-indigo-500/40 transition flex items-center justify-center gap-1 cursor-pointer" title="Optik Okuyucu TXT / DAT Dosyası Yükle">
+              <span>📄</span> <span>TXT Optik Yükle</span>
+            </button>
             <button onclick="App.showManualResultModal('${instId}', '${currentExam.id}')" class="flex-1 sm:flex-initial px-3 py-2 bg-cyan-600/20 hover:bg-cyan-600 text-cyan-300 hover:text-white font-bold text-xs rounded-xl border border-cyan-500/40 transition flex items-center justify-center gap-1 cursor-pointer" title="Elle Öğrenci Notu / Cevabı Ekle">
               <span>✍️</span> <span>Elle Not Gir</span>
             </button>
@@ -3400,6 +3408,324 @@ window.App = {
     } else {
       this.showToast('Kayıt başarısız: ' + (res ? res.message : ''), 'error');
     }
+  },
+
+  // ==========================================
+  // 10.B. TXT / DAT OPTİK MAKİNE SONUÇLARI İÇE AKTARMA
+  // ==========================================
+  showImportTxtResultsModal(instId, preselectedExamId = null) {
+    const existing = document.getElementById('import-txt-modal');
+    if (existing) existing.remove();
+
+    const session = window.PortalStore.getCurrentSession();
+    const effectiveInstId = instId || (session ? session.institutionId : null);
+    const exams = window.PortalStore.getExams(effectiveInstId) || [];
+
+    if (exams.length === 0) {
+      this.showToast('Lütfen önce "Sınavlar" sekmesinden bir deneme sınavı oluşturunuz.', 'warning');
+      return;
+    }
+
+    const defaultExamId = preselectedExamId || (exams[0] ? exams[0].id : '');
+
+    const modal = document.createElement('div');
+    modal.id = 'import-txt-modal';
+    modal.className = 'fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-sm animate-fade-in';
+    modal.innerHTML = `
+      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-7 max-w-2xl w-full shadow-2xl relative max-h-[92vh] flex flex-col">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
+          <div class="flex items-center gap-2.5">
+            <span class="text-2xl">📄</span>
+            <div>
+              <h3 class="text-base sm:text-lg font-black text-white">Optik Okuyucu TXT / DAT Dosyası Yükle</h3>
+              <p class="text-xs text-slate-400 font-medium">Optik okuyucu makinelerinin veya programlarının ürettiği sonuçları sınavınıza aktarın.</p>
+            </div>
+          </div>
+          <button onclick="document.getElementById('import-txt-modal').remove()" class="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-sm font-bold cursor-pointer">✕</button>
+        </div>
+
+        <form onsubmit="App.handleImportTxtSubmit(event, '${effectiveInstId}')" class="space-y-4 flex-1 flex flex-col min-h-0">
+          <div>
+            <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Hangi Sınava Yüklenecek?</label>
+            <select id="import-txt-exam-select" class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-bold text-xs focus:border-indigo-500 focus:outline-none">
+              ${exams.map(e => `<option value="${e.id}" ${e.id === defaultExamId ? 'selected' : ''}>${e.title} (${e.questionCount} Soru)</option>`).join('')}
+            </select>
+          </div>
+
+          <div class="flex items-center gap-2 border-b border-slate-800 pb-2">
+            <button type="button" onclick="App.switchTxtImportTab('paste')" id="btn-txt-tab-paste" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-indigo-600 text-white transition cursor-pointer">📋 Metin Yapıştır</button>
+            <button type="button" onclick="App.switchTxtImportTab('file')" id="btn-txt-tab-file" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-400 transition cursor-pointer">📁 Dosya Seç (.txt, .dat, .csv)</button>
+          </div>
+
+          <!-- Metin Yapıştırma Alanı -->
+          <div id="txt-import-pane-paste" class="flex-1 flex flex-col min-h-[160px]">
+            <label class="block text-[11px] font-bold text-slate-300 mb-1">Optik dosyasındaki satırları buraya yapıştırınız:</label>
+            <textarea id="import-txt-textarea" placeholder="Örnek:&#10;A                4FYAHYA ATILGAN                  CDCACCCADDCDBD           CBCCCBDADCACAC...&#10;B352             4FMUHAMMEDAZİZ İNAN              AAACDCBDACCADD           A AADDDBDDDBCB..." class="w-full flex-1 p-3 bg-slate-950 border border-slate-800 rounded-2xl text-xs font-mono text-emerald-300 focus:border-indigo-500 focus:outline-none resize-none leading-relaxed min-h-[140px]"></textarea>
+          </div>
+
+          <!-- Dosya Seçme Alanı -->
+          <div id="txt-import-pane-file" 
+               ondragover="event.preventDefault(); this.classList.add('border-indigo-500', 'bg-indigo-950/40');" 
+               ondragleave="this.classList.remove('border-indigo-500', 'bg-indigo-950/40');" 
+               ondrop="event.preventDefault(); this.classList.remove('border-indigo-500', 'bg-indigo-950/40'); App.handleTxtFileDrop(event);"
+               class="hidden flex-1 flex-col items-center justify-center p-6 border-2 border-dashed border-slate-800 hover:border-indigo-500 rounded-2xl bg-slate-950/60 transition text-center min-h-[160px] cursor-pointer"
+               onclick="document.getElementById('import-txt-file-input').click()">
+            <span class="text-4xl mb-2">📁</span>
+            <p class="text-xs text-white font-bold mb-1">TXT, DAT veya CSV dosyanızı buraya sürükleyip bırakın</p>
+            <p class="text-[10px] text-slate-400 mb-3">veya tıklayarak bilgisayarınızdan dosya seçin</p>
+            <input type="file" id="import-txt-file-input" accept=".txt,.dat,.csv" onchange="App.handleTxtFileSelected(this)" class="hidden">
+            <button type="button" onclick="event.stopPropagation(); document.getElementById('import-txt-file-input').click()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl shadow transition cursor-pointer">
+              Dosya Seçiniz
+            </button>
+            <div id="import-txt-file-info" class="text-xs font-mono text-emerald-400 mt-2 font-bold"></div>
+          </div>
+
+          <div class="flex items-center justify-between p-3 bg-slate-950 rounded-xl border border-slate-800">
+            <label class="flex items-center gap-2 cursor-pointer text-xs text-slate-300 font-medium">
+              <input type="checkbox" id="import-txt-autoregister" checked class="w-4 h-4 rounded text-indigo-600 accent-indigo-600 cursor-pointer">
+              <span>Listede olmayan yeni talebeleri kurumuma otomatik kaydet</span>
+            </label>
+            <span class="text-[10px] text-slate-500 font-mono">Otomatik Sınıf & No</span>
+          </div>
+
+          <div class="pt-2 flex gap-2">
+            <button type="button" onclick="document.getElementById('import-txt-modal').remove()" class="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl transition cursor-pointer">
+              Vazgeç
+            </button>
+            <button type="submit" class="flex-2 py-3 bg-gradient-to-r from-indigo-500 to-cyan-500 hover:from-indigo-600 hover:to-cyan-600 text-white font-black text-xs rounded-xl shadow-lg transition flex items-center justify-center gap-2 cursor-pointer">
+              <span>🚀</span> <span>Sonuçları Ayrıştır ve Portala Aktar</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    `;
+    document.body.appendChild(modal);
+  },
+
+  switchTxtImportTab(mode) {
+    const panePaste = document.getElementById('txt-import-pane-paste');
+    const paneFile = document.getElementById('txt-import-pane-file');
+    const btnPaste = document.getElementById('btn-txt-tab-paste');
+    const btnFile = document.getElementById('btn-txt-tab-file');
+
+    if (mode === 'paste') {
+      if (panePaste) panePaste.classList.remove('hidden');
+      if (paneFile) {
+        paneFile.classList.add('hidden');
+        paneFile.classList.remove('flex');
+      }
+      if (btnPaste) btnPaste.className = 'px-3 py-1.5 rounded-xl text-xs font-bold bg-indigo-600 text-white transition cursor-pointer';
+      if (btnFile) btnFile.className = 'px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-400 transition cursor-pointer';
+    } else {
+      if (panePaste) panePaste.classList.add('hidden');
+      if (paneFile) {
+        paneFile.classList.remove('hidden');
+        paneFile.classList.add('flex');
+      }
+      if (btnPaste) btnPaste.className = 'px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-400 transition cursor-pointer';
+      if (btnFile) btnFile.className = 'px-3 py-1.5 rounded-xl text-xs font-bold bg-indigo-600 text-white transition cursor-pointer';
+    }
+  },
+
+  handleTxtFileDrop(e) {
+    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
+      this.handleTxtFileSelected({ files: e.dataTransfer.files });
+    }
+  },
+
+  handleTxtFileSelected(input) {
+    const file = input.files && input.files[0];
+    const info = document.getElementById('import-txt-file-info');
+    if (!file) return;
+
+    if (info) info.textContent = `Seçilen: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const content = e.target.result;
+      const ta = document.getElementById('import-txt-textarea');
+      if (ta) ta.value = content;
+      this.showToast(`✓ "${file.name}" yüklendi.`, 'success');
+    };
+    reader.readAsText(file, 'UTF-8');
+  },
+
+  handleImportTxtSubmit(e, instId) {
+    e.preventDefault();
+    const examSelect = document.getElementById('import-txt-exam-select');
+    const examId = examSelect ? examSelect.value : null;
+    const textarea = document.getElementById('import-txt-textarea');
+    const autoRegister = document.getElementById('import-txt-autoregister') ? document.getElementById('import-txt-autoregister').checked : true;
+    const rawContent = textarea ? textarea.value : '';
+
+    if (!rawContent || !rawContent.trim()) {
+      this.showToast('Lütfen metin alanına sonuçları yapıştırınız veya dosya seçiniz.', 'warning');
+      return;
+    }
+
+    const exam = window.PortalStore.getExamById(instId, examId);
+    if (!exam) {
+      this.showToast('Seçilen sınav bulunamadı.', 'error');
+      return;
+    }
+
+    const result = this.processOpticalTxtLines(instId, exam, rawContent, autoRegister);
+    if (result && result.count > 0) {
+      const modal = document.getElementById('import-txt-modal');
+      if (modal) modal.remove();
+      this.showToast(`✓ ${result.count} talebenin sınav sonucu başarıyla portala aktarıldı!`, 'success');
+      if (result.missingKeys && result.missingKeys.length > 0) {
+        setTimeout(() => {
+          this.showToast(`⚠️ Dikkat: (${result.missingKeys.join(', ')}) Kitapçığı cevap anahtarı henüz girilmemiş. Cevaplar kaydedildi, cevap anahtarını girdiğinizde netler otomatik hesaplanacaktır.`, 'warning');
+        }, 800);
+      }
+      this.render();
+    } else {
+      this.showToast('Dosyadan okunabilir sınav sonucu çıkarılamadı. Lütfen satırları kontrol ediniz.', 'error');
+    }
+  },
+
+  processOpticalTxtLines(instId, exam, rawText, autoRegister) {
+    const lines = rawText.split(/\r?\n/).map(l => l.replace(/[\r\n]/g, '')).filter(l => l.trim().length > 0);
+    if (lines.length === 0) return { count: 0 };
+
+    let count = 0;
+    const missingKeysSet = new Set();
+    const students = window.PortalStore.getStudents(instId) || [];
+
+    lines.forEach((line, lineIdx) => {
+      // 1. Kitapçık Türü (A, B, C, D)
+      let booklet = 'A';
+      const firstChar = line[0].toUpperCase();
+      if (['A', 'B', 'C', 'D'].includes(firstChar)) {
+        booklet = firstChar;
+      }
+
+      // 2. Okul No veya TC Kimlik No
+      const prefix50 = line.substring(0, 50);
+      let studentNo = '';
+      const tcMatch = prefix50.match(/\b\d{11}\b/);
+      if (tcMatch) {
+        studentNo = tcMatch[0];
+      } else {
+        const noMatch = line.substring(1, 18).match(/\d+/);
+        if (noMatch) {
+          studentNo = noMatch[0];
+        }
+      }
+
+      // 3. Sınıf / Şube tespiti (Örn: 4F, 4G, 4A, 4E, 8-A, vb.)
+      let className = 'Genel';
+      const classMatch = prefix50.match(/\b(\d{1,2}\s*[-/]?[A-Za-z]?)\b/);
+      if (classMatch) {
+        className = classMatch[1].replace(/\s+/g, '-').toUpperCase();
+      }
+
+      // 4. İsim tespiti
+      let nameCandidate = prefix50;
+      if (booklet && nameCandidate.startsWith(booklet)) {
+        nameCandidate = nameCandidate.substring(1);
+      }
+      if (studentNo) {
+        nameCandidate = nameCandidate.replace(studentNo, '');
+      }
+      if (classMatch) {
+        nameCandidate = nameCandidate.replace(classMatch[0], '');
+      }
+      let studentName = nameCandidate.replace(/[^A-Za-zÇĞİÖŞÜçğıöşü\s]/g, '').trim().replace(/\s{2,}/g, ' ');
+      if (!studentName || studentName.length < 2) {
+        studentName = studentNo ? `Talebe #${studentNo}` : `Talebe ${lineIdx + 1}`;
+      }
+
+      if (!studentNo) {
+        studentNo = (1000 + lineIdx + 1).toString();
+      }
+
+      // 5. Cevap blokları tespiti (45. karakterden sonrası)
+      const ansPart = line.substring(45).trim();
+      const rawBlocks = ansPart.split(/\s{2,}/).map(b => b.replace(/[^A-E* ]/g, '').trim()).filter(b => b.length > 0);
+
+      let finalAnswers = '';
+      if (rawBlocks.length > 0 && exam.subjects && exam.subjects.length > 0) {
+        exam.subjects.forEach((subj, sIdx) => {
+          const qCount = (subj.endQ - subj.startQ + 1);
+          const blk = rawBlocks[sIdx] || '';
+          finalAnswers += blk.padEnd(qCount, ' ').substring(0, qCount);
+        });
+      } else if (rawBlocks.length > 0) {
+        finalAnswers = rawBlocks.join('');
+      } else {
+        finalAnswers = ansPart.replace(/[^A-E* ]/g, '');
+      }
+
+      // 6. Talebeyi Kuruma Otomatik Kaydet (Varsa güncelle, yoksa ekle)
+      if (autoRegister) {
+        const existingSt = students.find(s => s.studentNo === studentNo || (s.firstName + ' ' + s.lastName).toUpperCase() === studentName.toUpperCase());
+        if (!existingSt) {
+          const nameParts = studentName.split(/\s+/);
+          const lastName = nameParts.length > 1 ? nameParts.pop() : '';
+          const firstName = nameParts.join(' ');
+          const newSt = window.PortalStore.addStudent(instId, {
+            studentNo,
+            firstName,
+            lastName,
+            className,
+            parentPhone: '',
+            notes: 'Optik TXT dosyasından yüklendi'
+          });
+          students.push(newSt);
+        }
+      }
+
+      // 7. Puanlama & Kaydetme
+      let scored = {
+        totalCorrect: 0,
+        totalWrong: 0,
+        totalEmpty: exam.questionCount || 20,
+        totalNet: 0,
+        totalScore: 0,
+        subjectsResult: {},
+        answers: finalAnswers
+      };
+
+      const hasKey = exam.answerKeys && exam.answerKeys[booklet] && exam.answerKeys[booklet].replace(/[^A-E*]/g, '').length > 0;
+      if (hasKey && typeof window.PortalStore.scoreStudentAnswers === 'function') {
+        const sc = window.PortalStore.scoreStudentAnswers(finalAnswers, exam, booklet);
+        if (!sc.isMissingAnswerKey) {
+          scored = sc;
+        } else {
+          missingKeysSet.add(booklet);
+        }
+      } else {
+        missingKeysSet.add(booklet);
+      }
+
+      const examResultObj = {
+        examId: exam.id,
+        examTitle: exam.title,
+        studentNo,
+        studentName,
+        className,
+        parentPhone: '',
+        booklet,
+        answers: finalAnswers,
+        subjectsResult: scored.subjectsResult || {},
+        totalCorrect: scored.totalCorrect || 0,
+        totalWrong: scored.totalWrong || 0,
+        totalEmpty: scored.totalEmpty !== undefined ? scored.totalEmpty : (exam.questionCount || 20),
+        totalNet: scored.totalNet || 0,
+        totalScore: scored.totalScore || 0,
+        topicAnalysis: scored.topicAnalysis || [],
+        markedCount: finalAnswers.replace(/\s/g, '').length,
+        isBlank: finalAnswers.replace(/\s/g, '').length === 0,
+        qrDetected: false,
+        scannedAt: new Date().toISOString()
+      };
+
+      window.PortalStore.saveExamResult(instId, examResultObj);
+      count++;
+    });
+
+    return { count, missingKeys: Array.from(missingKeysSet) };
   },
 
   // ==========================================
