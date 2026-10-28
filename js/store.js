@@ -1323,6 +1323,24 @@ class MultiTenantStore {
     return fullResult;
   }
 
+  // Bir öğrencinin optik form neticesini silme
+  deleteExamResult(instId, examId, resultIdOrStudentNo) {
+    if (!instId || !examId) return false;
+    const all = this.getAllResults(instId);
+    const filtered = all.filter(r => {
+      if (r.examId !== examId) return true;
+      if (resultIdOrStudentNo && (r.id === resultIdOrStudentNo || r.studentNo === resultIdOrStudentNo)) {
+        return false;
+      }
+      return true;
+    });
+    this.saveAllResults(instId, filtered);
+    if (window.CloudSync && typeof window.CloudSync.deleteResult === 'function') {
+      window.CloudSync.deleteResult(instId, resultIdOrStudentNo);
+    }
+    return true;
+  }
+
   // Sınav Netice Sıralaması Hesaplayıcı
   calculateExamRankings(instId, examId) {
     const results = this.getResultsByExam(instId, examId);
