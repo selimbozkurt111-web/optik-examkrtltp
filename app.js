@@ -2956,14 +2956,20 @@ window.App = {
           </div>
         ` : ''}
 
-        <div class="flex gap-2">
+        <div class="flex flex-wrap gap-2">
           ${(result.parentPhone && !isBlank) ? `
             <button onclick="App.sendWhatsAppCard('${encodeURIComponent(result.parentPhone)}', '${encodeURIComponent(result.studentName)}', '${result.totalNet}', '${result.totalScore}', '${encodeURIComponent(JSON.stringify(result.topicAnalysis || []))}')" class="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs rounded-xl shadow transition flex items-center justify-center gap-1.5 cursor-pointer">
-              <span>💬</span> <span>Veliye WhatsApp Karnesi Gönder</span>
+              <span>💬</span> <span>WhatsApp</span>
             </button>
           ` : ''}
+          <button onclick="App.showManualResultModal('${result.institutionId || ''}', '${result.examId}', '${result.studentNo}')" class="px-3 py-2.5 bg-slate-800 hover:bg-slate-700 text-amber-300 font-bold text-xs rounded-xl transition flex items-center justify-center gap-1 cursor-pointer" title="Cevapları ve Notu Düzenle">
+            <span>✍️</span> <span>Düzenle</span>
+          </button>
+          <button onclick="App.deleteExamResultPrompt('${result.institutionId || ''}', '${result.examId}', '${result.id || ''}', '${result.studentNo}', '${encodeURIComponent(result.studentName)}')" class="px-3 py-2.5 bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white font-bold text-xs rounded-xl border border-rose-500/30 transition flex items-center justify-center gap-1 cursor-pointer" title="Bu Okunan Optik Kağıdı Sil">
+            <span>🗑️</span> <span>Sil</span>
+          </button>
           <button onclick="App.switchTab('neticeler')" class="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs rounded-xl transition cursor-pointer">
-            Tüm Neticeler & Sıralama →
+            Tüm Neticeler →
           </button>
         </div>
       </div>
@@ -3039,6 +3045,9 @@ window.App = {
             <button onclick="App.downloadResultsCsv('${instId}', '${currentExam.id}', false)" class="flex-1 sm:flex-initial px-3 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl border border-slate-700 transition flex items-center justify-center gap-1 cursor-pointer" title="Excel / CSV Olarak İndir">
               <span>📥</span> <span>Excel İndir</span>
             </button>
+            <button onclick="App.showBulkReportCardListModal('${instId}', '${currentExam.id}')" class="w-full sm:w-auto px-3.5 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black text-xs rounded-xl shadow-lg transition flex items-center justify-center gap-1.5 cursor-pointer" title="Tüm öğrencilerin ders ders D-Y-Net ve puanlarını içeren resmi toplu sonuç listesi karnesini aç ve yazdır">
+              <span>📋</span> <span>Toplu Liste Karne</span>
+            </button>
             <button onclick="App.printAllReportCards('${instId}', '${currentExam.id}')" class="w-full sm:w-auto px-3.5 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-slate-950 font-black text-xs rounded-xl shadow-lg transition flex items-center justify-center gap-1 cursor-pointer">
               <span>📜</span> <span>Tüm Karneler</span>
             </button>
@@ -3086,6 +3095,9 @@ window.App = {
                       <div class="flex items-center justify-end gap-1.5">
                         <button onclick="App.showManualResultModal('${instId}', '${currentExam.id}', '${r.studentNo}')" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-amber-300 rounded-lg text-[11px] font-bold transition cursor-pointer" title="Cevapları / Puanı Elle Düzenle">
                           ✍️
+                        </button>
+                        <button onclick="App.deleteExamResultPrompt('${instId}', '${currentExam.id}', '${r.id || ''}', '${r.studentNo}', '${encodeURIComponent(r.studentName)}')" class="px-2 py-1 bg-slate-800 hover:bg-rose-900/60 text-rose-400 hover:text-rose-300 rounded-lg text-[11px] font-bold transition cursor-pointer" title="Bu Talebenin Optik Okuma Neticesini Sil">
+                          🗑️
                         </button>
                         <button onclick="App.showStudentTopicAnalysisModal('${instId}', '${currentExam.id}', '${r.studentNo}')" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-indigo-300 rounded-lg text-[11px] font-bold transition cursor-pointer" title="Talebenin Konu ve Kazanım Karnesi">
                           🎯
@@ -3149,6 +3161,128 @@ window.App = {
       combinedHtml += window.OpticalSheetGenerator.renderReportCardHtml(r, exam, instName);
     });
     window.OpticalSheetGenerator.printReportCards(combinedHtml);
+  },
+
+  // Optik Okuma Neticesi Silme Onay Kutusu
+  deleteExamResultPrompt(instId, examId, resultId, studentNo, encodedStudentName) {
+    const studentName = decodeURIComponent(encodedStudentName || '');
+    const displayName = studentName ? `"${studentName}" (${studentNo || ''})` : `Talebe #${studentNo}`;
+    if (confirm(`${displayName} adlı talebenin bu sınavdaki optik okuma neticesini silmek istediğinize emin misiniz?\n\nBu işlem sonucunda okunan cevaplar silinir ve derece sıralaması anında güncellenir.`)) {
+      const session = window.PortalStore.getCurrentSession();
+      const effectiveInstId = instId || (session ? session.institutionId : null);
+      const ok = window.PortalStore.deleteExamResult(effectiveInstId, examId, resultId || studentNo);
+      if (ok) {
+        this.showToast(`${displayName} optik neticesi başarıyla silindi.`, 'info');
+        const modal = document.getElementById('manual-result-modal');
+        if (modal) modal.remove();
+        const scanCard = document.getElementById('scan-result-card');
+        if (scanCard) scanCard.innerHTML = '';
+        this.render();
+      } else {
+        this.showToast('Silme işlemi tamamlanamadı.', 'error');
+      }
+    }
+  },
+
+  // Toplu Liste Karne (Resmi Sonuç Çizelgesi) Modalı
+  showBulkReportCardListModal(instId, examId, selectedClass = 'all') {
+    const existing = document.getElementById('bulk-report-modal');
+    if (existing) existing.remove();
+
+    const session = window.PortalStore.getCurrentSession();
+    const effectiveInstId = instId || (session ? session.institutionId : null);
+    const exam = window.PortalStore.getExamById(effectiveInstId, examId);
+    if (!exam) {
+      this.showToast('Sınav bulunamadı.', 'error');
+      return;
+    }
+
+    const rankings = window.PortalStore.calculateExamRankings(effectiveInstId, examId);
+    if (rankings.length === 0) {
+      this.showToast('Bu sınavda henüz optik okuma sonucu bulunmuyor.', 'warning');
+      return;
+    }
+
+    const classes = [...new Set(rankings.map(r => r.className || 'Genel'))];
+    const instName = session ? session.institutionName : 'EĞİTİM KURUMU';
+
+    const modal = document.createElement('div');
+    modal.id = 'bulk-report-modal';
+    modal.className = 'fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-sm animate-fade-in';
+    modal.innerHTML = `
+      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-6 max-w-5xl w-full shadow-2xl relative max-h-[94vh] flex flex-col">
+        <!-- Başlık ve Üst Butonlar -->
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-3 border-b border-slate-800 mb-3 gap-3">
+          <div class="flex items-center gap-2.5">
+            <div class="w-10 h-10 rounded-xl bg-purple-500/20 text-purple-300 flex items-center justify-center text-2xl border border-purple-500/30">
+              📋
+            </div>
+            <div>
+              <h3 class="text-base sm:text-lg font-black text-white">Toplu Liste Karne & Resmi Sonuç Çizelgesi</h3>
+              <p class="text-xs text-slate-400 font-medium">${exam.title} (${rankings.length} Talebe Katıldı)</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2 w-full sm:w-auto">
+            <button onclick="App.printBulkReportCardList('${effectiveInstId}', '${exam.id}')" class="flex-1 sm:flex-initial px-4 py-2 bg-gradient-to-r from-amber-500 to-emerald-500 hover:from-amber-600 hover:to-emerald-600 text-slate-950 font-black text-xs rounded-xl shadow-lg transition flex items-center justify-center gap-1.5 cursor-pointer">
+              <span>🖨️</span> <span>Listeyi Yazdır / PDF Al</span>
+            </button>
+            <button onclick="App.downloadResultsCsv('${effectiveInstId}', '${exam.id}', false)" class="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl border border-slate-700 transition flex items-center justify-center gap-1 cursor-pointer" title="Excel Olarak İndir">
+              <span>📥</span> <span>Excel</span>
+            </button>
+            <button onclick="document.getElementById('bulk-report-modal').remove()" class="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-sm font-bold cursor-pointer">✕</button>
+          </div>
+        </div>
+
+        <!-- Şube Filtreleme Çubuğu -->
+        <div class="flex items-center justify-between mb-3 bg-slate-950 p-3 rounded-2xl border border-slate-800 flex-wrap gap-2">
+          <div class="flex items-center gap-2">
+            <label class="text-xs font-bold text-slate-300">Şube / Sınıf Seçiniz:</label>
+            <select id="bulk-list-class-filter" onchange="App.handleBulkReportCardListFilter('${effectiveInstId}', '${exam.id}')" class="px-3 py-1.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white font-bold">
+              <option value="all" ${selectedClass === 'all' ? 'selected' : ''}>Tüm Şubeler (${rankings.length} Talebe)</option>
+              ${classes.map(c => `<option value="${c}" ${c === selectedClass ? 'selected' : ''}>${c} Şubesi (${rankings.filter(r => (r.className || 'Genel') === c).length} Talebe)</option>`).join('')}
+            </select>
+          </div>
+          <div class="text-[11px] text-slate-400 font-mono">
+            Puanlama Standardı: <strong class="text-amber-400 font-bold">Taban 200 • Tavan 500 Puan</strong>
+          </div>
+        </div>
+
+        <!-- Önizleme Alanı (Kaydırılabilir) -->
+        <div id="bulk-list-preview-container" class="flex-1 overflow-y-auto overflow-x-auto rounded-2xl border border-slate-800 bg-slate-950/40 p-2" style="-webkit-overflow-scrolling: touch;">
+          ${window.OpticalSheetGenerator.renderBulkReportCardListHtml(exam, rankings, instName, selectedClass)}
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+  },
+
+  handleBulkReportCardListFilter(instId, examId) {
+    const select = document.getElementById('bulk-list-class-filter');
+    const container = document.getElementById('bulk-list-preview-container');
+    if (!select || !container) return;
+
+    const session = window.PortalStore.getCurrentSession();
+    const effectiveInstId = instId || (session ? session.institutionId : null);
+    const exam = window.PortalStore.getExamById(effectiveInstId, examId);
+    const rankings = window.PortalStore.calculateExamRankings(effectiveInstId, examId);
+    const instName = session ? session.institutionName : 'EĞİTİM KURUMU';
+
+    container.innerHTML = window.OpticalSheetGenerator.renderBulkReportCardListHtml(exam, rankings, instName, select.value);
+  },
+
+  printBulkReportCardList(instId, examId) {
+    const session = window.PortalStore.getCurrentSession();
+    const effectiveInstId = instId || (session ? session.institutionId : null);
+    const exam = window.PortalStore.getExamById(effectiveInstId, examId);
+    if (!exam) return;
+
+    const rankings = window.PortalStore.calculateExamRankings(effectiveInstId, examId);
+    const filterSelect = document.getElementById('bulk-list-class-filter');
+    const selectedClass = filterSelect ? filterSelect.value : 'all';
+    const instName = session ? session.institutionName : 'EĞİTİM KURUMU';
+
+    const html = window.OpticalSheetGenerator.renderBulkReportCardListHtml(exam, rankings, instName, selectedClass);
+    window.OpticalSheetGenerator.printBulkReportCardList(html);
   },
 
   // 9. SÜPER YÖNETİCİ: MERKEZİ ORTAK SINAVLAR VE LEADERBOARD
@@ -3438,8 +3572,13 @@ window.App = {
             </div>
           </div>
 
-          <div class="pt-2">
-            <button type="submit" class="w-full py-3.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-slate-950 font-black text-xs rounded-xl shadow-lg transition flex items-center justify-center gap-2 cursor-pointer">
+          <div class="pt-2 flex items-center gap-2">
+            ${existingResult ? `
+              <button type="button" onclick="App.deleteExamResultPrompt('${effectiveInstId}', '${exam.id}', '${existingResult.id || ''}', '${existingResult.studentNo}', '${encodeURIComponent(existingResult.studentName || '')}')" class="py-3.5 px-4 bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white font-bold text-xs rounded-xl border border-rose-500/30 transition flex items-center justify-center gap-1.5 cursor-pointer" title="Bu optik okuma kaydını sil">
+                <span>🗑️</span> <span>Sonucu Sil</span>
+              </button>
+            ` : ''}
+            <button type="submit" class="flex-1 py-3.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-slate-950 font-black text-xs rounded-xl shadow-lg transition flex items-center justify-center gap-2 cursor-pointer">
               <span>💾</span> <span>Sonucu Kaydet & Sıralamayı Güncelle</span>
             </button>
           </div>
