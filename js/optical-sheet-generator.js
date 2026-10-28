@@ -178,15 +178,24 @@ const PureQrEngine = (() => {
 
     setModule(N - 8, 8, true, true);
 
-    const formatBits = [1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0];
+    // Format Bilgisi (Seviye M, Mask 000, 15 Bit):
+    // ISO/IEC 18004 Standardı: f0..f14 bitleri (Lsb'den Msb'ye)
+    const formatBits = [0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1];
+
+    // Birinci kopya: Sol üst bulucu etrafı (8,0)..(8,8) ve (7,8)..(0,8)
     for (let i = 0; i <= 5; i++) setModule(8, i, formatBits[i] === 1, true);
     setModule(8, 7, formatBits[6] === 1, true);
     setModule(8, 8, formatBits[7] === 1, true);
     setModule(7, 8, formatBits[8] === 1, true);
     for (let i = 9; i <= 14; i++) setModule(14 - i, 8, formatBits[i] === 1, true);
 
-    for (let i = 0; i <= 7; i++) setModule(8, N - 1 - i, formatBits[i] === 1, true);
-    for (let i = 8; i <= 14; i++) setModule(N - 15 + i, 8, formatBits[i] === 1, true);
+    // İkinci kopya: Sol alt bulucu (bit 0..6) ve Sağ üst bulucu (bit 7..14)
+    for (let i = 0; i <= 6; i++) {
+      setModule(N - 1 - i, 8, formatBits[i] === 1, true);
+    }
+    for (let i = 7; i <= 14; i++) {
+      setModule(8, N - 8 + (i - 7), formatBits[i] === 1, true);
+    }
 
     let bitIdx = 0;
     const finalBits = [];
@@ -572,6 +581,7 @@ window.OpticalSheetGenerator = {
           <td class="p-2 text-center text-xs font-bold text-rose-600">${sub.wrong || 0}</td>
           <td class="p-2 text-center text-xs font-semibold text-slate-500">${sub.empty || 0}</td>
           <td class="p-2 text-center text-xs font-black text-cyan-700">${sub.net || 0}</td>
+          <td class="p-2 text-center text-xs font-mono font-bold text-purple-700">${sub.autoCoeff || sub.coeff || '-'}</td>
           <td class="p-2 text-xs">
             <div class="flex items-center gap-2">
               <div class="w-full bg-slate-200 rounded-full h-2.5 overflow-hidden">
@@ -629,6 +639,7 @@ window.OpticalSheetGenerator = {
           <div class="bg-emerald-50 border-2 border-emerald-500/40 p-3 rounded-xl text-center">
             <span class="block text-[10px] font-bold uppercase text-emerald-800">Sınav Puanı</span>
             <span class="text-2xl font-black text-emerald-700 font-mono">${totalScore}</span>
+            <span class="block text-[8px] text-emerald-600 font-bold mt-0.5 tracking-tight">(Taban: 200 • Tavan: 500)</span>
           </div>
           <div class="bg-cyan-50 border-2 border-cyan-500/40 p-3 rounded-xl text-center">
             <span class="block text-[10px] font-bold uppercase text-cyan-800">Toplam Net</span>
@@ -648,7 +659,7 @@ window.OpticalSheetGenerator = {
         <div class="border border-slate-300 rounded-xl overflow-hidden mb-6">
           <div class="bg-slate-900 text-white px-3.5 py-2 font-bold text-xs uppercase flex items-center justify-between">
             <span>Ders Değerlendirme ve Başarı Analizi</span>
-            <span class="text-[10px] text-slate-400 font-normal">3 Yanlış 1 Doğruyu Götürür</span>
+            <span class="text-[10px] text-slate-400 font-normal">Otomatik Katsayı Dağıtımı</span>
           </div>
           <table class="w-full text-left">
             <thead class="bg-slate-100 border-b border-slate-300 text-[11px] font-black text-slate-700 uppercase">
@@ -659,6 +670,7 @@ window.OpticalSheetGenerator = {
                 <th class="p-2 text-center">Yanlış</th>
                 <th class="p-2 text-center">Boş</th>
                 <th class="p-2 text-center">Net</th>
+                <th class="p-2 text-center">Katsayı</th>
                 <th class="p-2 min-w-[140px]">Başarı Oranı</th>
               </tr>
             </thead>

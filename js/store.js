@@ -133,7 +133,7 @@ const DEFAULT_EXAM_TEMPLATES = [
   }
 ];
 
-// Standart MEB Ders Konu ve Kazanım Kütüphanesi (Seçmeli Havuz)
+// Standart MEB Ders Konu ve Kazanım Havuzu (Seçmeli Havuz)
 const DEFAULT_SUBJECT_TOPICS = {
   'Türkçe': [
     'Sözcükte Anlam (Gerçek, Mecaz, Terim)',
@@ -306,6 +306,9 @@ class MultiTenantStore {
         ];
         localStorage.setItem(oayStudentsKey, JSON.stringify(defaultStudents));
       }
+
+      // Taban 200, Tavan 500 Puan Motoru: Geçmiş tüm sınav sonuçlarını otomatik ölçekle
+      this.recalculateAllStoredResults();
     } catch (e) {
       console.warn('Store init localStorage bildirimi:', e);
     }
@@ -975,10 +978,15 @@ class MultiTenantStore {
     if (!exam) return null;
     const qCount = parseInt(exam.questionCount, 10) || 20;
 
+    // Taban 200, Tavan 500 Puan Standardı (Kaç soru olursa olsun 300 puanlık skala)
+    const BASE_SCORE = 200;
+    const MAX_SCORE = 500;
+    const SCORE_SPAN = 300; // 500 - 200
+
     // Cevap anahtarı kontrolü
     const rawKey = (exam.answerKeys && exam.answerKeys[booklet])
       ? exam.answerKeys[booklet].toUpperCase()
-      : (exam.answerKeys && exam.answerKeys['A'] ? exam.answerKeys['A'].toUpperCase() : '');
+      : '';
 
     const validKeyChars = rawKey.replace(/[^A-E*]/g, '');
     if (!validKeyChars || validKeyChars.length === 0) {
@@ -993,7 +1001,7 @@ class MultiTenantStore {
         totalWrong: 0,
         totalEmpty: qCount,
         totalNet: 0,
-        totalScore: 0
+        totalScore: BASE_SCORE
       };
     }
 
@@ -1005,14 +1013,32 @@ class MultiTenantStore {
       { name: 'Genel', startQ: 1, endQ: qCount, wrongPenalty: 0.333, coeff: 1 }
     ];
 
+    // Otomatik Katsayı Dağıtım Hesabı:
+    // Sınavın toplam soru sayısı kaç olursa olsun ağırlıklı kapasite bulunur
+    let totalWeightedCapacity = 0;
+    subjects.forEach(sub => {
+      const qNum = (sub.endQ && sub.startQ) ? (sub.endQ - sub.startQ + 1) : (sub.questionCount || 1);
+      const rawW = (typeof sub.coeff === 'number' && sub.coeff > 0) ? sub.coeff : 1;
+      totalWeightedCapacity += (qNum * rawW);
+    });
+    if (totalWeightedCapacity <= 0) totalWeightedCapacity = qCount || 20;
+
+    // Ağırlık başına düşen puan çarpanı (Toplam 300 puanı tam dağıtır)
+    const scaleFactor = SCORE_SPAN / totalWeightedCapacity;
+
     const subjectsResult = {};
     subjects.forEach(sub => {
+      const rawW = (typeof sub.coeff === 'number' && sub.coeff > 0) ? sub.coeff : 1;
+      const autoCoeff = parseFloat((rawW * scaleFactor).toFixed(4));
+
       subjectsResult[sub.name] = {
         name: sub.name,
         startQ: sub.startQ,
         endQ: sub.endQ,
         wrongPenalty: (typeof sub.wrongPenalty === 'number') ? sub.wrongPenalty : 0.333,
-        coeff: (typeof sub.coeff === 'number') ? sub.coeff : (100 / qCount),
+        rawCoeff: rawW,
+        coeff: autoCoeff, // Otomatik hesaplanan net katsayısı
+        autoCoeff: autoCoeff,
         correct: 0,
         wrong: 0,
         empty: 0,
@@ -1036,14 +1062,18 @@ class MultiTenantStore {
       const currentSub = subjects.find(s => q >= s.startQ && q <= s.endQ) || {
         name: 'Genel',
         wrongPenalty: 0.333,
-        coeff: (100 / qCount)
+        coeff: 1
       };
 
       if (!subjectsResult[currentSub.name]) {
+        const rawW = (typeof currentSub.coeff === 'number' && currentSub.coeff > 0) ? currentSub.coeff : 1;
+        const autoCoeff = parseFloat((rawW * scaleFactor).toFixed(4));
         subjectsResult[currentSub.name] = {
           name: currentSub.name,
           wrongPenalty: 0.333,
-          coeff: (100 / qCount),
+          rawCoeff: rawW,
+          coeff: autoCoeff,
+          autoCoeff: autoCoeff,
           correct: 0,
           wrong: 0,
           empty: 0,
@@ -1100,23 +1130,30 @@ class MultiTenantStore {
     let totalWrong = 0;
     let totalEmpty = 0;
     let totalNet = 0;
-    let totalScore = 0;
+    let sumSubjectPoints = 0;
 
     Object.values(subjectsResult).forEach(sub => {
       const penalty = sub.wrong * (sub.wrongPenalty !== undefined ? sub.wrongPenalty : 0.333);
       sub.net = Math.max(0, parseFloat((sub.correct - penalty).toFixed(2)));
-      const coeff = (sub.coeff && sub.coeff > 0) ? sub.coeff : (100 / qCount);
-      sub.score = parseFloat((sub.net * coeff).toFixed(2));
+      const autoCoeff = sub.autoCoeff || sub.coeff || (SCORE_SPAN / qCount);
+      sub.score = parseFloat((sub.net * autoCoeff).toFixed(3));
 
       totalCorrect += sub.correct;
       totalWrong += sub.wrong;
       totalEmpty += sub.empty;
       totalNet += sub.net;
-      totalScore += sub.score;
+      sumSubjectPoints += (sub.net * autoCoeff);
     });
 
     totalNet = parseFloat(totalNet.toFixed(2));
-    totalScore = parseFloat(totalScore.toFixed(2));
+
+    // Taban: 200, Tavan: 500 Otomatik Ölçekleme
+    let calculatedTotalScore = BASE_SCORE;
+    if (totalNet > 0) {
+      calculatedTotalScore = BASE_SCORE + sumSubjectPoints;
+    }
+    calculatedTotalScore = Math.min(MAX_SCORE, Math.max(BASE_SCORE, calculatedTotalScore));
+    const totalScore = parseFloat(calculatedTotalScore.toFixed(3));
 
     const topicAnalysis = Object.values(topicStats).map(st => {
       const net = Math.max(0, parseFloat((st.correct - (st.wrong * 0.333)).toFixed(2)));
@@ -1146,6 +1183,87 @@ class MultiTenantStore {
       totalScore,
       topicAnalysis
     };
+  }
+
+    const topicAnalysis = Object.values(topicStats).map(st => {
+      const net = Math.max(0, parseFloat((st.correct - (st.wrong * 0.333)).toFixed(2)));
+      const percent = st.total > 0 ? Math.round((st.correct / st.total) * 100) : 0;
+      return {
+        subject: st.subject,
+        topic: st.topic,
+        total: st.total,
+        correct: st.correct,
+        wrong: st.wrong,
+        empty: st.empty,
+        net: net,
+        percent: percent,
+        questions: st.questions,
+        status: percent >= 75 ? 'success' : (percent >= 50 ? 'warning' : 'danger')
+      };
+    });
+
+    return {
+      answers: answersArr.join(''),
+      booklet,
+      subjectsResult,
+      totalCorrect,
+      totalWrong,
+      totalEmpty,
+      totalNet,
+      totalScore,
+      topicAnalysis
+    };
+  }
+
+  // --- Geçmiş Tüm Sınav Sonuçlarını 200-500 Skalasına Otomatik Güncelleme ---
+  recalculateAllStoredResults() {
+    try {
+      const institutions = this.getInstitutions() || [];
+      const instIds = institutions.map(i => i.id);
+      if (!instIds.includes('global')) instIds.push('global');
+
+      instIds.forEach(instId => {
+        const exams = this.getExams(instId) || [];
+        const allResults = this.getAllResults(instId) || [];
+        if (allResults.length === 0) return;
+
+        let changed = false;
+        const updatedResults = allResults.map(r => {
+          const exam = exams.find(e => e.id === r.examId) || (instId === 'global' ? this.getGlobalExams().find(e => e.id === r.examId) : null);
+          if (!exam) return r;
+
+          if (r.answers && typeof this.scoreStudentAnswers === 'function') {
+            const scored = this.scoreStudentAnswers(r.answers, exam, r.booklet || 'A');
+            if (scored && !scored.isMissingAnswerKey) {
+              changed = true;
+              return {
+                ...r,
+                subjectsResult: scored.subjectsResult,
+                totalCorrect: scored.totalCorrect,
+                totalWrong: scored.totalWrong,
+                totalEmpty: scored.totalEmpty,
+                totalNet: scored.totalNet,
+                totalScore: (r.isManual && r.scoreOverride !== undefined && r.scoreOverride !== '') ? r.totalScore : scored.totalScore,
+                topicAnalysis: scored.topicAnalysis || r.topicAnalysis
+              };
+            } else if (scored && (!r.totalScore || r.totalScore < 200)) {
+              changed = true;
+              return {
+                ...r,
+                totalScore: 200
+              };
+            }
+          }
+          return r;
+        });
+
+        if (changed) {
+          this.saveAllResults(instId, updatedResults);
+        }
+      });
+    } catch (err) {
+      console.warn('Geçmiş sınav sonuçları puan güncelleme bildirimi:', err);
+    }
   }
 
   // Sınav Cevap Anahtarı veya İptal Değiştiğinde Tüm Sonuçları Yeniden Hesaplama
