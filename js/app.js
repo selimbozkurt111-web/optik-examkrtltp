@@ -334,7 +334,7 @@ window.App = {
           <form onsubmit="App.handleLogin(event)" class="space-y-4">
             <div>
               <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Kullanıcı Adı</label>
-              <input type="text" id="login-username" required placeholder="admin veya kurs adınız"
+              <input type="text" id="login-username" required placeholder="Kullanıcı adınızı giriniz"
                 autocapitalize="none" autocorrect="off" autocomplete="username" spellcheck="false"
                 class="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-white font-medium focus:border-emerald-500 focus:outline-none transition">
             </div>
@@ -357,17 +357,6 @@ window.App = {
               <span>→</span>
             </button>
           </form>
-
-          <!-- Mobilde Tek Tıkla Hızlı Giriş Butonları -->
-          <div class="mt-4 pt-3 border-t border-slate-800/80 space-y-2">
-            <span class="block text-[10px] text-slate-400 font-bold uppercase tracking-wider text-center">⚡ Telefonda Tek Dokunuşla Hızlı Giriş</span>
-            <button type="button" onclick="App.quickLogin('admin', '123')" class="w-full py-2 px-3 bg-slate-800 hover:bg-slate-700 active:scale-95 text-amber-300 font-bold text-xs rounded-xl border border-amber-500/30 transition flex items-center justify-center gap-2 cursor-pointer shadow">
-              <span>👑</span> <span>Ana Yönetici Girişi (admin / 123)</span>
-            </button>
-            <button type="button" onclick="App.quickLogin('oay', '123')" class="w-full py-2 px-3 bg-slate-800 hover:bg-slate-700 active:scale-95 text-emerald-300 font-bold text-xs rounded-xl border border-emerald-500/30 transition flex items-center justify-center gap-2 cursor-pointer shadow">
-              <span>🏫</span> <span>Örnek Kurs Girişi (oay / 123)</span>
-            </button>
-          </div>
         </div>
       </div>
     `;
