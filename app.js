@@ -16,6 +16,14 @@ window.App = {
     }
 
     try {
+      if (window.PortalStore && typeof window.PortalStore.recalculateAllStoredResults === 'function') {
+        window.PortalStore.recalculateAllStoredResults();
+      }
+    } catch (e) {
+      console.warn('Geçmiş sınav sonuçları otomatik puanlama güncellemesi:', e);
+    }
+
+    try {
       const session = window.PortalStore ? window.PortalStore.getCurrentSession() : null;
       if (session) {
         if (session.role === 'superadmin') {
@@ -677,7 +685,7 @@ window.App = {
             <div class="flex items-center justify-between pb-1">
               <div>
                 <label class="text-xs font-bold uppercase text-slate-300">📚 Ders Bölümleri & Soru Sayıları</label>
-                <p class="text-[10px] text-slate-500">Her dersin sadece kaç soru olduğunu giriniz; soru aralıkları ve toplam soru sayısı otomatik hesaplanır.</p>
+                <p class="text-[10px] text-slate-400">Derslerin soru sayılarını ve ağırlıklarını düzenleyin. <strong>Taban 200 • Tavan 500</strong> puan standardına göre net katsayıları otomatik paylaştırılır.</p>
               </div>
               <button type="button" onclick="App.addSubjectRow('subject-rows-container')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-emerald-400 text-[11px] font-bold rounded-lg border border-slate-700 transition cursor-pointer">
                 + Ders Ekle
@@ -692,7 +700,7 @@ window.App = {
                     <th class="p-1.5 text-center">Soru Sayısı</th>
                     <th class="p-1.5 text-center">Aralık</th>
                     <th class="p-1.5 text-center">Ceza (Yanlış Götürme)</th>
-                    <th class="p-1.5 text-center">Katsayı</th>
+                    <th class="p-1.5 text-center" title="Ders ağırlık oranı (Örn: 4 veya 1). Sistem otomatik 500'e ölçekler.">Ağırlık Oranı</th>
                     <th class="p-1.5 text-right">Sil</th>
                   </tr>
                 </thead>
@@ -1571,7 +1579,7 @@ window.App = {
             <div class="flex items-center justify-between pb-1">
               <div>
                 <label class="text-xs font-bold uppercase text-slate-300">📚 Ders Bölümleri & Soru Sayıları</label>
-                <p class="text-[10px] text-slate-500">Derslerin soru sayılarını, katsayılarını ve ceza oranlarını düzenleyin.</p>
+                <p class="text-[10px] text-slate-400">Derslerin soru sayılarını ve ağırlıklarını düzenleyin. <strong>Taban 200 • Tavan 500</strong> puan standardına göre net katsayıları otomatik paylaştırılır.</p>
               </div>
               <button type="button" onclick="App.addSubjectRow('edit-subject-rows-container')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-emerald-400 text-[11px] font-bold rounded-lg border border-slate-700 transition cursor-pointer">
                 + Ders Ekle
@@ -1586,7 +1594,7 @@ window.App = {
                     <th class="p-1.5 text-center">Soru Sayısı</th>
                     <th class="p-1.5 text-center">Aralık</th>
                     <th class="p-1.5 text-center">Ceza</th>
-                    <th class="p-1.5 text-center">Katsayı</th>
+                    <th class="p-1.5 text-center" title="Ders ağırlık oranı (Örn: 4 veya 1). Sistem otomatik 500'e ölçekler.">Ağırlık Oranı</th>
                     <th class="p-1.5 text-right">Sil</th>
                   </tr>
                 </thead>
@@ -2879,7 +2887,10 @@ window.App = {
         <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 bg-slate-900 border border-slate-800 p-4 sm:p-5 rounded-2xl shadow-lg w-full max-w-full">
           <div class="w-full lg:w-auto">
             <h2 class="text-xl font-black text-white tracking-tight">Sınav Neticeleri & Sıralama</h2>
-            <p class="text-xs text-slate-400 mt-0.5 truncate">${currentExam.title} (${rankings.length} Talebe Katıldı)</p>
+            <div class="flex items-center gap-2 mt-0.5 flex-wrap">
+              <p class="text-xs text-slate-400 truncate">${currentExam.title} (${rankings.length} Talebe Katıldı)</p>
+              <span class="px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-300 font-mono font-bold text-[10px] border border-amber-500/20">Taban: 200 • Tavan: 500 Puan</span>
+            </div>
           </div>
           <div class="flex flex-wrap items-center gap-2 w-full lg:w-auto">
             <select onchange="App.handleResultsExamChange(this.value, '${instId}')" class="w-full sm:w-auto px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-bold text-xs max-w-full">
@@ -2921,7 +2932,7 @@ window.App = {
                   <th class="p-3 text-center">Doğru</th>
                   <th class="p-3 text-center">Yanlış</th>
                   <th class="p-3 text-center">Net</th>
-                  <th class="p-3 text-center">Puan</th>
+                  <th class="p-3 text-center">Puan (200-500)</th>
                   <th class="p-3 text-right">Karne & Paylaş</th>
                 </tr>
               </thead>
@@ -3682,7 +3693,7 @@ window.App = {
         totalWrong: 0,
         totalEmpty: exam.questionCount || 20,
         totalNet: 0,
-        totalScore: 0,
+        totalScore: 200,
         subjectsResult: {},
         answers: finalAnswers
       };

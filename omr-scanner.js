@@ -532,7 +532,7 @@ window.OmrScanner = {
 
     this.playBeep(!isBlank);
 
-    // EĞER KAĞIT BOŞ İSE: Kesinlikle 0 Doğru, 0 Yanlış, qCount Boş ve 0 Net dön
+    // EĞER KAĞIT BOŞ İSE: Kesinlikle 0 Doğru, 0 Yanlış, qCount Boş, 0 Net ve 200 Taban Puan dön
     if (isBlank) {
       return {
         examId: exam.id,
@@ -548,7 +548,7 @@ window.OmrScanner = {
         totalWrong: 0,
         totalEmpty: qCount,
         totalNet: 0,
-        totalScore: 0,
+        totalScore: 200,
         markedCount: 0,
         isBlank: true,
         qrDetected: qrDetected,
@@ -614,7 +614,7 @@ window.OmrScanner = {
       else totalWrong++;
     }
     const totalNet = Math.max(0, parseFloat((totalCorrect - (totalWrong * 0.333)).toFixed(2)));
-    const totalScore = parseFloat((totalNet * 5).toFixed(1));
+    const totalScore = parseFloat((200 + (totalNet * (300 / (qCount || 20)))).toFixed(3));
 
     return {
       examId: exam.id,
