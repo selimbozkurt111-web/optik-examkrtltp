@@ -52,12 +52,12 @@ const DEFAULT_EXAM_TEMPLATES = [
     questionCount: 90,
     bookletTypes: ['A', 'B', 'C', 'D'],
     subjects: [
-      { name: 'Türkçe', startQ: 1, endQ: 20, wrongPenalty: 0.333, coeff: 4 },
-      { name: 'İnkılap Tarihi', startQ: 21, endQ: 30, wrongPenalty: 0.333, coeff: 1 },
-      { name: 'Din Kültürü', startQ: 31, endQ: 40, wrongPenalty: 0.333, coeff: 1 },
-      { name: 'İngilizce', startQ: 41, endQ: 50, wrongPenalty: 0.333, coeff: 1 },
-      { name: 'Matematik', startQ: 51, endQ: 70, wrongPenalty: 0.333, coeff: 4 },
-      { name: 'Fen Bilimleri', startQ: 71, endQ: 90, wrongPenalty: 0.333, coeff: 4 }
+      { name: 'Türkçe', startQ: 1, endQ: 20, wrongPenalty: 0.333, coeff: 4.4444 },
+      { name: 'İnkılap Tarihi', startQ: 21, endQ: 30, wrongPenalty: 0.333, coeff: 1.1111 },
+      { name: 'Din Kültürü', startQ: 31, endQ: 40, wrongPenalty: 0.333, coeff: 1.1111 },
+      { name: 'İngilizce', startQ: 41, endQ: 50, wrongPenalty: 0.333, coeff: 1.1111 },
+      { name: 'Matematik', startQ: 51, endQ: 70, wrongPenalty: 0.333, coeff: 4.4444 },
+      { name: 'Fen Bilimleri', startQ: 71, endQ: 90, wrongPenalty: 0.333, coeff: 4.4444 }
     ]
   },
   {
@@ -66,12 +66,12 @@ const DEFAULT_EXAM_TEMPLATES = [
     questionCount: 75,
     bookletTypes: ['A', 'B', 'C', 'D'],
     subjects: [
-      { name: 'Türkçe', startQ: 1, endQ: 15, wrongPenalty: 0.333, coeff: 4 },
-      { name: 'İnkılap Tarihi', startQ: 16, endQ: 25, wrongPenalty: 0.333, coeff: 1 },
-      { name: 'Din Kültürü', startQ: 26, endQ: 35, wrongPenalty: 0.333, coeff: 1 },
-      { name: 'İngilizce', startQ: 36, endQ: 45, wrongPenalty: 0.333, coeff: 1 },
-      { name: 'Matematik', startQ: 46, endQ: 60, wrongPenalty: 0.333, coeff: 4 },
-      { name: 'Fen Bilimleri', startQ: 61, endQ: 75, wrongPenalty: 0.333, coeff: 4 }
+      { name: 'Türkçe', startQ: 1, endQ: 15, wrongPenalty: 0.333, coeff: 5.7143 },
+      { name: 'İnkılap Tarihi', startQ: 16, endQ: 25, wrongPenalty: 0.333, coeff: 1.4286 },
+      { name: 'Din Kültürü', startQ: 26, endQ: 35, wrongPenalty: 0.333, coeff: 1.4286 },
+      { name: 'İngilizce', startQ: 36, endQ: 45, wrongPenalty: 0.333, coeff: 1.4286 },
+      { name: 'Matematik', startQ: 46, endQ: 60, wrongPenalty: 0.333, coeff: 5.7143 },
+      { name: 'Fen Bilimleri', startQ: 61, endQ: 75, wrongPenalty: 0.333, coeff: 5.7143 }
     ]
   },
   {
@@ -80,12 +80,12 @@ const DEFAULT_EXAM_TEMPLATES = [
     questionCount: 60,
     bookletTypes: ['A', 'B', 'C', 'D'],
     subjects: [
-      { name: 'Türkçe', startQ: 1, endQ: 15, wrongPenalty: 0.333, coeff: 4 },
-      { name: 'Sosyal Bilgiler', startQ: 16, endQ: 25, wrongPenalty: 0.333, coeff: 1 },
-      { name: 'Din Kültürü', startQ: 26, endQ: 30, wrongPenalty: 0.333, coeff: 1 },
-      { name: 'İngilizce', startQ: 31, endQ: 35, wrongPenalty: 0.333, coeff: 1 },
-      { name: 'Matematik', startQ: 36, endQ: 47, wrongPenalty: 0.333, coeff: 4 },
-      { name: 'Fen Bilimleri', startQ: 48, endQ: 60, wrongPenalty: 0.333, coeff: 4 }
+      { name: 'Türkçe', startQ: 1, endQ: 15, wrongPenalty: 0.333, coeff: 6.6667 },
+      { name: 'Sosyal Bilgiler', startQ: 16, endQ: 25, wrongPenalty: 0.333, coeff: 1.6667 },
+      { name: 'Din Kültürü', startQ: 26, endQ: 30, wrongPenalty: 0.333, coeff: 1.6667 },
+      { name: 'İngilizce', startQ: 31, endQ: 35, wrongPenalty: 0.333, coeff: 1.6667 },
+      { name: 'Matematik', startQ: 36, endQ: 47, wrongPenalty: 0.333, coeff: 6.6667 },
+      { name: 'Fen Bilimleri', startQ: 48, endQ: 60, wrongPenalty: 0.333, coeff: 6.6667 }
     ]
   },
   {
@@ -94,10 +94,10 @@ const DEFAULT_EXAM_TEMPLATES = [
     questionCount: 60,
     bookletTypes: ['A', 'B', 'C', 'D'],
     subjects: [
-      { name: 'Türkçe', startQ: 1, endQ: 15, wrongPenalty: 0.333, coeff: 4 },
-      { name: 'Sosyal Bilgiler', startQ: 16, endQ: 30, wrongPenalty: 0.333, coeff: 2 },
-      { name: 'Matematik', startQ: 31, endQ: 45, wrongPenalty: 0.333, coeff: 4 },
-      { name: 'Fen Bilimleri', startQ: 46, endQ: 60, wrongPenalty: 0.333, coeff: 4 }
+      { name: 'Türkçe', startQ: 1, endQ: 15, wrongPenalty: 0.333, coeff: 5 },
+      { name: 'Sosyal Bilgiler', startQ: 16, endQ: 30, wrongPenalty: 0.333, coeff: 5 },
+      { name: 'Matematik', startQ: 31, endQ: 45, wrongPenalty: 0.333, coeff: 5 },
+      { name: 'Fen Bilimleri', startQ: 46, endQ: 60, wrongPenalty: 0.333, coeff: 5 }
     ]
   },
   {
@@ -106,10 +106,10 @@ const DEFAULT_EXAM_TEMPLATES = [
     questionCount: 120,
     bookletTypes: ['A', 'B', 'C', 'D'],
     subjects: [
-      { name: 'Türkçe', startQ: 1, endQ: 40, wrongPenalty: 0.25, coeff: 3.3 },
-      { name: 'Sosyal Bilimler', startQ: 41, endQ: 60, wrongPenalty: 0.25, coeff: 3.4 },
-      { name: 'Temel Matematik', startQ: 61, endQ: 100, wrongPenalty: 0.25, coeff: 3.3 },
-      { name: 'Fen Bilimleri', startQ: 101, endQ: 120, wrongPenalty: 0.25, coeff: 3.4 }
+      { name: 'Türkçe', startQ: 1, endQ: 40, wrongPenalty: 0.25, coeff: 2.5 },
+      { name: 'Sosyal Bilimler', startQ: 41, endQ: 60, wrongPenalty: 0.25, coeff: 2.5 },
+      { name: 'Temel Matematik', startQ: 61, endQ: 100, wrongPenalty: 0.25, coeff: 2.5 },
+      { name: 'Fen Bilimleri', startQ: 101, endQ: 120, wrongPenalty: 0.25, coeff: 2.5 }
     ]
   },
   {
@@ -118,7 +118,7 @@ const DEFAULT_EXAM_TEMPLATES = [
     questionCount: 20,
     bookletTypes: ['A', 'B', 'C', 'D'],
     subjects: [
-      { name: 'Genel Değerlendirme', startQ: 1, endQ: 20, wrongPenalty: 0.333, coeff: 5 }
+      { name: 'Genel Değerlendirme', startQ: 1, endQ: 20, wrongPenalty: 0.333, coeff: 15 }
     ]
   },
   {
@@ -127,8 +127,8 @@ const DEFAULT_EXAM_TEMPLATES = [
     questionCount: 40,
     bookletTypes: ['A', 'B', 'C', 'D'],
     subjects: [
-      { name: 'Bölüm 1', startQ: 1, endQ: 20, wrongPenalty: 0.333, coeff: 2.5 },
-      { name: 'Bölüm 2', startQ: 21, endQ: 40, wrongPenalty: 0.333, coeff: 2.5 }
+      { name: 'Bölüm 1', startQ: 1, endQ: 20, wrongPenalty: 0.333, coeff: 7.5 },
+      { name: 'Bölüm 2', startQ: 21, endQ: 40, wrongPenalty: 0.333, coeff: 7.5 }
     ]
   }
 ];
@@ -1023,13 +1023,14 @@ class MultiTenantStore {
     });
     if (totalWeightedCapacity <= 0) totalWeightedCapacity = qCount || 20;
 
-    // Ağırlık başına düşen puan çarpanı (Toplam 300 puanı tam dağıtır)
-    const scaleFactor = SCORE_SPAN / totalWeightedCapacity;
+    // Eğer katsayılar doğrudan 300 puanlık skalaya göre girilmişse (~300), doğrudan kullan; aksi halde 300 puana orantıla
+    const isDirectCoeffs = (totalWeightedCapacity >= 298 && totalWeightedCapacity <= 302);
+    const scaleFactor = isDirectCoeffs ? 1 : (SCORE_SPAN / totalWeightedCapacity);
 
     const subjectsResult = {};
     subjects.forEach(sub => {
       const rawW = (typeof sub.coeff === 'number' && sub.coeff > 0) ? sub.coeff : 1;
-      const autoCoeff = parseFloat((rawW * scaleFactor).toFixed(4));
+      const autoCoeff = isDirectCoeffs ? rawW : parseFloat((rawW * scaleFactor).toFixed(4));
 
       subjectsResult[sub.name] = {
         name: sub.name,
@@ -1037,7 +1038,7 @@ class MultiTenantStore {
         endQ: sub.endQ,
         wrongPenalty: (typeof sub.wrongPenalty === 'number') ? sub.wrongPenalty : 0.333,
         rawCoeff: rawW,
-        coeff: autoCoeff, // Otomatik hesaplanan net katsayısı
+        coeff: autoCoeff, // Net katsayısı
         autoCoeff: autoCoeff,
         correct: 0,
         wrong: 0,
@@ -1619,25 +1620,8 @@ class MultiTenantStore {
   // --- Hazır Sınav Şablonları ---
   getTemplates() {
     try {
-      const raw = localStorage.getItem(STORAGE_PREFIX + 'templates');
-      let stored = raw ? JSON.parse(raw) : [];
-      if (!Array.isArray(stored) || stored.length === 0) {
-        localStorage.setItem(STORAGE_PREFIX + 'templates', JSON.stringify(DEFAULT_EXAM_TEMPLATES));
-        return DEFAULT_EXAM_TEMPLATES;
-      }
-      // DEFAULT_EXAM_TEMPLATES içinde yer alan yeni şablonları hafızaya ekle
-      const existingIds = new Set(stored.map(t => t.id));
-      let isUpdated = false;
-      DEFAULT_EXAM_TEMPLATES.forEach(tpl => {
-        if (!existingIds.has(tpl.id)) {
-          stored.push(tpl);
-          isUpdated = true;
-        }
-      });
-      if (isUpdated) {
-        localStorage.setItem(STORAGE_PREFIX + 'templates', JSON.stringify(stored));
-      }
-      return stored;
+      localStorage.setItem(STORAGE_PREFIX + 'templates', JSON.stringify(DEFAULT_EXAM_TEMPLATES));
+      return DEFAULT_EXAM_TEMPLATES;
     } catch {
       return DEFAULT_EXAM_TEMPLATES;
     }
