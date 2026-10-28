@@ -682,25 +682,30 @@ window.App = {
 
           <!-- Dersler ve Katsayılar Tablosu -->
           <div class="bg-slate-950/80 p-3.5 rounded-2xl border border-slate-800 space-y-2">
-            <div class="flex items-center justify-between pb-1">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-1">
               <div>
                 <label class="text-xs font-bold uppercase text-slate-300">📚 Ders Bölümleri & Soru Sayıları</label>
-                <p class="text-[10px] text-slate-400">Derslerin soru sayılarını ve ağırlıklarını düzenleyin. <strong>Taban 200 • Tavan 500</strong> puan standardına göre net katsayıları otomatik paylaştırılır.</p>
+                <p class="text-[10px] text-slate-400">Derslerin soru sayılarını ve katsayılarını düzenleyin. <strong>Taban 200 • Tavan 500</strong> puan standardına göre net katsayılarını otomatik veya elle belirleyebilirsiniz.</p>
               </div>
-              <button type="button" onclick="App.addSubjectRow('subject-rows-container')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-emerald-400 text-[11px] font-bold rounded-lg border border-slate-700 transition cursor-pointer">
-                + Ders Ekle
-              </button>
+              <div class="flex items-center gap-2">
+                <button type="button" onclick="App.autoDistributeCoefficients('subject-rows-container')" class="px-2.5 py-1 bg-gradient-to-r from-amber-500/20 to-orange-500/20 hover:from-amber-500/30 hover:to-orange-500/30 text-amber-300 text-[11px] font-bold rounded-lg border border-amber-500/40 transition cursor-pointer flex items-center gap-1 shadow-sm" title="Tüm derslerin katsayılarını Taban 200 - Tavan 500 standardına göre otomatik hesaplar ve kutulara yazar">
+                  <span>⚡</span> <span>Otomatik Katsayı Ver</span>
+                </button>
+                <button type="button" onclick="App.addSubjectRow('subject-rows-container')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-emerald-400 text-[11px] font-bold rounded-lg border border-slate-700 transition cursor-pointer">
+                  + Ders Ekle
+                </button>
+              </div>
             </div>
 
             <div class="overflow-x-auto w-full max-w-full" style="-webkit-overflow-scrolling: touch;">
-              <table class="w-full text-left text-[11px] min-w-[460px]">
+              <table class="w-full text-left text-[11px] min-w-[500px]">
                 <thead class="text-slate-500 uppercase border-b border-slate-800 font-bold">
                   <tr>
                     <th class="p-1.5">Ders Adı</th>
                     <th class="p-1.5 text-center">Soru Sayısı</th>
                     <th class="p-1.5 text-center">Aralık</th>
                     <th class="p-1.5 text-center">Ceza (Yanlış Götürme)</th>
-                    <th class="p-1.5 text-center" title="Ders ağırlık oranı (Örn: 4 veya 1). Sistem otomatik 500'e ölçekler.">Ağırlık Oranı</th>
+                    <th class="p-1.5 text-center" title="1 Net başına düşen puan katsayısı. Elle değiştirebilir veya Otomatik Katsayı Ver butonuna basabilirsiniz.">Net Katsayısı (Elle Düzenlenebilir)</th>
                     <th class="p-1.5 text-right">Sil</th>
                   </tr>
                 </thead>
@@ -709,6 +714,9 @@ window.App = {
                 </tbody>
               </table>
             </div>
+
+            <!-- Canlı Katsayı ve Toplam Puan Önizleme Rozeti -->
+            <div id="subject-rows-container-preview" class="p-2.5 bg-slate-900/90 border border-slate-800/80 rounded-xl"></div>
           </div>
 
           <!-- 4 Kitapçık (A, B, C, D) Ders Ders Cevap Anahtarları -->
@@ -857,7 +865,7 @@ window.App = {
             </select>
           </td>
           <td class="p-1.5 text-center">
-            <input type="number" step="0.1" class="sub-coeff w-14 px-1.5 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs text-emerald-400 font-bold" value="${sub.coeff !== undefined ? sub.coeff : 1}">
+            <input type="number" step="0.0001" class="sub-coeff w-24 px-1.5 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs text-emerald-400 font-mono font-bold focus:border-amber-500 focus:outline-none" value="${sub.coeff !== undefined ? sub.coeff : 1}" oninput="App.updateLiveCoeffPreview('${containerId}')" title="1 Net puan katsayısı (Elle değiştirebilirsiniz)">
           </td>
           <td class="p-1.5 text-right">
             <button type="button" onclick="App.removeSubjectRow(this, '${containerId}')" class="p-1 text-rose-400 hover:text-rose-300 text-xs cursor-pointer">🗑️</button>
@@ -867,6 +875,7 @@ window.App = {
     }).join('');
 
     this.recalcSubjectRanges(containerId);
+    this.updateLiveCoeffPreview(containerId);
   },
 
   recalcSubjectRanges(containerId = 'subject-rows-container') {
@@ -898,6 +907,8 @@ window.App = {
     if (totalInput && totalCount > 0) {
       totalInput.value = totalCount;
     }
+
+    this.updateLiveCoeffPreview(containerId);
 
     // Dersler değiştikçe veya soru sayıları güncellendikçe ders ders cevap anahtarı kutularını yenile
     const prefix = isEdit ? 'edit' : 'create';
@@ -934,7 +945,7 @@ window.App = {
         </select>
       </td>
       <td class="p-1.5 text-center">
-        <input type="number" step="0.1" class="sub-coeff w-14 px-1.5 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs text-emerald-400 font-bold" value="1">
+        <input type="number" step="0.0001" class="sub-coeff w-24 px-1.5 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs text-emerald-400 font-mono font-bold focus:border-amber-500 focus:outline-none" value="1" oninput="App.updateLiveCoeffPreview('${containerId}')" title="1 Net puan katsayısı (Elle değiştirebilirsiniz)">
       </td>
       <td class="p-1.5 text-right">
         <button type="button" onclick="App.removeSubjectRow(this, '${containerId}')" class="p-1 text-rose-400 hover:text-rose-300 text-xs cursor-pointer">🗑️</button>
@@ -942,6 +953,7 @@ window.App = {
     `;
     container.appendChild(tr);
     this.recalcSubjectRanges(containerId);
+    this.updateLiveCoeffPreview(containerId);
   },
 
   removeSubjectRow(btn, containerId = 'subject-rows-container') {
@@ -949,7 +961,112 @@ window.App = {
     if (row) {
       row.remove();
       this.recalcSubjectRanges(containerId);
+      this.updateLiveCoeffPreview(containerId);
     }
+  },
+
+  // Otomatik Katsayı Dağıtım Motoru (Taban 200 - Tavan 500 Puan Standardı)
+  autoDistributeCoefficients(containerId = 'subject-rows-container') {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    const rows = container.querySelectorAll('.subject-row');
+    if (rows.length === 0) return;
+
+    let totalWeightedCapacity = 0;
+    const rowData = [];
+
+    rows.forEach(r => {
+      const qInput = r.querySelector('.sub-qcount');
+      const coeffInput = r.querySelector('.sub-coeff');
+      const count = parseInt(qInput ? qInput.value : 0, 10) || 1;
+      let rawW = parseFloat(coeffInput ? coeffInput.value : 1);
+      if (isNaN(rawW) || rawW <= 0) rawW = 1;
+
+      rowData.push({ row: r, count, coeffInput, rawW });
+      totalWeightedCapacity += (count * rawW);
+    });
+
+    if (totalWeightedCapacity <= 0) return;
+
+    const TARGET_SPAN = 300; // Taban 200 + Net 300 = 500 Tavan
+    
+    // Ders isimlerine göre standart LGS/Ortaokul ders ağırlığı tespiti
+    // Türkçe, Matematik, Fen = 4 ağırlık birimi; İnkılap/Sosyal, Din, İngilizce = 1 ağırlık birimi
+    let hasKnownLessonWeights = false;
+    let standardUnits = 0;
+    const standardWeights = [];
+
+    rowData.forEach(item => {
+      const nameInput = item.row.querySelector('.sub-name');
+      const name = nameInput ? nameInput.value.toLowerCase() : '';
+      let stdW = 1;
+      if (name.includes('türk') || name.includes('mat') || name.includes('fen')) {
+        stdW = 4;
+        hasKnownLessonWeights = true;
+      } else if (name.includes('sosyal') || name.includes('ink') || name.includes('tarih') || name.includes('din') || name.includes('ing') || name.includes('english')) {
+        stdW = 1;
+        hasKnownLessonWeights = true;
+      } else {
+        stdW = item.rawW;
+      }
+      standardWeights.push(stdW);
+      standardUnits += (item.count * stdW);
+    });
+
+    const useStandardWeights = (hasKnownLessonWeights && standardUnits > 0);
+    const scaleFactor = useStandardWeights ? (TARGET_SPAN / standardUnits) : (TARGET_SPAN / totalWeightedCapacity);
+
+    rowData.forEach((item, idx) => {
+      const baseW = useStandardWeights ? standardWeights[idx] : item.rawW;
+      const exactCoeff = parseFloat((baseW * scaleFactor).toFixed(4));
+      if (item.coeffInput) {
+        item.coeffInput.value = exactCoeff;
+      }
+    });
+
+    this.updateLiveCoeffPreview(containerId);
+    this.showToast('Katsayılar Taban 200 • Tavan 500 standardına göre otomatik dağıtıldı!', 'success');
+  },
+
+  // Canlı Katsayı ve Toplam Puan Önizleme Rozeti
+  updateLiveCoeffPreview(containerId = 'subject-rows-container') {
+    const container = document.getElementById(containerId);
+    const previewContainer = document.getElementById(`${containerId}-preview`);
+    if (!container || !previewContainer) return;
+
+    const rows = container.querySelectorAll('.subject-row');
+    let totalQuestions = 0;
+    let totalNetPoints = 0;
+
+    rows.forEach(r => {
+      const qInput = r.querySelector('.sub-qcount');
+      const coeffInput = r.querySelector('.sub-coeff');
+      const count = parseInt(qInput ? qInput.value : 0, 10) || 0;
+      const coeff = parseFloat(coeffInput ? coeffInput.value : 0) || 0;
+      totalQuestions += count;
+      totalNetPoints += (count * coeff);
+    });
+
+    const baseScore = 200;
+    const totalMaxScore = baseScore + totalNetPoints;
+    const isExact500 = Math.abs(totalMaxScore - 500) < 0.5;
+
+    previewContainer.innerHTML = `
+      <div class="flex items-center gap-2 flex-wrap text-slate-300">
+        <span class="text-slate-400 font-bold">Özet:</span>
+        <span class="bg-slate-800 text-slate-200 px-2 py-0.5 rounded text-[11px] font-bold">Toplam Soru: <strong class="text-white">${totalQuestions}</strong></span>
+        <span class="bg-slate-800 text-slate-200 px-2 py-0.5 rounded text-[11px] font-bold">Taban: <strong class="text-amber-400">200.00</strong></span>
+        <span class="bg-slate-800 text-slate-200 px-2 py-0.5 rounded text-[11px] font-bold">Net Puan Kapasitesi: <strong class="text-cyan-400">${totalNetPoints.toFixed(2)}</strong></span>
+        <span class="px-2.5 py-0.5 rounded text-[11px] font-black ${isExact500 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'}">
+          Tavan Puan: <strong>${totalMaxScore.toFixed(2)}</strong> / 500.00 ${isExact500 ? '✓' : ''}
+        </span>
+      </div>
+      <div class="text-[10px] text-slate-400 mt-1 sm:mt-0 font-medium">
+        ${isExact500 
+          ? '<span class="text-emerald-400 font-bold">✓ Taban 200 • Tavan 500 standardı tam sağlandı.</span>' 
+          : '<span class="text-amber-300 font-medium">💡 İpucu: Katsayıları elle düzenleyebilir veya <strong>⚡ Otomatik Katsayı Ver</strong> butonuna basabilirsiniz.</span>'}
+      </div>
+    `;
   },
 
   collectSubjectsFromForm(containerId = 'subject-rows-container') {
@@ -1576,25 +1693,30 @@ window.App = {
 
           <!-- Dersler Tablosu -->
           <div class="bg-slate-950/80 p-3.5 rounded-2xl border border-slate-800 space-y-2">
-            <div class="flex items-center justify-between pb-1">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-1">
               <div>
                 <label class="text-xs font-bold uppercase text-slate-300">📚 Ders Bölümleri & Soru Sayıları</label>
-                <p class="text-[10px] text-slate-400">Derslerin soru sayılarını ve ağırlıklarını düzenleyin. <strong>Taban 200 • Tavan 500</strong> puan standardına göre net katsayıları otomatik paylaştırılır.</p>
+                <p class="text-[10px] text-slate-400">Derslerin soru sayılarını ve katsayılarını düzenleyin. <strong>Taban 200 • Tavan 500</strong> puan standardına göre net katsayılarını otomatik veya elle belirleyebilirsiniz.</p>
               </div>
-              <button type="button" onclick="App.addSubjectRow('edit-subject-rows-container')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-emerald-400 text-[11px] font-bold rounded-lg border border-slate-700 transition cursor-pointer">
-                + Ders Ekle
-              </button>
+              <div class="flex items-center gap-2">
+                <button type="button" onclick="App.autoDistributeCoefficients('edit-subject-rows-container')" class="px-2.5 py-1 bg-gradient-to-r from-amber-500/20 to-orange-500/20 hover:from-amber-500/30 hover:to-orange-500/30 text-amber-300 text-[11px] font-bold rounded-lg border border-amber-500/40 transition cursor-pointer flex items-center gap-1 shadow-sm" title="Tüm derslerin katsayılarını Taban 200 - Tavan 500 standardına göre otomatik hesaplar ve kutulara yazar">
+                  <span>⚡</span> <span>Otomatik Katsayı Ver</span>
+                </button>
+                <button type="button" onclick="App.addSubjectRow('edit-subject-rows-container')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-emerald-400 text-[11px] font-bold rounded-lg border border-slate-700 transition cursor-pointer">
+                  + Ders Ekle
+                </button>
+              </div>
             </div>
 
             <div class="overflow-x-auto w-full max-w-full" style="-webkit-overflow-scrolling: touch;">
-              <table class="w-full text-left text-[11px] min-w-[460px]">
+              <table class="w-full text-left text-[11px] min-w-[500px]">
                 <thead class="text-slate-500 uppercase border-b border-slate-800 font-bold">
                   <tr>
                     <th class="p-1.5">Ders Adı</th>
                     <th class="p-1.5 text-center">Soru Sayısı</th>
                     <th class="p-1.5 text-center">Aralık</th>
                     <th class="p-1.5 text-center">Ceza</th>
-                    <th class="p-1.5 text-center" title="Ders ağırlık oranı (Örn: 4 veya 1). Sistem otomatik 500'e ölçekler.">Ağırlık Oranı</th>
+                    <th class="p-1.5 text-center" title="1 Net başına düşen puan katsayısı. Elle değiştirebilir veya Otomatik Katsayı Ver butonuna basabilirsiniz.">Net Katsayısı (Elle Düzenlenebilir)</th>
                     <th class="p-1.5 text-right">Sil</th>
                   </tr>
                 </thead>
@@ -1603,6 +1725,9 @@ window.App = {
                 </tbody>
               </table>
             </div>
+
+            <!-- Canlı Katsayı ve Toplam Puan Önizleme Rozeti -->
+            <div id="edit-subject-rows-container-preview" class="p-2.5 bg-slate-900/90 border border-slate-800/80 rounded-xl"></div>
           </div>
 
           <!-- 4 Kitapçık Ders Ders Cevap Anahtarları -->
