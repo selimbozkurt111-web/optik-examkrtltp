@@ -265,8 +265,22 @@ window.OmrScanner = {
     let className = 'Genel';
     let parentPhone = '';
     if (finalStudentNo && window.PortalStore) {
-      const students = window.PortalStore.getStudents(this.activeInstitutionId) || [];
-      const matched = students.find(s => s.studentNo === finalStudentNo);
+      let matched = null;
+      if (this.activeInstitutionId) {
+        const students = window.PortalStore.getStudents(this.activeInstitutionId) || [];
+        matched = students.find(s => s.studentNo === finalStudentNo);
+      }
+      if (!matched && typeof window.PortalStore.getInstitutions === 'function') {
+        const allInsts = window.PortalStore.getInstitutions() || [];
+        for (const inst of allInsts) {
+          const instStudents = window.PortalStore.getStudents(inst.id) || [];
+          const found = instStudents.find(s => s.studentNo === finalStudentNo);
+          if (found) {
+            matched = found;
+            break;
+          }
+        }
+      }
       if (matched) {
         studentName = `${matched.firstName} ${matched.lastName}`;
         className = matched.className || 'Genel';
@@ -371,12 +385,8 @@ window.OmrScanner = {
       const bBoxX2 = guideX1 + (sheetW * 0.145);
       const bBoxY = guideY1 + (sheetH * 0.455);
       const bStep = (bBoxX2 - bBoxX1) / availableBooklets.length;
-      const bPaperRef = sampleDarkness(bBoxX1 - 4, bBoxY, 3);
 
-      let bestOpt = null;
-      let maxScore = 0;
-      let secondScore = 0;
-
+      const bScores = [];
       availableBooklets.forEach((bLet, bIdx) => {
         const bX = bBoxX1 + (bIdx * bStep) + (bStep * 0.5);
         let bDark = 0;
@@ -384,18 +394,16 @@ window.OmrScanner = {
           const d = sampleDarkness(bX, bBoxY + dy, 3);
           if (d > bDark) bDark = d;
         }
-        const bScore = bDark - bPaperRef;
-        if (bScore > maxScore) {
-          secondScore = maxScore;
-          maxScore = bScore;
-          bestOpt = bLet;
-        } else if (bScore > secondScore) {
-          secondScore = bScore;
-        }
+        bScores.push({ bLet, bDark });
       });
 
-      if (bestOpt && maxScore >= 20 && (maxScore - secondScore) >= 8) {
-        detectedBooklet = bestOpt;
+      const minDark = Math.min(...bScores.map(s => s.bDark));
+      bScores.sort((a, b) => b.bDark - a.bDark);
+      const topB = bScores[0];
+      const secondB = bScores[1] || { bDark: minDark };
+
+      if (topB && (topB.bDark - minDark) >= 18 && (topB.bDark - secondB.bDark) >= 8) {
+        detectedBooklet = topB.bLet;
       }
     }
 
@@ -499,7 +507,7 @@ window.OmrScanner = {
     // 4. CEVAP ANAHTARI KONTROLÜ (Kodlanmamışsa Derhal Uyarı Ver)
     const rawKey = (exam.answerKeys && exam.answerKeys[detectedBooklet]) 
       ? exam.answerKeys[detectedBooklet].toUpperCase().replace(/[^A-E*]/g, '')
-      : (exam.answerKeys && exam.answerKeys['A'] ? exam.answerKeys['A'].toUpperCase().replace(/[^A-E*]/g, '') : '');
+      : '';
 
     if (!rawKey || rawKey.length === 0) {
       this.playBeep(false);

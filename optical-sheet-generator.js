@@ -178,15 +178,24 @@ const PureQrEngine = (() => {
 
     setModule(N - 8, 8, true, true);
 
-    const formatBits = [1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0];
+    // Format Bilgisi (Seviye M, Mask 000, 15 Bit):
+    // ISO/IEC 18004 Standardı: f0..f14 bitleri (Lsb'den Msb'ye)
+    const formatBits = [0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1];
+
+    // Birinci kopya: Sol üst bulucu etrafı (8,0)..(8,8) ve (7,8)..(0,8)
     for (let i = 0; i <= 5; i++) setModule(8, i, formatBits[i] === 1, true);
     setModule(8, 7, formatBits[6] === 1, true);
     setModule(8, 8, formatBits[7] === 1, true);
     setModule(7, 8, formatBits[8] === 1, true);
     for (let i = 9; i <= 14; i++) setModule(14 - i, 8, formatBits[i] === 1, true);
 
-    for (let i = 0; i <= 7; i++) setModule(8, N - 1 - i, formatBits[i] === 1, true);
-    for (let i = 8; i <= 14; i++) setModule(N - 15 + i, 8, formatBits[i] === 1, true);
+    // İkinci kopya: Sol alt bulucu (bit 0..6) ve Sağ üst bulucu (bit 7..14)
+    for (let i = 0; i <= 6; i++) {
+      setModule(N - 1 - i, 8, formatBits[i] === 1, true);
+    }
+    for (let i = 7; i <= 14; i++) {
+      setModule(8, N - 8 + (i - 7), formatBits[i] === 1, true);
+    }
 
     let bitIdx = 0;
     const finalBits = [];

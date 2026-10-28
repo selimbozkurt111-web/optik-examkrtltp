@@ -133,7 +133,7 @@ const DEFAULT_EXAM_TEMPLATES = [
   }
 ];
 
-// Standart MEB Ders Konu ve Kazanım Kütüphanesi (Seçmeli Havuz)
+// Standart MEB Ders Konu ve Kazanım Havuzu (Seçmeli Havuz)
 const DEFAULT_SUBJECT_TOPICS = {
   'Türkçe': [
     'Sözcükte Anlam (Gerçek, Mecaz, Terim)',
@@ -978,7 +978,7 @@ class MultiTenantStore {
     // Cevap anahtarı kontrolü
     const rawKey = (exam.answerKeys && exam.answerKeys[booklet])
       ? exam.answerKeys[booklet].toUpperCase()
-      : (exam.answerKeys && exam.answerKeys['A'] ? exam.answerKeys['A'].toUpperCase() : '');
+      : '';
 
     const validKeyChars = rawKey.replace(/[^A-E*]/g, '');
     if (!validKeyChars || validKeyChars.length === 0) {
