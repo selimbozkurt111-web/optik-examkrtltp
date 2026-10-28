@@ -534,6 +534,74 @@ class MultiTenantStore {
     }
   }
 
+  getStudentById(instId, studentId) {
+    if (!instId || !studentId) return null;
+    const list = this.getStudents(instId);
+    return list.find(s => s.id === studentId || s.studentNo === studentId) || null;
+  }
+
+  updateStudent(instId, studentId, updatedData) {
+    if (!instId || !studentId) return { success: false, message: 'Geçersiz parametre.' };
+    const list = this.getStudents(instId);
+    const index = list.findIndex(s => s.id === studentId || s.studentNo === studentId);
+    if (index === -1) return { success: false, message: 'Talebe kaydı bulunamadı.' };
+
+    const oldStudentNo = list[index].studentNo;
+    const newStudentNo = (updatedData.studentNo !== undefined ? updatedData.studentNo : list[index].studentNo).toString().trim();
+
+    if (!newStudentNo) {
+      return { success: false, message: 'Talebe numarası boş bırakılamaz.' };
+    }
+
+    // Başka bir talebede aynı numara var mı?
+    if (newStudentNo !== oldStudentNo) {
+      const duplicate = list.find((s, idx) => idx !== index && s.studentNo === newStudentNo);
+      if (duplicate) {
+        return { success: false, message: `"${newStudentNo}" numarası başka bir talebeye ait!` };
+      }
+    }
+
+    const updated = {
+      ...list[index],
+      studentNo: newStudentNo,
+      firstName: (updatedData.firstName !== undefined ? updatedData.firstName : list[index].firstName).toString().trim().toUpperCase(),
+      lastName: (updatedData.lastName !== undefined ? updatedData.lastName : list[index].lastName).toString().trim().toUpperCase(),
+      className: (updatedData.className !== undefined ? updatedData.className : list[index].className).toString().trim().toUpperCase(),
+      parentPhone: (updatedData.parentPhone !== undefined ? updatedData.parentPhone : list[index].parentPhone).toString().trim(),
+      notes: (updatedData.notes !== undefined ? updatedData.notes : (list[index].notes || '')).toString().trim(),
+      updatedAt: new Date().toISOString()
+    };
+
+    list[index] = updated;
+    this.saveStudents(instId, list);
+
+    // Sınav sonuçlarındaki talebe bilgilerini de senkronize et
+    try {
+      const allResults = this.getAllResults(instId);
+      let resultsChanged = false;
+      allResults.forEach(r => {
+        if (r.studentNo === oldStudentNo || r.studentNo === newStudentNo) {
+          r.studentNo = newStudentNo;
+          r.studentName = `${updated.firstName} ${updated.lastName}`.trim();
+          r.className = updated.className;
+          r.parentPhone = updated.parentPhone;
+          resultsChanged = true;
+        }
+      });
+      if (resultsChanged) {
+        this.saveAllResults(instId, allResults);
+      }
+    } catch (e) {
+      console.warn('Sonuçlardaki talebe bilgileri güncellenirken hata:', e);
+    }
+
+    if (window.CloudSync && typeof window.CloudSync.syncStudent === 'function') {
+      window.CloudSync.syncStudent(instId, updated);
+    }
+
+    return { success: true, student: updated };
+  }
+
   // İki boyutlu hücre matrisinden (Excel / CSV / Kopyala-Yapıştır) talebeleri akıllıca ayıklar
   parseStudentsFromMatrix(matrix) {
     if (!Array.isArray(matrix) || matrix.length === 0) return [];

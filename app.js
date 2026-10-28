@@ -1986,12 +1986,20 @@ window.App = {
   // 5. KURS PANELİ: TALEBE YÖNETİMİ
   renderStudentsView(instId) {
     const students = window.PortalStore.getStudents(instId);
+    const uniqueClasses = Array.from(new Set(students.map(s => (s.className || '').trim()).filter(Boolean))).sort();
+    const query = (this.studentSearchQuery || '').trim();
+    const classFilter = this.studentClassFilter || 'all';
+
     return `
       <div class="space-y-6">
+        <!-- Üst Başlık ve Aksiyonlar -->
         <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-900 border border-slate-800 p-5 rounded-2xl shadow-lg">
           <div>
-            <h2 class="text-xl font-black text-white tracking-tight">Kayıtlı Talebeler (${students.length})</h2>
-            <p class="text-xs text-slate-400 mt-0.5">Optik formlarda QR kod basmak ve karneleri göndermek için talebelerinizi ekleyiniz.</p>
+            <h2 class="text-xl font-black text-white tracking-tight flex items-center gap-2">
+              <span>Kayıtlı Talebeler</span>
+              <span class="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-mono text-xs border border-emerald-500/30">${students.length}</span>
+            </h2>
+            <p class="text-xs text-slate-400 mt-0.5">Talebe bilgilerini ve veli telefonlarını düzenleyebilir, QR kodlu optik form basabilirsiniz.</p>
           </div>
           <div class="flex flex-wrap items-center gap-2">
             <button onclick="App.showBulkStudentModal('${instId}')" class="px-3.5 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-slate-950 font-black text-xs rounded-xl shadow-lg transition flex items-center gap-1.5 cursor-pointer">
@@ -2000,44 +2008,80 @@ window.App = {
             <button onclick="App.downloadExcelTemplate()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl transition flex items-center gap-1.5 cursor-pointer" title="Excel Örnek Şablonu İndir">
               <span>📄</span> <span>Excel Şablonu İndir</span>
             </button>
-            <button onclick="App.showAddStudentModal('${instId}')" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-700 font-bold text-xs rounded-xl shadow transition cursor-pointer">
-              + Tek Talebe Ekle
+            <button onclick="App.showStudentModal('${instId}')" class="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs rounded-xl shadow-lg transition flex items-center gap-1.5 cursor-pointer">
+              <span>➕</span> <span>Yeni Talebe Ekle</span>
             </button>
           </div>
         </div>
 
+        <!-- Arama ve Şube Filtreleme Çubuğu -->
+        <div class="flex flex-col sm:flex-row items-center justify-between gap-3 bg-slate-900 border border-slate-800 p-4 rounded-2xl">
+          <div class="relative w-full sm:w-80">
+            <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500 text-sm">🔍</span>
+            <input type="text" id="student-search-input" value="${query}" oninput="App.handleStudentSearch(this.value)" placeholder="Talebe adı, soyadı veya no ile ara..." class="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none">
+          </div>
+          <div class="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
+            <span class="text-xs font-bold text-slate-400">Şube:</span>
+            <select id="student-class-filter" onchange="App.handleStudentClassFilter(this.value)" class="px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white font-bold focus:border-emerald-500 focus:outline-none">
+              <option value="all" ${classFilter === 'all' ? 'selected' : ''}>Tüm Şubeler (${students.length})</option>
+              ${uniqueClasses.map(c => `<option value="${c}" ${c === classFilter ? 'selected' : ''}>${c} Şubesi (${students.filter(s => (s.className || 'Genel') === c).length})</option>`).join('')}
+            </select>
+            <span class="text-[11px] text-slate-400 font-mono ml-2">Gösterilen: <strong id="student-filtered-count-badge" class="text-emerald-400 font-bold">${students.length}</strong></span>
+          </div>
+        </div>
+
+        <!-- Talebe Listesi Tablosu -->
         <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-lg w-full max-w-full">
           <div class="w-full max-w-full overflow-x-auto" style="-webkit-overflow-scrolling: touch;">
-            <table class="w-full text-left text-xs min-w-[480px]">
+            <table class="w-full text-left text-xs min-w-[560px]">
               <thead class="bg-slate-950 border-b border-slate-800 text-slate-400 font-bold uppercase tracking-wider">
                 <tr>
-                  <th class="p-3">No</th>
+                  <th class="p-3 w-16">No</th>
                   <th class="p-3">Adı Soyadı</th>
-                  <th class="p-3">Sınıfı</th>
-                  <th class="p-3">Veli Telefonu</th>
-                  <th class="p-3 text-right">İşlem</th>
+                  <th class="p-3">Sınıfı / Şubesi</th>
+                  <th class="p-3">Veli Telefonu (WhatsApp)</th>
+                  <th class="p-3">Notlar</th>
+                  <th class="p-3 text-right">İşlemler</th>
                 </tr>
               </thead>
-              <tbody class="divide-y divide-slate-800/80">
-                ${students.length === 0 ? `
-                  <tr>
-                    <td colspan="5" class="p-8 text-center text-slate-500">
-                      Henüz talebe eklenmedi. "Excel'den Toplu Yükle" veya "+ Tek Talebe Ekle" butonunu kullanabilirsiniz.
-                    </td>
-                  </tr>
-                ` : students.map(st => `
-                  <tr class="hover:bg-slate-800/40 transition">
-                    <td class="p-3 font-mono font-bold text-emerald-400">${st.studentNo}</td>
-                    <td class="p-3 font-bold text-white">${st.firstName} ${st.lastName}</td>
-                    <td class="p-3 font-semibold text-slate-300">${st.className}</td>
-                    <td class="p-3 font-mono text-slate-400">${st.parentPhone || '-'}</td>
-                    <td class="p-3 text-right">
-                      <button onclick="App.deleteStudentPrompt('${instId}', '${st.id}', '${st.firstName} ${st.lastName}')" class="text-rose-400 hover:text-rose-300 p-1">
-                        🗑️
-                      </button>
-                    </td>
-                  </tr>
-                `).join('')}
+              <tbody id="student-table-tbody" class="divide-y divide-slate-800/80">
+                <tr id="student-table-empty-row" style="display: ${students.length === 0 ? '' : 'none'};">
+                  <td colspan="6" class="p-8 text-center text-slate-500">
+                    Henüz talebe bulunmuyor veya arama kriterine uygun kayıt yok.
+                  </td>
+                </tr>
+                ${students.map(st => {
+                  const searchStr = window.PortalStore.normalizeTr(`${st.studentNo} ${st.firstName} ${st.lastName} ${st.className} ${st.parentPhone || ''} ${st.notes || ''}`);
+                  return `
+                    <tr class="student-table-row hover:bg-slate-800/40 transition" data-search="${searchStr}" data-class="${st.className || ''}">
+                      <td class="p-3 font-mono font-bold text-emerald-400">${st.studentNo}</td>
+                      <td class="p-3 font-bold text-white">
+                        <button type="button" onclick="App.showStudentModal('${instId}', '${st.id}')" class="text-left hover:text-emerald-300 hover:underline cursor-pointer flex items-center gap-1.5" title="Bilgileri Düzenlemek İçin Tıklayın">
+                          <span>${st.firstName} ${st.lastName}</span>
+                        </button>
+                      </td>
+                      <td class="p-3">
+                        <span class="px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 font-bold text-[11px] border border-slate-700/60">${st.className || 'Genel'}</span>
+                      </td>
+                      <td class="p-3 font-mono text-slate-300">
+                        ${st.parentPhone ? `📱 ${st.parentPhone}` : '<span class="text-slate-600">-</span>'}
+                      </td>
+                      <td class="p-3 text-slate-400 text-[11px] max-w-[160px] truncate" title="${st.notes || ''}">
+                        ${st.notes || '-'}
+                      </td>
+                      <td class="p-3 text-right">
+                        <div class="flex items-center justify-end gap-1.5">
+                          <button onclick="App.showStudentModal('${instId}', '${st.id}')" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-amber-300 hover:text-amber-200 border border-slate-700 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer" title="Talebe Bilgilerini Düzenle">
+                            <span>✍️</span> <span>Düzenle</span>
+                          </button>
+                          <button onclick="App.deleteStudentPrompt('${instId}', '${st.id}', '${st.firstName} ${st.lastName}')" class="p-1.5 bg-slate-800 hover:bg-rose-950/60 text-rose-400 hover:text-rose-300 border border-slate-700 rounded-lg text-xs font-bold transition cursor-pointer" title="Talebeyi Sil">
+                            🗑️
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  `;
+                }).join('')}
               </tbody>
             </table>
           </div>
@@ -2046,18 +2090,212 @@ window.App = {
     `;
   },
 
-  showAddStudentModal(instId) {
-    const studentNo = prompt('Okul / Kurum Numarası:', (100 + Math.floor(Math.random() * 900)).toString());
-    if (!studentNo) return;
-    const firstName = prompt('Öğrenci Adı:');
-    if (!firstName) return;
-    const lastName = prompt('Öğrenci Soyadı:');
-    const className = prompt('Sınıfı / Şubesi:', '8-A');
-    const parentPhone = prompt('Veli Telefon Numarası (WhatsApp için):', '05550000000');
+  // Talebe Ekleme / Düzenleme Modalı
+  showStudentModal(instId, studentId = null) {
+    const existing = document.getElementById('student-form-modal');
+    if (existing) existing.remove();
 
-    window.PortalStore.addStudent(instId, { studentNo, firstName, lastName, className, parentPhone });
-    this.showToast('Talebe kaydedildi!', 'success');
-    this.render();
+    const isEdit = Boolean(studentId);
+    let student = null;
+    if (isEdit) {
+      student = window.PortalStore.getStudentById(instId, studentId);
+      if (!student) {
+        this.showToast('Talebe bilgisi bulunamadı.', 'error');
+        return;
+      }
+    }
+
+    const defaultClass = student ? (student.className || '8-A') : '8-A';
+    const quickClasses = ['5-A', '6-A', '7-A', '8-A', '9-A', '10-A', '11-A', '12-A', 'Mezun'];
+
+    const modal = document.createElement('div');
+    modal.id = 'student-form-modal';
+    modal.className = 'fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-sm animate-fade-in';
+    modal.innerHTML = `
+      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-7 max-w-lg w-full shadow-2xl relative max-h-[92vh] flex flex-col">
+        <!-- Üst Başlık -->
+        <div class="flex items-center justify-between pb-3 border-b border-slate-800 mb-4 flex-shrink-0">
+          <div class="flex items-center gap-2.5">
+            <span class="text-2xl">${isEdit ? '✍️' : '➕'}</span>
+            <div>
+              <h3 class="text-base sm:text-lg font-black text-white">${isEdit ? 'Talebe Bilgilerini Düzenle' : 'Yeni Talebe Kaydı'}</h3>
+              <p class="text-xs text-slate-400 font-medium">${isEdit ? `${student.firstName} ${student.lastName} (No: ${student.studentNo})` : 'Optik form basımı ve sınav dereceleri için bilgileri giriniz.'}</p>
+            </div>
+          </div>
+          <button onclick="document.getElementById('student-form-modal').remove()" class="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-sm font-bold cursor-pointer">✕</button>
+        </div>
+
+        <form id="student-form" onsubmit="App.handleStudentFormSubmit(event, '${instId}', '${studentId || ''}')" class="space-y-4 overflow-y-auto flex-1 pr-1">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-bold text-slate-300 mb-1">
+                Talebe No (Okul/Kurum No) <span class="text-rose-400">*</span>
+              </label>
+              <input type="text" id="st-no" required value="${student ? student.studentNo : ''}" placeholder="Örn: 101" class="w-full px-3 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-emerald-400 font-mono font-bold text-xs focus:border-emerald-500 focus:outline-none">
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-slate-300 mb-1">
+                Sınıf / Şube <span class="text-rose-400">*</span>
+              </label>
+              <input type="text" id="st-class" required value="${student ? student.className : defaultClass}" placeholder="Örn: 8-A" class="w-full px-3 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white font-bold text-xs focus:border-emerald-500 focus:outline-none uppercase">
+            </div>
+          </div>
+
+          <!-- Hızlı Şube Seçim Butonları -->
+          <div>
+            <span class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Hızlı Şube Seç:</span>
+            <div class="flex flex-wrap gap-1.5">
+              ${quickClasses.map(qc => `
+                <button type="button" onclick="document.getElementById('st-class').value = '${qc}'" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-emerald-400 text-[11px] font-bold rounded-lg border border-slate-700 transition cursor-pointer">
+                  ${qc}
+                </button>
+              `).join('')}
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-bold text-slate-300 mb-1">
+                Adı <span class="text-rose-400">*</span>
+              </label>
+              <input type="text" id="st-first-name" required value="${student ? student.firstName : ''}" placeholder="Örn: AHMET" class="w-full px-3 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white font-bold text-xs focus:border-emerald-500 focus:outline-none uppercase">
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-slate-300 mb-1">
+                Soyadı <span class="text-rose-400">*</span>
+              </label>
+              <input type="text" id="st-last-name" required value="${student ? student.lastName : ''}" placeholder="Örn: YILMAZ" class="w-full px-3 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white font-bold text-xs focus:border-emerald-500 focus:outline-none uppercase">
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-slate-300 mb-1">
+              Veli Cep Telefonu (WhatsApp Karne İçin)
+            </label>
+            <div class="relative">
+              <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500 text-xs font-mono">📱</span>
+              <input type="tel" id="st-phone" value="${student ? (student.parentPhone || '') : ''}" placeholder="Örn: 05551234567" class="w-full pl-8 pr-3 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white font-mono text-xs focus:border-emerald-500 focus:outline-none">
+            </div>
+            <p class="text-[10px] text-slate-500 mt-1">Sınav tamamlandığında veliye doğrudan WhatsApp karne mesajı gönderilmesini sağlar.</p>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-slate-300 mb-1">
+              Özel Notlar / Açıklama
+            </label>
+            <input type="text" id="st-notes" value="${student ? (student.notes || '') : ''}" placeholder="İsteğe bağlı not..." class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-slate-300 text-xs focus:border-emerald-500 focus:outline-none">
+          </div>
+
+          <div class="pt-3 border-t border-slate-800 flex items-center justify-between gap-2">
+            ${isEdit ? `
+              <button type="button" onclick="document.getElementById('student-form-modal').remove(); App.deleteStudentPrompt('${instId}', '${student.id}', '${student.firstName} ${student.lastName}')" class="px-3 py-2.5 bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white font-bold text-xs rounded-xl border border-rose-500/30 transition flex items-center gap-1 cursor-pointer" title="Talebeyi Sil">
+                <span>🗑️</span> <span>Talebeyi Sil</span>
+              </button>
+            ` : '<div></div>'}
+            <div class="flex items-center gap-2">
+              <button type="button" onclick="document.getElementById('student-form-modal').remove()" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl transition cursor-pointer">
+                Vazgeç
+              </button>
+              <button type="submit" class="px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-slate-950 font-black text-xs rounded-xl shadow-lg transition flex items-center gap-1.5 cursor-pointer">
+                <span>${isEdit ? '💾' : '➕'}</span>
+                <span>${isEdit ? 'Değişiklikleri Kaydet' : 'Talebeyi Kaydet'}</span>
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    `;
+    document.body.appendChild(modal);
+  },
+
+  handleStudentFormSubmit(event, instId, studentId) {
+    event.preventDefault();
+    const studentNo = document.getElementById('st-no').value.trim();
+    const firstName = document.getElementById('st-first-name').value.trim();
+    const lastName = document.getElementById('st-last-name').value.trim();
+    const className = document.getElementById('st-class').value.trim();
+    const parentPhone = document.getElementById('st-phone').value.trim();
+    const notes = document.getElementById('st-notes').value.trim();
+
+    if (!studentNo || !firstName || !lastName) {
+      this.showToast('Lütfen numara, ad ve soyad alanlarını doldurunuz.', 'warning');
+      return;
+    }
+
+    if (studentId) {
+      const res = window.PortalStore.updateStudent(instId, studentId, {
+        studentNo,
+        firstName,
+        lastName,
+        className,
+        parentPhone,
+        notes
+      });
+      if (res && res.success) {
+        this.showToast(`✓ ${firstName} ${lastName} bilgileri başarıyla güncellendi!`, 'success');
+        const modal = document.getElementById('student-form-modal');
+        if (modal) modal.remove();
+        this.render();
+      } else {
+        this.showToast(res ? res.message : 'Güncelleme yapılamadı.', 'error');
+      }
+    } else {
+      const students = window.PortalStore.getStudents(instId);
+      if (students.some(s => s.studentNo === studentNo)) {
+        this.showToast(`"${studentNo}" numaralı bir talebe zaten kayıtlı!`, 'error');
+        return;
+      }
+      window.PortalStore.addStudent(instId, {
+        studentNo,
+        firstName,
+        lastName,
+        className,
+        parentPhone,
+        notes
+      });
+      this.showToast(`✓ ${firstName} ${lastName} başarıyla kaydedildi!`, 'success');
+      const modal = document.getElementById('student-form-modal');
+      if (modal) modal.remove();
+      this.render();
+    }
+  },
+
+  showAddStudentModal(instId) {
+    this.showStudentModal(instId, null);
+  },
+
+  handleStudentSearch(query) {
+    this.studentSearchQuery = query || '';
+    const q = window.PortalStore.normalizeTr(query);
+    const rows = document.querySelectorAll('.student-table-row');
+    let visibleCount = 0;
+    rows.forEach(row => {
+      const text = row.dataset.search || '';
+      const cls = row.dataset.class || '';
+      const classMatch = !this.studentClassFilter || this.studentClassFilter === 'all' || cls === this.studentClassFilter;
+      const textMatch = !q || text.includes(q);
+      if (classMatch && textMatch) {
+        row.style.display = '';
+        visibleCount++;
+      } else {
+        row.style.display = 'none';
+      }
+    });
+    const emptyRow = document.getElementById('student-table-empty-row');
+    if (emptyRow) {
+      emptyRow.style.display = visibleCount === 0 ? '' : 'none';
+    }
+    const countBadge = document.getElementById('student-filtered-count-badge');
+    if (countBadge) {
+      countBadge.textContent = visibleCount.toString();
+    }
+  },
+
+  handleStudentClassFilter(cls) {
+    this.studentClassFilter = cls || 'all';
+    this.handleStudentSearch(this.studentSearchQuery || '');
   },
 
   deleteStudentPrompt(instId, studentId, name) {
