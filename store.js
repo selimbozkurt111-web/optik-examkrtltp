@@ -1236,36 +1236,6 @@ class MultiTenantStore {
     }
   }
 
-    const topicAnalysis = Object.values(topicStats).map(st => {
-      const net = Math.max(0, parseFloat((st.correct - (st.wrong * 0.333)).toFixed(2)));
-      const percent = st.total > 0 ? Math.round((st.correct / st.total) * 100) : 0;
-      return {
-        subject: st.subject,
-        topic: st.topic,
-        total: st.total,
-        correct: st.correct,
-        wrong: st.wrong,
-        empty: st.empty,
-        net: net,
-        percent: percent,
-        questions: st.questions,
-        status: percent >= 75 ? 'success' : (percent >= 50 ? 'warning' : 'danger')
-      };
-    });
-
-    return {
-      answers: answersArr.join(''),
-      booklet,
-      subjectsResult,
-      totalCorrect,
-      totalWrong,
-      totalEmpty,
-      totalNet,
-      totalScore,
-      topicAnalysis
-    };
-  }
-
   // Sınav Cevap Anahtarı veya İptal Değiştiğinde Tüm Sonuçları Yeniden Hesaplama
   recalculateExamResults(instId, examId) {
     if (instId === 'global' || !instId) {
