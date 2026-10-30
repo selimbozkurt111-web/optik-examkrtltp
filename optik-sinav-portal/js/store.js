@@ -52,12 +52,12 @@ const DEFAULT_EXAM_TEMPLATES = [
     questionCount: 90,
     bookletTypes: ['A', 'B', 'C', 'D'],
     subjects: [
-      { name: 'Türkçe', startQ: 1, endQ: 20, wrongPenalty: 0.333, coeff: 4 },
-      { name: 'İnkılap Tarihi', startQ: 21, endQ: 30, wrongPenalty: 0.333, coeff: 1 },
-      { name: 'Din Kültürü', startQ: 31, endQ: 40, wrongPenalty: 0.333, coeff: 1 },
-      { name: 'İngilizce', startQ: 41, endQ: 50, wrongPenalty: 0.333, coeff: 1 },
-      { name: 'Matematik', startQ: 51, endQ: 70, wrongPenalty: 0.333, coeff: 4 },
-      { name: 'Fen Bilimleri', startQ: 71, endQ: 90, wrongPenalty: 0.333, coeff: 4 }
+      { name: 'Türkçe', startQ: 1, endQ: 20, wrongPenalty: 0.333, coeff: 4.4444 },
+      { name: 'İnkılap Tarihi', startQ: 21, endQ: 30, wrongPenalty: 0.333, coeff: 1.1111 },
+      { name: 'Din Kültürü', startQ: 31, endQ: 40, wrongPenalty: 0.333, coeff: 1.1111 },
+      { name: 'İngilizce', startQ: 41, endQ: 50, wrongPenalty: 0.333, coeff: 1.1111 },
+      { name: 'Matematik', startQ: 51, endQ: 70, wrongPenalty: 0.333, coeff: 4.4444 },
+      { name: 'Fen Bilimleri', startQ: 71, endQ: 90, wrongPenalty: 0.333, coeff: 4.4444 }
     ]
   },
   {
@@ -66,12 +66,12 @@ const DEFAULT_EXAM_TEMPLATES = [
     questionCount: 75,
     bookletTypes: ['A', 'B', 'C', 'D'],
     subjects: [
-      { name: 'Türkçe', startQ: 1, endQ: 15, wrongPenalty: 0.333, coeff: 4 },
-      { name: 'İnkılap Tarihi', startQ: 16, endQ: 25, wrongPenalty: 0.333, coeff: 1 },
-      { name: 'Din Kültürü', startQ: 26, endQ: 35, wrongPenalty: 0.333, coeff: 1 },
-      { name: 'İngilizce', startQ: 36, endQ: 45, wrongPenalty: 0.333, coeff: 1 },
-      { name: 'Matematik', startQ: 46, endQ: 60, wrongPenalty: 0.333, coeff: 4 },
-      { name: 'Fen Bilimleri', startQ: 61, endQ: 75, wrongPenalty: 0.333, coeff: 4 }
+      { name: 'Türkçe', startQ: 1, endQ: 15, wrongPenalty: 0.333, coeff: 5.7143 },
+      { name: 'İnkılap Tarihi', startQ: 16, endQ: 25, wrongPenalty: 0.333, coeff: 1.4286 },
+      { name: 'Din Kültürü', startQ: 26, endQ: 35, wrongPenalty: 0.333, coeff: 1.4286 },
+      { name: 'İngilizce', startQ: 36, endQ: 45, wrongPenalty: 0.333, coeff: 1.4286 },
+      { name: 'Matematik', startQ: 46, endQ: 60, wrongPenalty: 0.333, coeff: 5.7143 },
+      { name: 'Fen Bilimleri', startQ: 61, endQ: 75, wrongPenalty: 0.333, coeff: 5.7143 }
     ]
   },
   {
@@ -80,12 +80,12 @@ const DEFAULT_EXAM_TEMPLATES = [
     questionCount: 60,
     bookletTypes: ['A', 'B', 'C', 'D'],
     subjects: [
-      { name: 'Türkçe', startQ: 1, endQ: 15, wrongPenalty: 0.333, coeff: 4 },
-      { name: 'Sosyal Bilgiler', startQ: 16, endQ: 25, wrongPenalty: 0.333, coeff: 1 },
-      { name: 'Din Kültürü', startQ: 26, endQ: 30, wrongPenalty: 0.333, coeff: 1 },
-      { name: 'İngilizce', startQ: 31, endQ: 35, wrongPenalty: 0.333, coeff: 1 },
-      { name: 'Matematik', startQ: 36, endQ: 47, wrongPenalty: 0.333, coeff: 4 },
-      { name: 'Fen Bilimleri', startQ: 48, endQ: 60, wrongPenalty: 0.333, coeff: 4 }
+      { name: 'Türkçe', startQ: 1, endQ: 15, wrongPenalty: 0.333, coeff: 6.6667 },
+      { name: 'Sosyal Bilgiler', startQ: 16, endQ: 25, wrongPenalty: 0.333, coeff: 1.6667 },
+      { name: 'Din Kültürü', startQ: 26, endQ: 30, wrongPenalty: 0.333, coeff: 1.6667 },
+      { name: 'İngilizce', startQ: 31, endQ: 35, wrongPenalty: 0.333, coeff: 1.6667 },
+      { name: 'Matematik', startQ: 36, endQ: 47, wrongPenalty: 0.333, coeff: 6.6667 },
+      { name: 'Fen Bilimleri', startQ: 48, endQ: 60, wrongPenalty: 0.333, coeff: 6.6667 }
     ]
   },
   {
@@ -94,10 +94,10 @@ const DEFAULT_EXAM_TEMPLATES = [
     questionCount: 60,
     bookletTypes: ['A', 'B', 'C', 'D'],
     subjects: [
-      { name: 'Türkçe', startQ: 1, endQ: 15, wrongPenalty: 0.333, coeff: 4 },
-      { name: 'Sosyal Bilgiler', startQ: 16, endQ: 30, wrongPenalty: 0.333, coeff: 2 },
-      { name: 'Matematik', startQ: 31, endQ: 45, wrongPenalty: 0.333, coeff: 4 },
-      { name: 'Fen Bilimleri', startQ: 46, endQ: 60, wrongPenalty: 0.333, coeff: 4 }
+      { name: 'Türkçe', startQ: 1, endQ: 15, wrongPenalty: 0.333, coeff: 5 },
+      { name: 'Sosyal Bilgiler', startQ: 16, endQ: 30, wrongPenalty: 0.333, coeff: 5 },
+      { name: 'Matematik', startQ: 31, endQ: 45, wrongPenalty: 0.333, coeff: 5 },
+      { name: 'Fen Bilimleri', startQ: 46, endQ: 60, wrongPenalty: 0.333, coeff: 5 }
     ]
   },
   {
@@ -106,10 +106,10 @@ const DEFAULT_EXAM_TEMPLATES = [
     questionCount: 120,
     bookletTypes: ['A', 'B', 'C', 'D'],
     subjects: [
-      { name: 'Türkçe', startQ: 1, endQ: 40, wrongPenalty: 0.25, coeff: 3.3 },
-      { name: 'Sosyal Bilimler', startQ: 41, endQ: 60, wrongPenalty: 0.25, coeff: 3.4 },
-      { name: 'Temel Matematik', startQ: 61, endQ: 100, wrongPenalty: 0.25, coeff: 3.3 },
-      { name: 'Fen Bilimleri', startQ: 101, endQ: 120, wrongPenalty: 0.25, coeff: 3.4 }
+      { name: 'Türkçe', startQ: 1, endQ: 40, wrongPenalty: 0.25, coeff: 2.5 },
+      { name: 'Sosyal Bilimler', startQ: 41, endQ: 60, wrongPenalty: 0.25, coeff: 2.5 },
+      { name: 'Temel Matematik', startQ: 61, endQ: 100, wrongPenalty: 0.25, coeff: 2.5 },
+      { name: 'Fen Bilimleri', startQ: 101, endQ: 120, wrongPenalty: 0.25, coeff: 2.5 }
     ]
   },
   {
@@ -118,7 +118,7 @@ const DEFAULT_EXAM_TEMPLATES = [
     questionCount: 20,
     bookletTypes: ['A', 'B', 'C', 'D'],
     subjects: [
-      { name: 'Genel Değerlendirme', startQ: 1, endQ: 20, wrongPenalty: 0.333, coeff: 5 }
+      { name: 'Genel Değerlendirme', startQ: 1, endQ: 20, wrongPenalty: 0.333, coeff: 15 }
     ]
   },
   {
@@ -127,8 +127,8 @@ const DEFAULT_EXAM_TEMPLATES = [
     questionCount: 40,
     bookletTypes: ['A', 'B', 'C', 'D'],
     subjects: [
-      { name: 'Bölüm 1', startQ: 1, endQ: 20, wrongPenalty: 0.333, coeff: 2.5 },
-      { name: 'Bölüm 2', startQ: 21, endQ: 40, wrongPenalty: 0.333, coeff: 2.5 }
+      { name: 'Bölüm 1', startQ: 1, endQ: 20, wrongPenalty: 0.333, coeff: 7.5 },
+      { name: 'Bölüm 2', startQ: 21, endQ: 40, wrongPenalty: 0.333, coeff: 7.5 }
     ]
   }
 ];
@@ -303,9 +303,12 @@ class MultiTenantStore {
           { id: 'st_103', studentNo: '103', firstName: 'AYŞE', lastName: 'DEMİR', className: '8-B', parentPhone: '05553334455', notes: 'LGS Grubu' },
           { id: 'st_104', studentNo: '104', firstName: 'FATMA', lastName: 'ÇELİK', className: '8-B', parentPhone: '05554445566', notes: 'LGS Grubu' },
           { id: 'st_105', studentNo: '105', firstName: 'ALİ', lastName: 'ÖZTÜRK', className: '7-A', parentPhone: '05555556677', notes: 'Ara Sınıf' }
-        ];
+        ].filter(s => !this.isStudentDeleted('inst_oay', s.id, s.studentNo));
         localStorage.setItem(oayStudentsKey, JSON.stringify(defaultStudents));
       }
+
+      // Taban 200, Tavan 500 Puan Motoru: Geçmiş tüm sınav sonuçlarını otomatik ölçekle
+      this.recalculateAllStoredResults();
     } catch (e) {
       console.warn('Store init localStorage bildirimi:', e);
     }
@@ -487,12 +490,77 @@ class MultiTenantStore {
     }
   }
 
+  // --- Silinen Talebeler Listesi (Tombstone - Geri Gelmeyi Kesin Olarak Önler) ---
+  getDeletedStudentsMap() {
+    try {
+      const raw = localStorage.getItem(STORAGE_PREFIX + 'deleted_students');
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  }
+
+  saveDeletedStudentsMap(map) {
+    try {
+      localStorage.setItem(STORAGE_PREFIX + 'deleted_students', JSON.stringify(map));
+    } catch (e) {
+      console.warn('Silinen talebeler kaydedilemedi:', e);
+    }
+  }
+
+  recordDeletedStudent(instId, studentId, studentNo = null) {
+    if (!instId) return;
+    const map = this.getDeletedStudentsMap();
+    if (studentId) {
+      map[`${instId}__${studentId.toString().trim()}`] = Date.now();
+    }
+    if (studentNo) {
+      map[`${instId}__${studentNo.toString().trim()}`] = Date.now();
+    }
+    this.saveDeletedStudentsMap(map);
+  }
+
+  clearDeletedStudentTombstone(instId, studentId, studentNo = null) {
+    if (!instId) return;
+    const map = this.getDeletedStudentsMap();
+    let changed = false;
+    if (studentId && map[`${instId}__${studentId.toString().trim()}`]) {
+      delete map[`${instId}__${studentId.toString().trim()}`];
+      changed = true;
+    }
+    if (studentNo && map[`${instId}__${studentNo.toString().trim()}`]) {
+      delete map[`${instId}__${studentNo.toString().trim()}`];
+      changed = true;
+    }
+    if (changed) {
+      this.saveDeletedStudentsMap(map);
+    }
+  }
+
+  isStudentDeleted(instId, studentId, studentNo = null) {
+    if (!instId) return false;
+    const map = this.getDeletedStudentsMap();
+    if (studentId && map[`${instId}__${studentId.toString().trim()}`]) return true;
+    if (studentNo && map[`${instId}__${studentNo.toString().trim()}`]) return true;
+    return false;
+  }
+
   // --- Kurum Bazlı Talebe İşlemleri ---
   getStudents(instId) {
     if (!instId) return [];
     try {
       const raw = localStorage.getItem(STORAGE_PREFIX + instId + '_students');
-      return raw ? JSON.parse(raw) : [];
+      let list = raw ? JSON.parse(raw) : [];
+      // Silinenler listesinde olanları anında filtrele ve temizle
+      const deletedMap = this.getDeletedStudentsMap();
+      if (deletedMap && Object.keys(deletedMap).length > 0) {
+        const filtered = list.filter(s => !this.isStudentDeleted(instId, s.id, s.studentNo));
+        if (filtered.length !== list.length) {
+          this.saveStudents(instId, filtered);
+          list = filtered;
+        }
+      }
+      return list;
     } catch {
       return [];
     }
@@ -517,18 +585,119 @@ class MultiTenantStore {
     };
     list.push(newSt);
     this.saveStudents(instId, list);
+    // Yeniden eklenirse silinenler listesinden çıkar
+    this.clearDeletedStudentTombstone(instId, newSt.id, newSt.studentNo);
     if (window.CloudSync && typeof window.CloudSync.syncStudent === 'function') {
       window.CloudSync.syncStudent(instId, newSt);
     }
     return newSt;
   }
 
-  deleteStudent(instId, studentId) {
-    let list = this.getStudents(instId).filter(s => s.id !== studentId);
+  deleteStudentLocally(instId, studentId, studentNo = null) {
+    if (!instId || (!studentId && !studentNo)) return;
+    const sId = studentId ? studentId.toString().trim() : null;
+    const sNo = studentNo ? studentNo.toString().trim() : null;
+    let list = this.getStudents(instId).filter(s => {
+      if (sId && s.id === sId) return false;
+      if (sNo && s.studentNo && s.studentNo.toString().trim() === sNo) return false;
+      if (sId && s.studentNo && s.studentNo.toString().trim() === sId) return false;
+      return true;
+    });
     this.saveStudents(instId, list);
+    this.recordDeletedStudent(instId, sId, sNo);
+  }
+
+  deleteStudent(instId, studentId) {
+    if (!instId || !studentId) return;
+    const list = this.getStudents(instId);
+    const target = list.find(s => s.id === studentId || s.studentNo === studentId);
+    const cleanId = target ? target.id : studentId;
+    const cleanNo = target ? target.studentNo : (studentId.startsWith('st_') ? null : studentId);
+
+    // 1. Yerel depodan sil
+    let filtered = list.filter(s => {
+      if (cleanId && s.id === cleanId) return false;
+      if (cleanNo && s.studentNo && s.studentNo.toString().trim() === cleanNo.toString().trim()) return false;
+      if (cleanId && s.studentNo && s.studentNo.toString().trim() === cleanId.toString().trim()) return false;
+      return true;
+    });
+    this.saveStudents(instId, filtered);
+
+    // 2. Silinenler listesine (Tombstone) kaydet (Buluttan veya senkronizasyondan tekrar geri gelmeyi engeller)
+    this.recordDeletedStudent(instId, cleanId, cleanNo);
+
+    // 3. Buluttan (Firestore) tüm doküman varyasyonlarını ve sorgularını kalıcı sil
     if (window.CloudSync && typeof window.CloudSync.deleteStudent === 'function') {
-      window.CloudSync.deleteStudent(instId, studentId);
+      window.CloudSync.deleteStudent(instId, cleanId, cleanNo);
     }
+  }
+
+  getStudentById(instId, studentId) {
+    if (!instId || !studentId) return null;
+    const list = this.getStudents(instId);
+    return list.find(s => s.id === studentId || s.studentNo === studentId) || null;
+  }
+
+  updateStudent(instId, studentId, updatedData) {
+    if (!instId || !studentId) return { success: false, message: 'Geçersiz parametre.' };
+    const list = this.getStudents(instId);
+    const index = list.findIndex(s => s.id === studentId || s.studentNo === studentId);
+    if (index === -1) return { success: false, message: 'Talebe kaydı bulunamadı.' };
+
+    const oldStudentNo = list[index].studentNo;
+    const newStudentNo = (updatedData.studentNo !== undefined ? updatedData.studentNo : list[index].studentNo).toString().trim();
+
+    if (!newStudentNo) {
+      return { success: false, message: 'Talebe numarası boş bırakılamaz.' };
+    }
+
+    // Başka bir talebede aynı numara var mı?
+    if (newStudentNo !== oldStudentNo) {
+      const duplicate = list.find((s, idx) => idx !== index && s.studentNo === newStudentNo);
+      if (duplicate) {
+        return { success: false, message: `"${newStudentNo}" numarası başka bir talebeye ait!` };
+      }
+    }
+
+    const updated = {
+      ...list[index],
+      studentNo: newStudentNo,
+      firstName: (updatedData.firstName !== undefined ? updatedData.firstName : list[index].firstName).toString().trim().toUpperCase(),
+      lastName: (updatedData.lastName !== undefined ? updatedData.lastName : list[index].lastName).toString().trim().toUpperCase(),
+      className: (updatedData.className !== undefined ? updatedData.className : list[index].className).toString().trim().toUpperCase(),
+      parentPhone: (updatedData.parentPhone !== undefined ? updatedData.parentPhone : list[index].parentPhone).toString().trim(),
+      notes: (updatedData.notes !== undefined ? updatedData.notes : (list[index].notes || '')).toString().trim(),
+      updatedAt: new Date().toISOString()
+    };
+
+    list[index] = updated;
+    this.saveStudents(instId, list);
+
+    // Sınav sonuçlarındaki talebe bilgilerini de senkronize et
+    try {
+      const allResults = this.getAllResults(instId);
+      let resultsChanged = false;
+      allResults.forEach(r => {
+        if (r.studentNo === oldStudentNo || r.studentNo === newStudentNo) {
+          r.studentNo = newStudentNo;
+          r.studentName = `${updated.firstName} ${updated.lastName}`.trim();
+          r.className = updated.className;
+          r.parentPhone = updated.parentPhone;
+          resultsChanged = true;
+        }
+      });
+      if (resultsChanged) {
+        this.saveAllResults(instId, allResults);
+      }
+    } catch (e) {
+      console.warn('Sonuçlardaki talebe bilgileri güncellenirken hata:', e);
+    }
+
+    if (window.CloudSync && typeof window.CloudSync.syncStudent === 'function') {
+      window.CloudSync.syncStudent(instId, updated);
+    }
+
+    return { success: true, student: updated };
   }
 
   // İki boyutlu hücre matrisinden (Excel / CSV / Kopyala-Yapıştır) talebeleri akıllıca ayıklar
@@ -720,6 +889,7 @@ class MultiTenantStore {
       const notes = (st.notes || '').toString().trim();
 
       if (fn || ln || sNo) {
+        this.clearDeletedStudentTombstone(instId, 'st_' + sNo, sNo);
         const stObj = {
           id: 'st_' + sNo,
           studentNo: sNo,
@@ -791,9 +961,9 @@ class MultiTenantStore {
     }
     const globals = this.getGlobalExams();
     const map = new Map();
-    localExams.forEach(e => map.set(e.id, e));
+    localExams.filter(e => !e.isGlobal).forEach(e => map.set(e.id, e));
     globals.forEach(g => {
-      if (!map.has(g.id)) map.set(g.id, g);
+      map.set(g.id, g);
     });
     return Array.from(map.values());
   }
@@ -975,6 +1145,11 @@ class MultiTenantStore {
     if (!exam) return null;
     const qCount = parseInt(exam.questionCount, 10) || 20;
 
+    // Taban 200, Tavan 500 Puan Standardı (Kaç soru olursa olsun 300 puanlık skala)
+    const BASE_SCORE = 200;
+    const MAX_SCORE = 500;
+    const SCORE_SPAN = 300; // 500 - 200
+
     // Cevap anahtarı kontrolü
     const rawKey = (exam.answerKeys && exam.answerKeys[booklet])
       ? exam.answerKeys[booklet].toUpperCase()
@@ -993,7 +1168,7 @@ class MultiTenantStore {
         totalWrong: 0,
         totalEmpty: qCount,
         totalNet: 0,
-        totalScore: 0
+        totalScore: BASE_SCORE
       };
     }
 
@@ -1005,14 +1180,33 @@ class MultiTenantStore {
       { name: 'Genel', startQ: 1, endQ: qCount, wrongPenalty: 0.333, coeff: 1 }
     ];
 
+    // Otomatik Katsayı Dağıtım Hesabı:
+    // Sınavın toplam soru sayısı kaç olursa olsun ağırlıklı kapasite bulunur
+    let totalWeightedCapacity = 0;
+    subjects.forEach(sub => {
+      const qNum = (sub.endQ && sub.startQ) ? (sub.endQ - sub.startQ + 1) : (sub.questionCount || 1);
+      const rawW = (typeof sub.coeff === 'number' && sub.coeff > 0) ? sub.coeff : 1;
+      totalWeightedCapacity += (qNum * rawW);
+    });
+    if (totalWeightedCapacity <= 0) totalWeightedCapacity = qCount || 20;
+
+    // Eğer katsayılar doğrudan 300 puanlık skalaya göre girilmişse (~300), doğrudan kullan; aksi halde 300 puana orantıla
+    const isDirectCoeffs = (totalWeightedCapacity >= 298 && totalWeightedCapacity <= 302);
+    const scaleFactor = isDirectCoeffs ? 1 : (SCORE_SPAN / totalWeightedCapacity);
+
     const subjectsResult = {};
     subjects.forEach(sub => {
+      const rawW = (typeof sub.coeff === 'number' && sub.coeff > 0) ? sub.coeff : 1;
+      const autoCoeff = isDirectCoeffs ? rawW : parseFloat((rawW * scaleFactor).toFixed(4));
+
       subjectsResult[sub.name] = {
         name: sub.name,
         startQ: sub.startQ,
         endQ: sub.endQ,
         wrongPenalty: (typeof sub.wrongPenalty === 'number') ? sub.wrongPenalty : 0.333,
-        coeff: (typeof sub.coeff === 'number') ? sub.coeff : (100 / qCount),
+        rawCoeff: rawW,
+        coeff: autoCoeff, // Net katsayısı
+        autoCoeff: autoCoeff,
         correct: 0,
         wrong: 0,
         empty: 0,
@@ -1036,14 +1230,18 @@ class MultiTenantStore {
       const currentSub = subjects.find(s => q >= s.startQ && q <= s.endQ) || {
         name: 'Genel',
         wrongPenalty: 0.333,
-        coeff: (100 / qCount)
+        coeff: 1
       };
 
       if (!subjectsResult[currentSub.name]) {
+        const rawW = (typeof currentSub.coeff === 'number' && currentSub.coeff > 0) ? currentSub.coeff : 1;
+        const autoCoeff = parseFloat((rawW * scaleFactor).toFixed(4));
         subjectsResult[currentSub.name] = {
           name: currentSub.name,
           wrongPenalty: 0.333,
-          coeff: (100 / qCount),
+          rawCoeff: rawW,
+          coeff: autoCoeff,
+          autoCoeff: autoCoeff,
           correct: 0,
           wrong: 0,
           empty: 0,
@@ -1100,23 +1298,30 @@ class MultiTenantStore {
     let totalWrong = 0;
     let totalEmpty = 0;
     let totalNet = 0;
-    let totalScore = 0;
+    let sumSubjectPoints = 0;
 
     Object.values(subjectsResult).forEach(sub => {
       const penalty = sub.wrong * (sub.wrongPenalty !== undefined ? sub.wrongPenalty : 0.333);
       sub.net = Math.max(0, parseFloat((sub.correct - penalty).toFixed(2)));
-      const coeff = (sub.coeff && sub.coeff > 0) ? sub.coeff : (100 / qCount);
-      sub.score = parseFloat((sub.net * coeff).toFixed(2));
+      const autoCoeff = sub.autoCoeff || sub.coeff || (SCORE_SPAN / qCount);
+      sub.score = parseFloat((sub.net * autoCoeff).toFixed(3));
 
       totalCorrect += sub.correct;
       totalWrong += sub.wrong;
       totalEmpty += sub.empty;
       totalNet += sub.net;
-      totalScore += sub.score;
+      sumSubjectPoints += (sub.net * autoCoeff);
     });
 
     totalNet = parseFloat(totalNet.toFixed(2));
-    totalScore = parseFloat(totalScore.toFixed(2));
+
+    // Taban: 200, Tavan: 500 Otomatik Ölçekleme
+    let calculatedTotalScore = BASE_SCORE;
+    if (totalNet > 0) {
+      calculatedTotalScore = BASE_SCORE + sumSubjectPoints;
+    }
+    calculatedTotalScore = Math.min(MAX_SCORE, Math.max(BASE_SCORE, calculatedTotalScore));
+    const totalScore = parseFloat(calculatedTotalScore.toFixed(3));
 
     const topicAnalysis = Object.values(topicStats).map(st => {
       const net = Math.max(0, parseFloat((st.correct - (st.wrong * 0.333)).toFixed(2)));
@@ -1146,6 +1351,57 @@ class MultiTenantStore {
       totalScore,
       topicAnalysis
     };
+  }
+
+  // --- Geçmiş Tüm Sınav Sonuçlarını 200-500 Skalasına Otomatik Güncelleme ---
+  recalculateAllStoredResults() {
+    try {
+      const institutions = this.getInstitutions() || [];
+      const instIds = institutions.map(i => i.id);
+      if (!instIds.includes('global')) instIds.push('global');
+
+      instIds.forEach(instId => {
+        const exams = this.getExams(instId) || [];
+        const allResults = this.getAllResults(instId) || [];
+        if (allResults.length === 0) return;
+
+        let changed = false;
+        const updatedResults = allResults.map(r => {
+          const exam = exams.find(e => e.id === r.examId) || (instId === 'global' ? this.getGlobalExams().find(e => e.id === r.examId) : null);
+          if (!exam) return r;
+
+          if (r.answers && typeof this.scoreStudentAnswers === 'function') {
+            const scored = this.scoreStudentAnswers(r.answers, exam, r.booklet || 'A');
+            if (scored && !scored.isMissingAnswerKey) {
+              changed = true;
+              return {
+                ...r,
+                subjectsResult: scored.subjectsResult,
+                totalCorrect: scored.totalCorrect,
+                totalWrong: scored.totalWrong,
+                totalEmpty: scored.totalEmpty,
+                totalNet: scored.totalNet,
+                totalScore: (r.isManual && r.scoreOverride !== undefined && r.scoreOverride !== '') ? r.totalScore : scored.totalScore,
+                topicAnalysis: scored.topicAnalysis || r.topicAnalysis
+              };
+            } else if (scored && (!r.totalScore || r.totalScore < 200)) {
+              changed = true;
+              return {
+                ...r,
+                totalScore: 200
+              };
+            }
+          }
+          return r;
+        });
+
+        if (changed) {
+          this.saveAllResults(instId, updatedResults);
+        }
+      });
+    } catch (err) {
+      console.warn('Geçmiş sınav sonuçları puan güncelleme bildirimi:', err);
+    }
   }
 
   // Sınav Cevap Anahtarı veya İptal Değiştiğinde Tüm Sonuçları Yeniden Hesaplama
@@ -1209,6 +1465,49 @@ class MultiTenantStore {
     return list.filter(r => r.examId === examId);
   }
 
+  // Silinen sonuç takip (Tombstone) mekanizması - Buluttan geri dirilmeyi engeller
+  getDeletedResultsMap() {
+    try {
+      const raw = localStorage.getItem(STORAGE_PREFIX + 'deleted_results');
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  }
+
+  saveDeletedResultsMap(map) {
+    try {
+      localStorage.setItem(STORAGE_PREFIX + 'deleted_results', JSON.stringify(map));
+    } catch (e) {
+      console.warn('Silinen neticeler kaydedilemedi:', e);
+    }
+  }
+
+  recordDeletedResult(instId, examId, resultIdOrStudentNo) {
+    if (!instId || !examId || !resultIdOrStudentNo) return;
+    const map = this.getDeletedResultsMap();
+    const key = `${instId}__${examId}__${resultIdOrStudentNo.toString().trim()}`;
+    map[key] = Date.now();
+    this.saveDeletedResultsMap(map);
+  }
+
+  clearDeletedResultTombstone(instId, examId, resultIdOrStudentNo) {
+    if (!instId || !examId || !resultIdOrStudentNo) return;
+    const map = this.getDeletedResultsMap();
+    const key = `${instId}__${examId}__${resultIdOrStudentNo.toString().trim()}`;
+    if (map[key]) {
+      delete map[key];
+      this.saveDeletedResultsMap(map);
+    }
+  }
+
+  isResultDeleted(instId, examId, resultIdOrStudentNo) {
+    if (!instId || !examId || !resultIdOrStudentNo) return false;
+    const map = this.getDeletedResultsMap();
+    const key = `${instId}__${examId}__${resultIdOrStudentNo.toString().trim()}`;
+    return !!map[key];
+  }
+
   // Bir öğrencinin optik form neticesini kaydetme veya güncelleme
   saveExamResult(instId, result) {
     const all = this.getAllResults(instId);
@@ -1227,11 +1526,71 @@ class MultiTenantStore {
       all.push(fullResult);
     }
 
+    // Yeni kayıt veya güncelleme yapıldığında silinenler listesinden çıkar
+    if (fullResult.examId && fullResult.studentNo) {
+      this.clearDeletedResultTombstone(instId, fullResult.examId, fullResult.studentNo);
+    }
+    if (fullResult.examId && fullResult.id) {
+      this.clearDeletedResultTombstone(instId, fullResult.examId, fullResult.id);
+    }
+
     this.saveAllResults(instId, all);
     if (window.CloudSync && typeof window.CloudSync.syncResult === 'function') {
       window.CloudSync.syncResult(instId, fullResult);
     }
     return fullResult;
+  }
+
+  // Yerel depodan sessizce sil (Bulut tetikleyicisi için)
+  deleteExamResultLocally(instId, examId, resultIdOrStudentNo) {
+    if (!instId || !examId || !resultIdOrStudentNo) return;
+    const keyStr = resultIdOrStudentNo.toString().trim();
+    const all = this.getAllResults(instId);
+    const filtered = all.filter(r => {
+      if (r.examId !== examId) return true;
+      if (r.id === keyStr || (r.studentNo && r.studentNo.toString().trim() === keyStr)) {
+        return false;
+      }
+      return true;
+    });
+    this.saveAllResults(instId, filtered);
+  }
+
+  // Bir öğrencinin optik form neticesini kalıcı olarak silme
+  deleteExamResult(instId, examId, resultIdOrStudentNo) {
+    if (!instId || !examId || !resultIdOrStudentNo) return false;
+    const keyStr = resultIdOrStudentNo.toString().trim();
+    const all = this.getAllResults(instId);
+    
+    // Silinecek kaydı hafızada tespit et
+    const matched = all.find(r => r.examId === examId && (r.id === keyStr || (r.studentNo && r.studentNo.toString().trim() === keyStr)));
+
+    const filtered = all.filter(r => {
+      if (r.examId !== examId) return true;
+      if (r.id === keyStr || (r.studentNo && r.studentNo.toString().trim() === keyStr)) {
+        return false;
+      }
+      return true;
+    });
+    this.saveAllResults(instId, filtered);
+
+    // Silinen sonuçlar listesine (tombstone) kaydet (Tekrar buluttan çekilmesini engeller)
+    this.recordDeletedResult(instId, examId, keyStr);
+    if (matched && matched.studentNo) {
+      this.recordDeletedResult(instId, examId, matched.studentNo);
+    }
+    if (matched && matched.id) {
+      this.recordDeletedResult(instId, examId, matched.id);
+    }
+
+    // Firestore bulut veritabanından da anında ve kalıcı sil
+    if (window.CloudSync && typeof window.CloudSync.deleteResult === 'function') {
+      window.CloudSync.deleteResult(instId, examId, keyStr);
+      if (matched && matched.studentNo && matched.studentNo.toString().trim() !== keyStr) {
+        window.CloudSync.deleteResult(instId, examId, matched.studentNo);
+      }
+    }
+    return true;
   }
 
   // Sınav Netice Sıralaması Hesaplayıcı
@@ -1531,25 +1890,8 @@ class MultiTenantStore {
   // --- Hazır Sınav Şablonları ---
   getTemplates() {
     try {
-      const raw = localStorage.getItem(STORAGE_PREFIX + 'templates');
-      let stored = raw ? JSON.parse(raw) : [];
-      if (!Array.isArray(stored) || stored.length === 0) {
-        localStorage.setItem(STORAGE_PREFIX + 'templates', JSON.stringify(DEFAULT_EXAM_TEMPLATES));
-        return DEFAULT_EXAM_TEMPLATES;
-      }
-      // DEFAULT_EXAM_TEMPLATES içinde yer alan yeni şablonları hafızaya ekle
-      const existingIds = new Set(stored.map(t => t.id));
-      let isUpdated = false;
-      DEFAULT_EXAM_TEMPLATES.forEach(tpl => {
-        if (!existingIds.has(tpl.id)) {
-          stored.push(tpl);
-          isUpdated = true;
-        }
-      });
-      if (isUpdated) {
-        localStorage.setItem(STORAGE_PREFIX + 'templates', JSON.stringify(stored));
-      }
-      return stored;
+      localStorage.setItem(STORAGE_PREFIX + 'templates', JSON.stringify(DEFAULT_EXAM_TEMPLATES));
+      return DEFAULT_EXAM_TEMPLATES;
     } catch {
       return DEFAULT_EXAM_TEMPLATES;
     }
@@ -1566,6 +1908,267 @@ class MultiTenantStore {
       .replace(/Ö/g, 'o').replace(/ö/g, 'o')
       .replace(/Ç/g, 'c').replace(/ç/g, 'c')
       .toLowerCase().trim();
+  }
+
+  // ==========================================
+  // OPTİK FORMAT (.FMT) ŞABLON & AYRIŞTIRMA MOTORU
+  // ==========================================
+  getDefaultFmtTemplates() {
+    return [
+      {
+        id: 'fmt_sekonik_90',
+        name: 'Sekonik Standart LGS (90 Soru)',
+        desc: 'Ktp: 1, No: 2-11, Ad Soyad: 12-35, Sınıf: 36-39, Cevaplar: 40-129',
+        fields: {
+          booklet: { enabled: true, start: 1, end: 1, length: 1, title: 'Kitapçık' },
+          studentNo: { enabled: true, start: 2, end: 11, length: 10, title: 'Talebe No' },
+          studentName: { enabled: true, start: 12, end: 35, length: 24, title: 'Adı Soyadı' },
+          className: { enabled: true, start: 36, end: 39, length: 4, title: 'Sınıf / Şube' },
+          answers: { enabled: true, start: 40, end: 129, length: 90, title: 'Cevaplar' }
+        },
+        subjects: [],
+        rawText: "KTP=1,1\nNO=2,10\nADSOYAD=12,24\nSINIF=36,4\nCEVAP=40,90"
+      },
+      {
+        id: 'fmt_kuantum_90',
+        name: 'Kuantum / TestPlus (90 Soru)',
+        desc: 'No: 1-10, Ad Soyad: 11-30, Ktp: 31, Sınıf: 32-35, Cevaplar: 36-125',
+        fields: {
+          studentNo: { enabled: true, start: 1, end: 10, length: 10, title: 'Talebe No' },
+          studentName: { enabled: true, start: 11, end: 30, length: 20, title: 'Adı Soyadı' },
+          booklet: { enabled: true, start: 31, end: 31, length: 1, title: 'Kitapçık' },
+          className: { enabled: true, start: 32, end: 35, length: 4, title: 'Sınıf / Şube' },
+          answers: { enabled: true, start: 36, end: 125, length: 90, title: 'Cevaplar' }
+        },
+        subjects: [],
+        rawText: "NO=1,10\nADSOYAD=11,20\nKTP=31,1\nSINIF=32,4\nCEVAP=36,90"
+      },
+      {
+        id: 'fmt_sekonik_60',
+        name: 'Sekonik Standart MEB (60 Soru)',
+        desc: 'Ktp: 1, No: 2-11, Ad Soyad: 12-35, Sınıf: 36-39, Cevaplar: 40-99',
+        fields: {
+          booklet: { enabled: true, start: 1, end: 1, length: 1, title: 'Kitapçık' },
+          studentNo: { enabled: true, start: 2, end: 11, length: 10, title: 'Talebe No' },
+          studentName: { enabled: true, start: 12, end: 35, length: 24, title: 'Adı Soyadı' },
+          className: { enabled: true, start: 36, end: 39, length: 4, title: 'Sınıf / Şube' },
+          answers: { enabled: true, start: 40, end: 99, length: 60, title: 'Cevaplar' }
+        },
+        subjects: [],
+        rawText: "KTP=1,1\nNO=2,10\nADSOYAD=12,24\nSINIF=36,4\nCEVAP=40,60"
+      },
+      {
+        id: 'fmt_sekonik_dersler_90',
+        name: 'Sekonik Ders Bloklu LGS (90 Soru)',
+        desc: 'Ders ders aralıklı (Türkçe 40-59, İnkılap 60-69, Din 70-79, İng 80-89, Mat 90-109, Fen 110-129)',
+        fields: {
+          booklet: { enabled: true, start: 1, end: 1, length: 1, title: 'Kitapçık' },
+          studentNo: { enabled: true, start: 2, end: 11, length: 10, title: 'Talebe No' },
+          studentName: { enabled: true, start: 12, end: 35, length: 24, title: 'Adı Soyadı' },
+          className: { enabled: true, start: 36, end: 39, length: 4, title: 'Sınıf / Şube' },
+          answers: { enabled: true, start: 40, end: 129, length: 90, title: 'Cevaplar' }
+        },
+        subjects: [
+          { name: 'Türkçe', start: 40, end: 59, length: 20 },
+          { name: 'T.C. İnkılap', start: 60, end: 69, length: 10 },
+          { name: 'Din Kültürü', start: 70, end: 79, length: 10 },
+          { name: 'İngilizce', start: 80, end: 89, length: 10 },
+          { name: 'Matematik', start: 90, end: 109, length: 20 },
+          { name: 'Fen Bilimleri', start: 110, end: 129, length: 20 }
+        ],
+        rawText: "KTP=1,1\nNO=2,10\nADSOYAD=12,24\nSINIF=36,4\nTURKCE=40,20\nINKILAP=60,10\nDIN=70,10\nINGILIZCE=80,10\nMATEMATIK=90,20\nFEN=110,20"
+      },
+      {
+        id: 'fmt_tyt_120',
+        name: 'Standart TYT (120 Soru)',
+        desc: 'Ktp: 1, No: 2-11, Ad Soyad: 12-35, Sınıf: 36-39, Cevaplar: 40-159',
+        fields: {
+          booklet: { enabled: true, start: 1, end: 1, length: 1, title: 'Kitapçık' },
+          studentNo: { enabled: true, start: 2, end: 11, length: 10, title: 'Talebe No' },
+          studentName: { enabled: true, start: 12, end: 35, length: 24, title: 'Adı Soyadı' },
+          className: { enabled: true, start: 36, end: 39, length: 4, title: 'Sınıf / Şube' },
+          answers: { enabled: true, start: 40, end: 159, length: 120, title: 'Cevaplar' }
+        },
+        subjects: [],
+        rawText: "KTP=1,1\nNO=2,10\nADSOYAD=12,24\nSINIF=36,4\nCEVAP=40,120"
+      }
+    ];
+  }
+
+  getFmtTemplates(instId) {
+    const defaults = this.getDefaultFmtTemplates();
+    try {
+      const key = STORAGE_PREFIX + 'fmt_templates_' + (instId || 'default');
+      const raw = localStorage.getItem(key);
+      const customList = raw ? JSON.parse(raw) : [];
+      return [...customList, ...defaults];
+    } catch {
+      return defaults;
+    }
+  }
+
+  saveFmtTemplate(instId, template) {
+    if (!template || !template.name) return { success: false, message: 'FMT format adı boş olamaz.' };
+    const key = STORAGE_PREFIX + 'fmt_templates_' + (instId || 'default');
+    try {
+      const raw = localStorage.getItem(key);
+      let list = raw ? JSON.parse(raw) : [];
+      const tplId = template.id && !template.id.startsWith('fmt_sekonik') && !template.id.startsWith('fmt_kuantum') && !template.id.startsWith('fmt_tyt')
+        ? template.id
+        : ('fmt_usr_' + Date.now());
+      const toSave = { ...template, id: tplId, isCustom: true, updatedAt: new Date().toISOString() };
+      const idx = list.findIndex(t => t.id === tplId);
+      if (idx !== -1) {
+        list[idx] = toSave;
+      } else {
+        list.unshift(toSave);
+      }
+      localStorage.setItem(key, JSON.stringify(list));
+      return { success: true, template: toSave };
+    } catch (err) {
+      return { success: false, message: err.message };
+    }
+  }
+
+  deleteFmtTemplate(instId, templateId) {
+    const key = STORAGE_PREFIX + 'fmt_templates_' + (instId || 'default');
+    try {
+      const raw = localStorage.getItem(key);
+      let list = raw ? JSON.parse(raw) : [];
+      list = list.filter(t => t.id !== templateId);
+      localStorage.setItem(key, JSON.stringify(list));
+      return { success: true };
+    } catch (err) {
+      return { success: false, message: err.message };
+    }
+  }
+
+  parseFmtDefinition(rawText, exam = null) {
+    if (!rawText || typeof rawText !== 'string') {
+      return this.getDefaultFmtTemplates()[0];
+    }
+
+    const cleanText = rawText.replace(/^\uFEFF/, '').trim();
+    if (!cleanText) {
+      return this.getDefaultFmtTemplates()[0];
+    }
+
+    const lines = cleanText.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+    
+    // Temel alan şablonu (1-indexed)
+    const fields = {
+      booklet: { enabled: true, start: 1, end: 1, length: 1, title: 'Kitapçık' },
+      studentNo: { enabled: true, start: 2, end: 11, length: 10, title: 'Talebe No' },
+      studentName: { enabled: true, start: 12, end: 35, length: 24, title: 'Adı Soyadı' },
+      className: { enabled: true, start: 36, end: 39, length: 4, title: 'Sınıf / Şube' },
+      answers: { enabled: true, start: 40, end: 129, length: 90, title: 'Cevaplar' }
+    };
+    const subjects = [];
+    let hasMatchedAny = false;
+
+    lines.forEach(line => {
+      // Yorum veya başlık satırlarını atla
+      if (line.startsWith('#') || line.startsWith('//') || (line.startsWith(';') && !line.includes('=')) || line.startsWith('[') || line.toUpperCase().startsWith('REM')) {
+        return;
+      }
+
+      let key = '';
+      let n1 = 0;
+      let n2 = 0;
+
+      // 1. Durum: KEY=N1,N2 veya KEY:N1,N2 veya KEY=N1-N2
+      const matchKV = line.match(/^([A-Za-z0-9_ğüşöçİĞÜŞÖÇ\- ]+)\s*[=:\t;,]\s*(\d+)\s*[-,\s;]+\s*(\d+)/i);
+      // 2. Durum: N1 N2 KEY (Sekonik standardı: 1 1 KTP veya 2 11 OGRNO)
+      const matchSekonik = line.match(/^(\d+)\s+(\d+)\s+([A-Za-z0-9_ğüşöçİĞÜŞÖÇ\- ]+)/i);
+      // 3. Durum: KEY N1 N2 (KEY 1 1)
+      const matchNameStartLen = line.match(/^([A-Za-z0-9_ğüşöçİĞÜŞÖÇ\- ]+)\s+(\d+)\s+(\d+)/i);
+
+      if (matchKV) {
+        key = matchKV[1].trim();
+        n1 = parseInt(matchKV[2], 10);
+        n2 = parseInt(matchKV[3], 10);
+      } else if (matchSekonik) {
+        n1 = parseInt(matchSekonik[1], 10);
+        n2 = parseInt(matchSekonik[2], 10);
+        key = matchSekonik[3].trim();
+      } else if (matchNameStartLen) {
+        key = matchNameStartLen[1].trim();
+        n1 = parseInt(matchNameStartLen[2], 10);
+        n2 = parseInt(matchNameStartLen[3], 10);
+      }
+
+      if (n1 > 0 && n2 > 0 && key) {
+        let start = n1;
+        let end = n2;
+        let length = 1;
+
+        if (n2 >= n1) {
+          start = n1;
+          end = n2;
+          length = (n2 - n1 + 1);
+        } else {
+          start = n1;
+          length = n2;
+          end = (n1 + n2 - 1);
+        }
+
+        const norm = key.toUpperCase()
+          .replace(/İ/g, 'I').replace(/Ğ/g, 'G').replace(/Ü/g, 'U')
+          .replace(/Ş/g, 'S').replace(/Ö/g, 'O').replace(/Ç/g, 'C')
+          .replace(/[^A-Z0-9]/g, '');
+
+        if (norm.includes('KTP') || norm.includes('KITAP') || norm.includes('BOOKLET') || norm === 'KT') {
+          fields.booklet = { enabled: true, start, end, length, title: 'Kitapçık' };
+          hasMatchedAny = true;
+        } else if (norm.includes('NO') || norm.includes('NUMARA') || norm.includes('OGR') || norm.includes('TC') || norm.includes('TALEBE')) {
+          fields.studentNo = { enabled: true, start, end, length, title: 'Talebe No' };
+          hasMatchedAny = true;
+        } else if (norm.includes('AD') || norm.includes('SOYAD') || norm.includes('ISIM') || norm.includes('NAME')) {
+          fields.studentName = { enabled: true, start, end, length, title: 'Adı Soyadı' };
+          hasMatchedAny = true;
+        } else if (norm.includes('SINIF') || norm.includes('SUBE') || norm.includes('CLASS') || norm.includes('SEVIYE')) {
+          fields.className = { enabled: true, start, end, length, title: 'Sınıf / Şube' };
+          hasMatchedAny = true;
+        } else if (norm.includes('CEVAP') || norm.includes('YANIT') || norm.includes('ANSWER') || norm.includes('OPTIK')) {
+          fields.answers = { enabled: true, start, end, length, title: 'Cevaplar' };
+          hasMatchedAny = true;
+        } else {
+          // Ders adı kontrolü (Örn: TURKCE, MATEMATIK, FEN vb.)
+          subjects.push({
+            name: key,
+            start,
+            end,
+            length
+          });
+          hasMatchedAny = true;
+        }
+      }
+    });
+
+    if (subjects.length > 0) {
+      subjects.sort((a, b) => a.start - b.start);
+      if (!fields.answers.start || fields.answers.start === 40) {
+        fields.answers.start = subjects[0].start;
+        fields.answers.end = subjects[subjects.length - 1].end;
+        fields.answers.length = (fields.answers.end - fields.answers.start + 1);
+      }
+    }
+
+    const qCount = (exam && exam.questionCount) ? parseInt(exam.questionCount, 10) : (fields.answers.length || 90);
+    if (!fields.answers.end || fields.answers.end <= fields.answers.start) {
+      fields.answers.end = fields.answers.start + qCount - 1;
+      fields.answers.length = qCount;
+    }
+
+    return {
+      id: 'fmt_parsed_' + Date.now(),
+      name: hasMatchedAny ? 'Yüklenen Özel FMT' : 'Varsayılan FMT',
+      desc: `Ktp: ${fields.booklet.start}-${fields.booklet.end}, No: ${fields.studentNo.start}-${fields.studentNo.end}, Ad: ${fields.studentName.start}-${fields.studentName.end}, Şube: ${fields.className.start}-${fields.className.end}, Cevaplar: ${fields.answers.start}-${fields.answers.end}`,
+      fields,
+      subjects,
+      rawText: cleanText,
+      isCustom: true
+    };
   }
 }
 

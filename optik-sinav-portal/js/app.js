@@ -2086,7 +2086,7 @@ window.App = {
                           <button onclick="App.showStudentModal('${instId}', '${st.id}')" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-amber-300 hover:text-amber-200 border border-slate-700 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer" title="Talebe Bilgilerini Düzenle">
                             <span>✍️</span> <span>Düzenle</span>
                           </button>
-                          <button onclick="App.deleteStudentPrompt('${instId}', '${st.id}', '${st.firstName} ${st.lastName}')" class="p-1.5 bg-slate-800 hover:bg-rose-950/60 text-rose-400 hover:text-rose-300 border border-slate-700 rounded-lg text-xs font-bold transition cursor-pointer" title="Talebeyi Sil">
+                          <button onclick="App.deleteStudentPrompt('${instId}', '${st.id}', '${encodeURIComponent(st.firstName + ' ' + st.lastName)}')" class="p-1.5 bg-slate-800 hover:bg-rose-950/60 text-rose-400 hover:text-rose-300 border border-slate-700 rounded-lg text-xs font-bold transition cursor-pointer" title="Talebeyi Sil">
                             🗑️
                           </button>
                         </div>
@@ -2202,7 +2202,7 @@ window.App = {
 
           <div class="pt-3 border-t border-slate-800 flex items-center justify-between gap-2">
             ${isEdit ? `
-              <button type="button" onclick="document.getElementById('student-form-modal').remove(); App.deleteStudentPrompt('${instId}', '${student.id}', '${student.firstName} ${student.lastName}')" class="px-3 py-2.5 bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white font-bold text-xs rounded-xl border border-rose-500/30 transition flex items-center gap-1 cursor-pointer" title="Talebeyi Sil">
+              <button type="button" onclick="document.getElementById('student-form-modal').remove(); App.deleteStudentPrompt('${instId}', '${student.id}', '${encodeURIComponent(student.firstName + ' ' + student.lastName)}')" class="px-3 py-2.5 bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white font-bold text-xs rounded-xl border border-rose-500/30 transition flex items-center gap-1 cursor-pointer" title="Talebeyi Sil">
                 <span>🗑️</span> <span>Talebeyi Sil</span>
               </button>
             ` : '<div></div>'}
@@ -2310,10 +2310,16 @@ window.App = {
     this.handleStudentSearch(this.studentSearchQuery || '');
   },
 
-  deleteStudentPrompt(instId, studentId, name) {
-    if (confirm(`"${name}" adlı talebeyi silmek istediğinize emin misiniz?`)) {
+  deleteStudentPrompt(instId, studentId, encodedName = '') {
+    let name = '';
+    try {
+      name = decodeURIComponent(encodedName);
+    } catch(e) {
+      name = encodedName || 'Talebe';
+    }
+    if (confirm(`"${name}" adlı talebeyi silmek istediğinize emin misiniz?\n\nBu işlem sonucunda talebe kaydı kalıcı olarak silinir ve buluttan tekrar geri gelmesi kesin olarak engellenir.`)) {
       window.PortalStore.deleteStudent(instId, studentId);
-      this.showToast('Talebe silindi.', 'info');
+      this.showToast(`✓ "${name}" kaydı kalıcı olarak silindi.`, 'info');
       this.render();
     }
   },
