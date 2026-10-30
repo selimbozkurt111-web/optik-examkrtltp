@@ -862,9 +862,9 @@ class MultiTenantStore {
     }
     const globals = this.getGlobalExams();
     const map = new Map();
-    localExams.forEach(e => map.set(e.id, e));
+    localExams.filter(e => !e.isGlobal).forEach(e => map.set(e.id, e));
     globals.forEach(g => {
-      if (!map.has(g.id)) map.set(g.id, g);
+      map.set(g.id, g);
     });
     return Array.from(map.values());
   }

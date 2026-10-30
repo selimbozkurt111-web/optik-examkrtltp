@@ -5843,17 +5843,25 @@ window.App = {
         </div>
 
         <!-- Durum Bildirim Kartı -->
-        <div class="p-3.5 rounded-2xl mb-5 flex items-center gap-3 border ${status.code === 'connected' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300' : (status.code === 'not_configured' ? 'bg-amber-500/10 border-amber-500/30 text-amber-300' : 'bg-slate-800/80 border-slate-700 text-slate-300')}">
-          <span class="w-3 h-3 rounded-full ${status.code === 'connected' ? 'bg-emerald-400 animate-pulse' : (status.code === 'not_configured' ? 'bg-amber-400' : 'bg-slate-400')}"></span>
+        <div class="p-3.5 rounded-2xl mb-4 flex items-center gap-3 border ${status.code === 'connected' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300' : (status.code === 'error' ? 'bg-rose-500/10 border-rose-500/30 text-rose-300' : (status.code === 'not_configured' ? 'bg-amber-500/10 border-amber-500/30 text-amber-300' : 'bg-slate-800/80 border-slate-700 text-slate-300'))}">
+          <span class="w-3 h-3 rounded-full ${status.code === 'connected' ? 'bg-emerald-400 animate-pulse' : (status.code === 'error' ? 'bg-rose-400' : (status.code === 'not_configured' ? 'bg-amber-400' : 'bg-slate-400'))}"></span>
           <div class="text-xs">
             <strong class="block font-bold">${status.label}</strong>
             <span class="text-[11px] opacity-80">
               ${status.code === 'connected' 
-                ? 'Tüm hocaların kaydettiği talebeler, sınavlar ve okunan optik formlar anlık olarak bu merkeze eşitlenmektedir.' 
-                : 'Sistem şu anda güvenle yerel hafızada çalışmaktadır. Ortak bulut havuzu için aşağıdaki Firebase yapılandırmasını tanımlayabilirsiniz.'}
+                ? 'Tüm cihazlar arasında canlı eşitlik aktiftir. Yapılan değişiklikler diğer ekranlara anında yansır.' 
+                : (status.code === 'error' ? 'Bulut veritabanına ulaşılamadı. Veriler yerel hafızada korunuyor.' : 'Sistem şu anda yerel hafızada çalışmaktadır.')}
             </span>
           </div>
         </div>
+
+        ${(status.code === 'error' || (window.CloudSync && window.CloudSync.lastError)) ? `
+          <div class="p-3 mb-4 bg-rose-950/40 border border-rose-500/30 rounded-2xl text-xs space-y-1">
+            <span class="font-bold text-rose-400 block">⚠️ Bulut Bağlantı Uyarısı:</span>
+            <p class="text-[11px] text-rose-200">${(window.CloudSync && window.CloudSync.lastError) ? window.CloudSync.lastError : 'Veritabanı erişim hatası'}</p>
+            <p class="text-[10px] text-slate-300 pt-1">💡 <strong>Çözüm:</strong> Firebase Console'da <em>Firestore Database &gt; Rules</em> sekmesine girip <code>allow read, write: if true;</code> kuralını yayınlayınız.</p>
+          </div>
+        ` : ''}
 
         <!-- Yapılandırma Giriş Alanı -->
         <div class="space-y-4">

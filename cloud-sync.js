@@ -3,7 +3,7 @@
  * 
  * Mimari:
  * 1. Yerel Öncelikli (Local-First): Tarayıcı hafızasıyla (localStorage) anında ve kesintisiz çalışır.
- * 2. Arka Plan Senkronizasyonu: İnternet aktif olduğunda Firebase Firestore ile çift yönlü eşitlenir.
+ * 2. Gerçek Zamanlı Dinleyici (onSnapshot): Herhangi bir cihazda yapılan sınav, netice ve talebe güncellemeleri anında diğer ekranlara canlı yansır.
  * 3. Çoklu Kurum İzolasyonu: Kurumlar kendi verilerini işler, süper yönetici tüm verileri merkezden görebilir.
  * 4. Çevrimdışı Dayanıklılık: İnternet kesilse dahi okuma/kayıt aksamaz, bağlantı gelince aktarılır.
  */
@@ -14,7 +14,8 @@ window.CloudSync = {
   isInitialized: false,
   status: 'idle', // 'idle', 'connecting', 'connected', 'offline', 'not_configured', 'error'
   lastSyncTime: null,
-  listeners: [],
+  lastError: null,
+  unsubscribeListeners: [],
 
   // Durum Bildirimi
   getStatus() {
@@ -23,7 +24,10 @@ window.CloudSync = {
     if (this.status === 'connected') return { code: 'connected', label: 'Bulut Eşitlendi (Canlı)', color: 'emerald' };
     if (this.status === 'connecting') return { code: 'connecting', label: 'Buluta Bağlanıyor...', color: 'cyan' };
     if (this.status === 'syncing') return { code: 'syncing', label: 'Veriler Eşitleniyor...', color: 'cyan' };
-    return { code: 'error', label: 'Bulut Bağlantı Hatası', color: 'rose' };
+    const errLabel = (this.lastError && this.lastError.includes('permission'))
+      ? 'Bulut İzin Hatası (Firestore Rules)'
+      : (this.lastError || 'Bulut Bağlantı Hatası');
+    return { code: 'error', label: errLabel, color: 'rose' };
   },
 
   // Konfigürasyon kontrolü
@@ -82,6 +86,7 @@ window.CloudSync = {
 
     try {
       this.status = 'connecting';
+      this.lastError = null;
       this.updateStatusBadge();
 
       // Zaten başlatılmış uygulama var mı?
@@ -103,19 +108,19 @@ window.CloudSync = {
       }
 
       this.isInitialized = true;
-      this.status = 'connected';
-      this.lastSyncTime = new Date();
-      this.updateStatusBadge();
+      console.log('✓ Firebase Bulut Senkronizasyonu başlatıldı.');
 
-      console.log('✓ Firebase Bulut Senkronizasyonu başarıyla bağlandı.');
+      // İlk veri çekme
+      await this.pullAllFromCloud();
 
-      // Başlangıçta buluttaki güncel verileri yerelle birleştir
-      this.pullAllFromCloud();
+      // Gerçek zamanlı canlı dinleyicileri bağla
+      this.attachRealtimeListeners();
 
       return true;
     } catch (error) {
       console.error('Firebase başlatma hatası:', error);
       this.status = 'error';
+      this.lastError = error.message;
       this.updateStatusBadge();
       return false;
     }
@@ -137,10 +142,186 @@ window.CloudSync = {
 
     badgeEl.className = `px-2.5 py-1 rounded-xl text-[11px] font-bold border transition flex items-center gap-1.5 cursor-pointer shadow-sm ${colorClasses[info.color] || colorClasses.slate}`;
     badgeEl.innerHTML = `
-      <span class="w-2 h-2 rounded-full ${info.color === 'emerald' ? 'bg-emerald-400 animate-pulse' : (info.color === 'cyan' ? 'bg-cyan-400 animate-spin' : (info.color === 'amber' ? 'bg-amber-400' : 'bg-slate-400'))}"></span>
+      <span class="w-2 h-2 rounded-full ${info.color === 'emerald' ? 'bg-emerald-400 animate-pulse' : (info.color === 'cyan' ? 'bg-cyan-400 animate-spin' : (info.color === 'amber' ? 'bg-amber-400' : (info.color === 'rose' ? 'bg-rose-400' : 'bg-slate-400')))}"></span>
       <span class="hidden sm:inline">${info.label}</span>
-      <span class="sm:hidden">${info.code === 'connected' ? 'Bulut Canlı' : 'Yerel'}</span>
+      <span class="sm:hidden">${info.code === 'connected' ? 'Bulut Canlı' : (info.code === 'error' ? 'Hata' : 'Yerel')}</span>
     `;
+  },
+
+  // --- GERÇEK ZAMANLI CANLI DİNLEYİCİLER (onSnapshot) ---
+  attachRealtimeListeners() {
+    if (!this.isInitialized || !this.db) return;
+
+    // Önceki dinleyicileri temizle
+    if (Array.isArray(this.unsubscribeListeners)) {
+      this.unsubscribeListeners.forEach(unsub => {
+        try { if (typeof unsub === 'function') unsub(); } catch(e){}
+      });
+    }
+    this.unsubscribeListeners = [];
+
+    // 1. Sınavları Gerçek Zamanlı Dinle
+    try {
+      const unsubExams = this.db.collection('exams').onSnapshot(snapshot => {
+        if (!snapshot || snapshot.empty) return;
+        const cloudExams = [];
+        snapshot.forEach(doc => cloudExams.push(doc.data()));
+        const hasChange = this.mergeExamsFromCloud(cloudExams);
+        if (hasChange) {
+          console.log('🔄 Buluttaki sınav değişiklikleri canlı olarak yerelle eşitlendi.');
+          if (window.App && typeof window.App.render === 'function') {
+            window.App.render();
+          }
+        }
+      }, err => {
+        console.warn('Sınav dinleyici bildirimi:', err.message);
+        if (err.code === 'permission-denied') {
+          this.status = 'error';
+          this.lastError = 'Firestore Erişim İzni Yok: Kuralları kontrol ediniz.';
+          this.updateStatusBadge();
+        }
+      });
+      this.unsubscribeListeners.push(unsubExams);
+    } catch(e) {
+      console.warn('Sınav dinleyicisi başlatılamadı:', e);
+    }
+
+    // 2. Optik Sonuçları Gerçek Zamanlı Dinle
+    try {
+      const unsubResults = this.db.collection('results').onSnapshot(snapshot => {
+        if (!snapshot || snapshot.empty) return;
+        const cloudResults = [];
+        snapshot.forEach(doc => cloudResults.push(doc.data()));
+        const hasChange = this.mergeResultsFromCloud(cloudResults);
+        if (hasChange && window.App && typeof window.App.render === 'function') {
+          window.App.render();
+        }
+      }, err => {
+        console.warn('Sonuç dinleyici bildirimi:', err.message);
+      });
+      this.unsubscribeListeners.push(unsubResults);
+    } catch(e) {
+      console.warn('Sonuç dinleyicisi başlatılamadı:', e);
+    }
+  },
+
+  // --- BİRLEŞTİRME VE EŞİTLEME YARDIMCILARI ---
+  mergeExamsFromCloud(examsList) {
+    if (!Array.isArray(examsList) || examsList.length === 0) return false;
+
+    const exGroup = {};
+    examsList.forEach(data => {
+      const instId = data.institutionId || (data.isGlobal ? 'global' : null);
+      if (instId) {
+        if (!exGroup[instId]) exGroup[instId] = [];
+        exGroup[instId].push(data);
+      }
+    });
+
+    let hasChange = false;
+
+    // 1. Global Merkezi Sınavları Birleştir
+    if (exGroup['global'] && exGroup['global'].length > 0) {
+      const localGlobals = window.PortalStore.getGlobalExams();
+      const gMap = new Map();
+      localGlobals.forEach(g => gMap.set(g.id, g));
+      exGroup['global'].forEach(g => {
+        const cur = gMap.get(g.id);
+        const gClone = { ...g };
+        delete gClone.cloudUpdatedAt;
+        const curClone = cur ? { ...cur } : null;
+        if (curClone) delete curClone.cloudUpdatedAt;
+        if (!cur || JSON.stringify(curClone) !== JSON.stringify(gClone)) {
+          gMap.set(g.id, { ...(cur || {}), ...g });
+          hasChange = true;
+        }
+      });
+      window.PortalStore.saveGlobalExams(Array.from(gMap.values()));
+    }
+
+    // 2. Kurum Sınavlarını Birleştir
+    Object.keys(exGroup).forEach(instId => {
+      if (instId === 'global') return;
+      const localList = (window.PortalStore.getExams(instId) || []).filter(e => !e.isGlobal);
+      const exMap = new Map();
+      localList.forEach(e => exMap.set(e.id, e));
+      exGroup[instId].forEach(e => {
+        if (e.isGlobal) return;
+        const cur = exMap.get(e.id);
+        const eClone = { ...e };
+        delete eClone.cloudUpdatedAt;
+        const curClone = cur ? { ...cur } : null;
+        if (curClone) delete curClone.cloudUpdatedAt;
+        if (!cur || JSON.stringify(curClone) !== JSON.stringify(eClone)) {
+          exMap.set(e.id, { ...(cur || {}), ...e });
+          hasChange = true;
+        }
+      });
+      window.PortalStore.saveExams(instId, Array.from(exMap.values()));
+    });
+
+    return hasChange;
+  },
+
+  mergeResultsFromCloud(resultsList) {
+    if (!Array.isArray(resultsList) || resultsList.length === 0) return false;
+
+    const resGroup = {};
+    resultsList.forEach(data => {
+      const instId = data.institutionId;
+      if (instId) {
+        if (!resGroup[instId]) resGroup[instId] = [];
+        resGroup[instId].push(data);
+      }
+    });
+
+    let hasChange = false;
+    Object.keys(resGroup).forEach(instId => {
+      const localList = window.PortalStore.getAllResults(instId);
+      const rMap = new Map();
+      localList.forEach(r => rMap.set(r.id || `${r.examId}_${r.studentNo}`, r));
+      resGroup[instId].forEach(r => {
+        const key = r.id || `${r.examId}_${r.studentNo}`;
+        const cur = rMap.get(key);
+        if (!cur || JSON.stringify(cur) !== JSON.stringify(r)) {
+          rMap.set(key, { ...(cur || {}), ...r });
+          hasChange = true;
+        }
+      });
+      window.PortalStore.saveAllResults(instId, Array.from(rMap.values()));
+    });
+
+    return hasChange;
+  },
+
+  mergeStudentsFromCloud(studentsList) {
+    if (!Array.isArray(studentsList) || studentsList.length === 0) return false;
+
+    const stGroup = {};
+    studentsList.forEach(data => {
+      const instId = data.institutionId;
+      if (instId) {
+        if (!stGroup[instId]) stGroup[instId] = [];
+        stGroup[instId].push(data);
+      }
+    });
+
+    let hasChange = false;
+    Object.keys(stGroup).forEach(instId => {
+      const localList = window.PortalStore.getStudents(instId);
+      const stMap = new Map();
+      localList.forEach(s => stMap.set(s.id, s));
+      stGroup[instId].forEach(s => {
+        const cur = stMap.get(s.id);
+        if (!cur || JSON.stringify(cur) !== JSON.stringify(s)) {
+          stMap.set(s.id, { ...(cur || {}), ...s });
+          hasChange = true;
+        }
+      });
+      window.PortalStore.saveStudents(instId, Array.from(stMap.values()));
+    });
+
+    return hasChange;
   },
 
   // --- ÇİFT YÖNLÜ BULUT AKTARIMLARI ---
@@ -153,8 +334,11 @@ window.CloudSync = {
         ...inst,
         cloudUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
       }, { merge: true });
+      this.status = 'connected';
+      this.updateStatusBadge();
     } catch (e) {
-      console.warn('Kurum buluta aktarılamadı (yerelde korundu):', e.message);
+      console.warn('Kurum buluta aktarılamadı:', e.message);
+      this.handleFirestoreError(e);
     }
   },
 
@@ -164,6 +348,7 @@ window.CloudSync = {
       await this.db.collection('institutions').doc(instId).delete();
     } catch (e) {
       console.warn('Kurum buluttan silinemedi:', e.message);
+      this.handleFirestoreError(e);
     }
   },
 
@@ -177,8 +362,11 @@ window.CloudSync = {
         institutionId: instId,
         cloudUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
       }, { merge: true });
+      this.status = 'connected';
+      this.updateStatusBadge();
     } catch (e) {
-      console.warn('Talebe buluta aktarılamadı (yerelde korundu):', e.message);
+      console.warn('Talebe buluta aktarılamadı:', e.message);
+      this.handleFirestoreError(e);
     }
   },
 
@@ -196,8 +384,11 @@ window.CloudSync = {
         }, { merge: true });
       });
       await batch.commit();
+      this.status = 'connected';
+      this.updateStatusBadge();
     } catch (e) {
       console.warn('Toplu talebe buluta aktarılamadı:', e.message);
+      this.handleFirestoreError(e);
     }
   },
 
@@ -208,6 +399,7 @@ window.CloudSync = {
       await this.db.collection('students').doc(docId).delete();
     } catch (e) {
       console.warn('Talebe buluttan silinemedi:', e.message);
+      this.handleFirestoreError(e);
     }
   },
 
@@ -221,8 +413,12 @@ window.CloudSync = {
         institutionId: instId,
         cloudUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
       }, { merge: true });
+      this.status = 'connected';
+      this.lastError = null;
+      this.updateStatusBadge();
     } catch (e) {
       console.warn('Sınav buluta aktarılamadı:', e.message);
+      this.handleFirestoreError(e, 'Sınav buluta aktarılamadı');
     }
   },
 
@@ -233,6 +429,7 @@ window.CloudSync = {
       await this.db.collection('exams').doc(docId).delete();
     } catch (e) {
       console.warn('Sınav buluttan silinemedi:', e.message);
+      this.handleFirestoreError(e);
     }
   },
 
@@ -247,8 +444,26 @@ window.CloudSync = {
         institutionId: instId,
         cloudUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
       }, { merge: true });
+      this.status = 'connected';
+      this.updateStatusBadge();
     } catch (e) {
       console.warn('Sınav neticesi buluta aktarılamadı:', e.message);
+      this.handleFirestoreError(e);
+    }
+  },
+
+  // Ortak Hata Yakalayıcı
+  handleFirestoreError(e, prefix = 'Bulut Hatası') {
+    this.status = 'error';
+    if (e.code === 'permission-denied') {
+      this.lastError = 'Firestore Erişim Yetkisi Reddedildi (Rules ayarı gereklidir)';
+    } else {
+      this.lastError = e.message || 'Bulut bağlantı hatası oluştu';
+    }
+    this.updateStatusBadge();
+
+    if (window.App && typeof window.App.showToast === 'function') {
+      window.App.showToast(`⚠️ ${prefix}: ${this.lastError}`, 'warning');
     }
   },
 
@@ -265,84 +480,39 @@ window.CloudSync = {
       if (!instSnap.empty) {
         const cloudInsts = [];
         instSnap.forEach(doc => cloudInsts.push(doc.data()));
-        
-        // Yereldeki kurumlarla birleştir
         const localInsts = window.PortalStore.getInstitutions();
         const instMap = new Map();
         localInsts.forEach(i => instMap.set(i.id, i));
         cloudInsts.forEach(i => instMap.set(i.id, { ...(instMap.get(i.id) || {}), ...i }));
-        
-        const mergedList = Array.from(instMap.values());
-        window.PortalStore.saveInstitutions(mergedList);
+        window.PortalStore.saveInstitutions(Array.from(instMap.values()));
       }
 
       // b) Talebeleri çek
       const stSnap = await this.db.collection('students').get();
       if (!stSnap.empty) {
-        const stGroup = {};
-        stSnap.forEach(doc => {
-          const data = doc.data();
-          const instId = data.institutionId;
-          if (instId) {
-            if (!stGroup[instId]) stGroup[instId] = [];
-            stGroup[instId].push(data);
-          }
-        });
-
-        Object.keys(stGroup).forEach(instId => {
-          const localList = window.PortalStore.getStudents(instId);
-          const stMap = new Map();
-          localList.forEach(s => stMap.set(s.id, s));
-          stGroup[instId].forEach(s => stMap.set(s.id, { ...(stMap.get(s.id) || {}), ...s }));
-          window.PortalStore.saveStudents(instId, Array.from(stMap.values()));
-        });
+        const cloudStudents = [];
+        stSnap.forEach(doc => cloudStudents.push(doc.data()));
+        this.mergeStudentsFromCloud(cloudStudents);
       }
 
       // c) Sınavları çek
       const examSnap = await this.db.collection('exams').get();
       if (!examSnap.empty) {
-        const exGroup = {};
-        examSnap.forEach(doc => {
-          const data = doc.data();
-          const instId = data.institutionId;
-          if (instId) {
-            if (!exGroup[instId]) exGroup[instId] = [];
-            exGroup[instId].push(data);
-          }
-        });
-
-        Object.keys(exGroup).forEach(instId => {
-          const localList = window.PortalStore.getExams(instId);
-          const exMap = new Map();
-          localList.forEach(e => exMap.set(e.id, e));
-          exGroup[instId].forEach(e => exMap.set(e.id, { ...(exMap.get(e.id) || {}), ...e }));
-          window.PortalStore.saveExams(instId, Array.from(exMap.values()));
-        });
+        const cloudExams = [];
+        examSnap.forEach(doc => cloudExams.push(doc.data()));
+        this.mergeExamsFromCloud(cloudExams);
       }
 
       // d) Neticeleri çek
       const resSnap = await this.db.collection('results').get();
       if (!resSnap.empty) {
-        const resGroup = {};
-        resSnap.forEach(doc => {
-          const data = doc.data();
-          const instId = data.institutionId;
-          if (instId) {
-            if (!resGroup[instId]) resGroup[instId] = [];
-            resGroup[instId].push(data);
-          }
-        });
-
-        Object.keys(resGroup).forEach(instId => {
-          const localList = window.PortalStore.getAllResults(instId);
-          const rMap = new Map();
-          localList.forEach(r => rMap.set(r.id || `${r.examId}_${r.studentNo}`, r));
-          resGroup[instId].forEach(r => rMap.set(r.id || `${r.examId}_${r.studentNo}`, { ...(rMap.get(r.id) || {}), ...r }));
-          window.PortalStore.saveAllResults(instId, Array.from(rMap.values()));
-        });
+        const cloudResults = [];
+        resSnap.forEach(doc => cloudResults.push(doc.data()));
+        this.mergeResultsFromCloud(cloudResults);
       }
 
       this.status = 'connected';
+      this.lastError = null;
       this.lastSyncTime = new Date();
       this.updateStatusBadge();
 
@@ -351,14 +521,13 @@ window.CloudSync = {
       }
 
       if (showFeedback && window.App && window.App.showToast) {
-        window.App.showToast('Buluttaki tüm talebeler ve sınavlar başarıyla eşitlendi!', 'success');
+        window.App.showToast('✓ Buluttaki tüm talebeler ve sınavlar başarıyla eşitlendi!', 'success');
       }
 
       return true;
     } catch (e) {
       console.error('Buluttan veri çekme hatası:', e);
-      this.status = 'connected';
-      this.updateStatusBadge();
+      this.handleFirestoreError(e, 'Buluttan veri çekilemedi');
       return false;
     }
   },
@@ -381,25 +550,29 @@ window.CloudSync = {
       let totalExams = 0;
       let totalResults = 0;
 
-      // Kurumları yükle
+      // Global sınavları yükle
+      const globalExams = window.PortalStore.getGlobalExams();
+      for (const gEx of globalExams) {
+        await this.syncExam('global', gEx);
+        totalExams++;
+      }
+
+      // Kurumları ve içeriklerini yükle
       for (const inst of institutions) {
         await this.syncInstitution(inst);
 
-        // Talebeleri yükle
         const students = window.PortalStore.getStudents(inst.id);
         totalStudents += students.length;
         if (students.length > 0) {
           await this.syncStudentsBulk(inst.id, students);
         }
 
-        // Sınavları yükle
-        const exams = window.PortalStore.getExams(inst.id);
+        const exams = (window.PortalStore.getExams(inst.id) || []).filter(e => !e.isGlobal);
         totalExams += exams.length;
         for (const exam of exams) {
           await this.syncExam(inst.id, exam);
         }
 
-        // Neticeleri yükle
         const results = window.PortalStore.getAllResults(inst.id);
         totalResults += results.length;
         for (const res of results) {
@@ -408,18 +581,18 @@ window.CloudSync = {
       }
 
       this.status = 'connected';
+      this.lastError = null;
       this.lastSyncTime = new Date();
       this.updateStatusBadge();
 
       if (showFeedback && window.App && window.App.showToast) {
-        window.App.showToast(`Yedekleme Tamamlandı: ${institutions.length} Kurum, ${totalStudents} Talebe, ${totalExams} Sınav ve ${totalResults} Okuma aktarıldı.`, 'success');
+        window.App.showToast(`✓ Yedekleme Tamamlandı: ${institutions.length} Kurum, ${totalStudents} Talebe, ${totalExams} Sınav ve ${totalResults} Okuma buluta aktarıldı.`, 'success');
       }
 
       return true;
     } catch (e) {
       console.error('Buluta veri yükleme hatası:', e);
-      this.status = 'error';
-      this.updateStatusBadge();
+      this.handleFirestoreError(e, 'Buluta yükleme başarısız');
       return false;
     }
   },
@@ -431,23 +604,19 @@ window.CloudSync = {
     }
   },
 
-  // Yapılandırma Kaydetme (Arayüzden girilen metni ayrıştırıp saklar)
+  // Yapılandırma Kaydetme
   saveConfigFromInput(inputStr) {
     if (!inputStr || typeof inputStr !== 'string') return false;
 
     let clean = inputStr.trim();
     let configObj = null;
 
-    // JSON formatında mı?
     if (clean.startsWith('{') && clean.endsWith('}')) {
       try {
         configObj = JSON.parse(clean);
-      } catch (e) {
-        // Devam et, regex ile dene
-      }
+      } catch (e) {}
     }
 
-    // JS formatında mı? (const firebaseConfig = { apiKey: "..." };)
     if (!configObj) {
       try {
         const apiKeyMatch = clean.match(/apiKey\s*:\s*["']([^"']+)["']/);
@@ -489,6 +658,7 @@ window.CloudSync = {
     localStorage.removeItem('optik_portal_firebase_config');
     this.isInitialized = false;
     this.status = 'not_configured';
+    this.lastError = null;
     this.updateStatusBadge();
   }
 };
