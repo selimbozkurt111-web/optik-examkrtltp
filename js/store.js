@@ -1725,6 +1725,267 @@ class MultiTenantStore {
       .replace(/Ç/g, 'c').replace(/ç/g, 'c')
       .toLowerCase().trim();
   }
+
+  // ==========================================
+  // OPTİK FORMAT (.FMT) ŞABLON & AYRIŞTIRMA MOTORU
+  // ==========================================
+  getDefaultFmtTemplates() {
+    return [
+      {
+        id: 'fmt_sekonik_90',
+        name: 'Sekonik Standart LGS (90 Soru)',
+        desc: 'Ktp: 1, No: 2-11, Ad Soyad: 12-35, Sınıf: 36-39, Cevaplar: 40-129',
+        fields: {
+          booklet: { enabled: true, start: 1, end: 1, length: 1, title: 'Kitapçık' },
+          studentNo: { enabled: true, start: 2, end: 11, length: 10, title: 'Talebe No' },
+          studentName: { enabled: true, start: 12, end: 35, length: 24, title: 'Adı Soyadı' },
+          className: { enabled: true, start: 36, end: 39, length: 4, title: 'Sınıf / Şube' },
+          answers: { enabled: true, start: 40, end: 129, length: 90, title: 'Cevaplar' }
+        },
+        subjects: [],
+        rawText: "KTP=1,1\nNO=2,10\nADSOYAD=12,24\nSINIF=36,4\nCEVAP=40,90"
+      },
+      {
+        id: 'fmt_kuantum_90',
+        name: 'Kuantum / TestPlus (90 Soru)',
+        desc: 'No: 1-10, Ad Soyad: 11-30, Ktp: 31, Sınıf: 32-35, Cevaplar: 36-125',
+        fields: {
+          studentNo: { enabled: true, start: 1, end: 10, length: 10, title: 'Talebe No' },
+          studentName: { enabled: true, start: 11, end: 30, length: 20, title: 'Adı Soyadı' },
+          booklet: { enabled: true, start: 31, end: 31, length: 1, title: 'Kitapçık' },
+          className: { enabled: true, start: 32, end: 35, length: 4, title: 'Sınıf / Şube' },
+          answers: { enabled: true, start: 36, end: 125, length: 90, title: 'Cevaplar' }
+        },
+        subjects: [],
+        rawText: "NO=1,10\nADSOYAD=11,20\nKTP=31,1\nSINIF=32,4\nCEVAP=36,90"
+      },
+      {
+        id: 'fmt_sekonik_60',
+        name: 'Sekonik Standart MEB (60 Soru)',
+        desc: 'Ktp: 1, No: 2-11, Ad Soyad: 12-35, Sınıf: 36-39, Cevaplar: 40-99',
+        fields: {
+          booklet: { enabled: true, start: 1, end: 1, length: 1, title: 'Kitapçık' },
+          studentNo: { enabled: true, start: 2, end: 11, length: 10, title: 'Talebe No' },
+          studentName: { enabled: true, start: 12, end: 35, length: 24, title: 'Adı Soyadı' },
+          className: { enabled: true, start: 36, end: 39, length: 4, title: 'Sınıf / Şube' },
+          answers: { enabled: true, start: 40, end: 99, length: 60, title: 'Cevaplar' }
+        },
+        subjects: [],
+        rawText: "KTP=1,1\nNO=2,10\nADSOYAD=12,24\nSINIF=36,4\nCEVAP=40,60"
+      },
+      {
+        id: 'fmt_sekonik_dersler_90',
+        name: 'Sekonik Ders Bloklu LGS (90 Soru)',
+        desc: 'Ders ders aralıklı (Türkçe 40-59, İnkılap 60-69, Din 70-79, İng 80-89, Mat 90-109, Fen 110-129)',
+        fields: {
+          booklet: { enabled: true, start: 1, end: 1, length: 1, title: 'Kitapçık' },
+          studentNo: { enabled: true, start: 2, end: 11, length: 10, title: 'Talebe No' },
+          studentName: { enabled: true, start: 12, end: 35, length: 24, title: 'Adı Soyadı' },
+          className: { enabled: true, start: 36, end: 39, length: 4, title: 'Sınıf / Şube' },
+          answers: { enabled: true, start: 40, end: 129, length: 90, title: 'Cevaplar' }
+        },
+        subjects: [
+          { name: 'Türkçe', start: 40, end: 59, length: 20 },
+          { name: 'T.C. İnkılap', start: 60, end: 69, length: 10 },
+          { name: 'Din Kültürü', start: 70, end: 79, length: 10 },
+          { name: 'İngilizce', start: 80, end: 89, length: 10 },
+          { name: 'Matematik', start: 90, end: 109, length: 20 },
+          { name: 'Fen Bilimleri', start: 110, end: 129, length: 20 }
+        ],
+        rawText: "KTP=1,1\nNO=2,10\nADSOYAD=12,24\nSINIF=36,4\nTURKCE=40,20\nINKILAP=60,10\nDIN=70,10\nINGILIZCE=80,10\nMATEMATIK=90,20\nFEN=110,20"
+      },
+      {
+        id: 'fmt_tyt_120',
+        name: 'Standart TYT (120 Soru)',
+        desc: 'Ktp: 1, No: 2-11, Ad Soyad: 12-35, Sınıf: 36-39, Cevaplar: 40-159',
+        fields: {
+          booklet: { enabled: true, start: 1, end: 1, length: 1, title: 'Kitapçık' },
+          studentNo: { enabled: true, start: 2, end: 11, length: 10, title: 'Talebe No' },
+          studentName: { enabled: true, start: 12, end: 35, length: 24, title: 'Adı Soyadı' },
+          className: { enabled: true, start: 36, end: 39, length: 4, title: 'Sınıf / Şube' },
+          answers: { enabled: true, start: 40, end: 159, length: 120, title: 'Cevaplar' }
+        },
+        subjects: [],
+        rawText: "KTP=1,1\nNO=2,10\nADSOYAD=12,24\nSINIF=36,4\nCEVAP=40,120"
+      }
+    ];
+  }
+
+  getFmtTemplates(instId) {
+    const defaults = this.getDefaultFmtTemplates();
+    try {
+      const key = STORAGE_PREFIX + 'fmt_templates_' + (instId || 'default');
+      const raw = localStorage.getItem(key);
+      const customList = raw ? JSON.parse(raw) : [];
+      return [...customList, ...defaults];
+    } catch {
+      return defaults;
+    }
+  }
+
+  saveFmtTemplate(instId, template) {
+    if (!template || !template.name) return { success: false, message: 'FMT format adı boş olamaz.' };
+    const key = STORAGE_PREFIX + 'fmt_templates_' + (instId || 'default');
+    try {
+      const raw = localStorage.getItem(key);
+      let list = raw ? JSON.parse(raw) : [];
+      const tplId = template.id && !template.id.startsWith('fmt_sekonik') && !template.id.startsWith('fmt_kuantum') && !template.id.startsWith('fmt_tyt')
+        ? template.id
+        : ('fmt_usr_' + Date.now());
+      const toSave = { ...template, id: tplId, isCustom: true, updatedAt: new Date().toISOString() };
+      const idx = list.findIndex(t => t.id === tplId);
+      if (idx !== -1) {
+        list[idx] = toSave;
+      } else {
+        list.unshift(toSave);
+      }
+      localStorage.setItem(key, JSON.stringify(list));
+      return { success: true, template: toSave };
+    } catch (err) {
+      return { success: false, message: err.message };
+    }
+  }
+
+  deleteFmtTemplate(instId, templateId) {
+    const key = STORAGE_PREFIX + 'fmt_templates_' + (instId || 'default');
+    try {
+      const raw = localStorage.getItem(key);
+      let list = raw ? JSON.parse(raw) : [];
+      list = list.filter(t => t.id !== templateId);
+      localStorage.setItem(key, JSON.stringify(list));
+      return { success: true };
+    } catch (err) {
+      return { success: false, message: err.message };
+    }
+  }
+
+  parseFmtDefinition(rawText, exam = null) {
+    if (!rawText || typeof rawText !== 'string') {
+      return this.getDefaultFmtTemplates()[0];
+    }
+
+    const cleanText = rawText.replace(/^\uFEFF/, '').trim();
+    if (!cleanText) {
+      return this.getDefaultFmtTemplates()[0];
+    }
+
+    const lines = cleanText.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+    
+    // Temel alan şablonu (1-indexed)
+    const fields = {
+      booklet: { enabled: true, start: 1, end: 1, length: 1, title: 'Kitapçık' },
+      studentNo: { enabled: true, start: 2, end: 11, length: 10, title: 'Talebe No' },
+      studentName: { enabled: true, start: 12, end: 35, length: 24, title: 'Adı Soyadı' },
+      className: { enabled: true, start: 36, end: 39, length: 4, title: 'Sınıf / Şube' },
+      answers: { enabled: true, start: 40, end: 129, length: 90, title: 'Cevaplar' }
+    };
+    const subjects = [];
+    let hasMatchedAny = false;
+
+    lines.forEach(line => {
+      // Yorum veya başlık satırlarını atla
+      if (line.startsWith('#') || line.startsWith('//') || (line.startsWith(';') && !line.includes('=')) || line.startsWith('[') || line.toUpperCase().startsWith('REM')) {
+        return;
+      }
+
+      let key = '';
+      let n1 = 0;
+      let n2 = 0;
+
+      // 1. Durum: KEY=N1,N2 veya KEY:N1,N2 veya KEY=N1-N2
+      const matchKV = line.match(/^([A-Za-z0-9_ğüşöçİĞÜŞÖÇ\- ]+)\s*[=:\t;,]\s*(\d+)\s*[-,\s;]+\s*(\d+)/i);
+      // 2. Durum: N1 N2 KEY (Sekonik standardı: 1 1 KTP veya 2 11 OGRNO)
+      const matchSekonik = line.match(/^(\d+)\s+(\d+)\s+([A-Za-z0-9_ğüşöçİĞÜŞÖÇ\- ]+)/i);
+      // 3. Durum: KEY N1 N2 (KEY 1 1)
+      const matchNameStartLen = line.match(/^([A-Za-z0-9_ğüşöçİĞÜŞÖÇ\- ]+)\s+(\d+)\s+(\d+)/i);
+
+      if (matchKV) {
+        key = matchKV[1].trim();
+        n1 = parseInt(matchKV[2], 10);
+        n2 = parseInt(matchKV[3], 10);
+      } else if (matchSekonik) {
+        n1 = parseInt(matchSekonik[1], 10);
+        n2 = parseInt(matchSekonik[2], 10);
+        key = matchSekonik[3].trim();
+      } else if (matchNameStartLen) {
+        key = matchNameStartLen[1].trim();
+        n1 = parseInt(matchNameStartLen[2], 10);
+        n2 = parseInt(matchNameStartLen[3], 10);
+      }
+
+      if (n1 > 0 && n2 > 0 && key) {
+        let start = n1;
+        let end = n2;
+        let length = 1;
+
+        if (n2 >= n1) {
+          start = n1;
+          end = n2;
+          length = (n2 - n1 + 1);
+        } else {
+          start = n1;
+          length = n2;
+          end = (n1 + n2 - 1);
+        }
+
+        const norm = key.toUpperCase()
+          .replace(/İ/g, 'I').replace(/Ğ/g, 'G').replace(/Ü/g, 'U')
+          .replace(/Ş/g, 'S').replace(/Ö/g, 'O').replace(/Ç/g, 'C')
+          .replace(/[^A-Z0-9]/g, '');
+
+        if (norm.includes('KTP') || norm.includes('KITAP') || norm.includes('BOOKLET') || norm === 'KT') {
+          fields.booklet = { enabled: true, start, end, length, title: 'Kitapçık' };
+          hasMatchedAny = true;
+        } else if (norm.includes('NO') || norm.includes('NUMARA') || norm.includes('OGR') || norm.includes('TC') || norm.includes('TALEBE')) {
+          fields.studentNo = { enabled: true, start, end, length, title: 'Talebe No' };
+          hasMatchedAny = true;
+        } else if (norm.includes('AD') || norm.includes('SOYAD') || norm.includes('ISIM') || norm.includes('NAME')) {
+          fields.studentName = { enabled: true, start, end, length, title: 'Adı Soyadı' };
+          hasMatchedAny = true;
+        } else if (norm.includes('SINIF') || norm.includes('SUBE') || norm.includes('CLASS') || norm.includes('SEVIYE')) {
+          fields.className = { enabled: true, start, end, length, title: 'Sınıf / Şube' };
+          hasMatchedAny = true;
+        } else if (norm.includes('CEVAP') || norm.includes('YANIT') || norm.includes('ANSWER') || norm.includes('OPTIK')) {
+          fields.answers = { enabled: true, start, end, length, title: 'Cevaplar' };
+          hasMatchedAny = true;
+        } else {
+          // Ders adı kontrolü (Örn: TURKCE, MATEMATIK, FEN vb.)
+          subjects.push({
+            name: key,
+            start,
+            end,
+            length
+          });
+          hasMatchedAny = true;
+        }
+      }
+    });
+
+    if (subjects.length > 0) {
+      subjects.sort((a, b) => a.start - b.start);
+      if (!fields.answers.start || fields.answers.start === 40) {
+        fields.answers.start = subjects[0].start;
+        fields.answers.end = subjects[subjects.length - 1].end;
+        fields.answers.length = (fields.answers.end - fields.answers.start + 1);
+      }
+    }
+
+    const qCount = (exam && exam.questionCount) ? parseInt(exam.questionCount, 10) : (fields.answers.length || 90);
+    if (!fields.answers.end || fields.answers.end <= fields.answers.start) {
+      fields.answers.end = fields.answers.start + qCount - 1;
+      fields.answers.length = qCount;
+    }
+
+    return {
+      id: 'fmt_parsed_' + Date.now(),
+      name: hasMatchedAny ? 'Yüklenen Özel FMT' : 'Varsayılan FMT',
+      desc: `Ktp: ${fields.booklet.start}-${fields.booklet.end}, No: ${fields.studentNo.start}-${fields.studentNo.end}, Ad: ${fields.studentName.start}-${fields.studentName.end}, Şube: ${fields.className.start}-${fields.className.end}, Cevaplar: ${fields.answers.start}-${fields.answers.end}`,
+      fields,
+      subjects,
+      rawText: cleanText,
+      isCustom: true
+    };
+  }
 }
 
 window.PortalStore = new MultiTenantStore();
