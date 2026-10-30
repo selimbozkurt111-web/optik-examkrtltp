@@ -581,6 +581,7 @@ window.OpticalSheetGenerator = {
           <td class="p-2 text-center text-xs font-bold text-rose-600">${sub.wrong || 0}</td>
           <td class="p-2 text-center text-xs font-semibold text-slate-500">${sub.empty || 0}</td>
           <td class="p-2 text-center text-xs font-black text-cyan-700">${sub.net || 0}</td>
+          <td class="p-2 text-center text-xs font-mono font-bold text-purple-700">${sub.autoCoeff || sub.coeff || '-'}</td>
           <td class="p-2 text-xs">
             <div class="flex items-center gap-2">
               <div class="w-full bg-slate-200 rounded-full h-2.5 overflow-hidden">
@@ -638,6 +639,7 @@ window.OpticalSheetGenerator = {
           <div class="bg-emerald-50 border-2 border-emerald-500/40 p-3 rounded-xl text-center">
             <span class="block text-[10px] font-bold uppercase text-emerald-800">Sınav Puanı</span>
             <span class="text-2xl font-black text-emerald-700 font-mono">${totalScore}</span>
+            <span class="block text-[8px] text-emerald-600 font-bold mt-0.5 tracking-tight">(Taban: 200 • Tavan: 500)</span>
           </div>
           <div class="bg-cyan-50 border-2 border-cyan-500/40 p-3 rounded-xl text-center">
             <span class="block text-[10px] font-bold uppercase text-cyan-800">Toplam Net</span>
@@ -657,7 +659,7 @@ window.OpticalSheetGenerator = {
         <div class="border border-slate-300 rounded-xl overflow-hidden mb-6">
           <div class="bg-slate-900 text-white px-3.5 py-2 font-bold text-xs uppercase flex items-center justify-between">
             <span>Ders Değerlendirme ve Başarı Analizi</span>
-            <span class="text-[10px] text-slate-400 font-normal">3 Yanlış 1 Doğruyu Götürür</span>
+            <span class="text-[10px] text-slate-400 font-normal">Otomatik Katsayı Dağıtımı</span>
           </div>
           <table class="w-full text-left">
             <thead class="bg-slate-100 border-b border-slate-300 text-[11px] font-black text-slate-700 uppercase">
@@ -668,6 +670,7 @@ window.OpticalSheetGenerator = {
                 <th class="p-2 text-center">Yanlış</th>
                 <th class="p-2 text-center">Boş</th>
                 <th class="p-2 text-center">Net</th>
+                <th class="p-2 text-center">Katsayı</th>
                 <th class="p-2 min-w-[140px]">Başarı Oranı</th>
               </tr>
             </thead>
@@ -784,6 +787,305 @@ window.OpticalSheetGenerator = {
           </button>
         </div>
         ${cardsHtml}
+      </body>
+      </html>
+    `);
+    printWindow.document.close();
+  },
+
+  // --- RESMİ SINAV SONUÇ ÇİZELGESİ & TOPLU LİSTE KARNE (A4 YATAY) ---
+  renderBulkReportCardListHtml(exam, rankings, institutionName = 'EĞİTİM KURUMU', targetClassFilter = 'all') {
+    if (!exam || !Array.isArray(rankings)) return '<div class="p-6 text-center text-slate-500">Kayıt bulunamadı.</div>';
+
+    let filtered = rankings;
+    if (targetClassFilter && targetClassFilter !== 'all') {
+      filtered = rankings.filter(r => (r.className || 'Genel') === targetClassFilter);
+    }
+
+    const subjects = (exam.subjects && exam.subjects.length > 0) ? exam.subjects : [{ name: 'Genel' }];
+    const totalStudents = filtered.length;
+    const examTitle = exam.title || 'Deneme Sınavı';
+    const examDate = exam.examDate || new Date().toISOString().split('T')[0];
+    const targetClass = targetClassFilter === 'all' ? (exam.targetClass || 'TÜM ŞUBELER') : `${targetClassFilter} ŞUBESİ`;
+
+    // Ortalama hesapları
+    let sumTotalScore = 0;
+    let sumTotalNet = 0;
+    let sumTotalCorrect = 0;
+    let sumTotalWrong = 0;
+    const subjectSums = {};
+    subjects.forEach(s => {
+      subjectSums[s.name] = { correct: 0, wrong: 0, net: 0, count: 0 };
+    });
+
+    filtered.forEach(r => {
+      sumTotalScore += (parseFloat(r.totalScore) || 0);
+      sumTotalNet += (parseFloat(r.totalNet) || 0);
+      sumTotalCorrect += (parseInt(r.totalCorrect, 10) || 0);
+      sumTotalWrong += (parseInt(r.totalWrong, 10) || 0);
+
+      subjects.forEach(s => {
+        const subData = (r.subjectsResult && r.subjectsResult[s.name]) ? r.subjectsResult[s.name] : null;
+        if (subData) {
+          subjectSums[s.name].correct += (subData.correct || 0);
+          subjectSums[s.name].wrong += (subData.wrong || 0);
+          subjectSums[s.name].net += (subData.net || 0);
+          subjectSums[s.name].count++;
+        }
+      });
+    });
+
+    const avgScore = totalStudents > 0 ? (sumTotalScore / totalStudents).toFixed(2) : '0.00';
+    const avgNet = totalStudents > 0 ? (sumTotalNet / totalStudents).toFixed(2) : '0.00';
+    const avgCorrect = totalStudents > 0 ? (sumTotalCorrect / totalStudents).toFixed(1) : '0.0';
+    const avgWrong = totalStudents > 0 ? (sumTotalWrong / totalStudents).toFixed(1) : '0.0';
+
+    const getShortSubName = (name) => {
+      if (!name) return '';
+      const n = String(name).trim();
+      const lower = n.toLowerCase();
+      if (lower.startsWith('türkçe') || lower.startsWith('turkce')) return 'Türkçe';
+      if (lower.startsWith('matematik') || lower.startsWith('mat')) return 'Mat.';
+      if (lower.includes('fen')) return 'Fen Bil.';
+      if (lower.includes('inkılap') || lower.includes('tarih')) return 'İnkılap';
+      if (lower.includes('din')) return 'Din Kül.';
+      if (lower.includes('ingilizce') || lower.includes('yabancı') || lower.includes('ing')) return 'İngilizce';
+      if (lower.includes('sosyal')) return 'Sosyal';
+      if (lower.includes('fizik')) return 'Fizik';
+      if (lower.includes('kimya')) return 'Kimya';
+      if (lower.includes('biyoloji')) return 'Biyoloji';
+      if (lower.includes('edebiyat')) return 'Edebiyat';
+      if (lower.includes('coğrafya')) return 'Coğrafya';
+      if (lower.includes('felsefe')) return 'Felsefe';
+      if (n.length > 8) return n.substring(0, 7) + '.';
+      return n;
+    };
+
+    return `
+      <div class="bulk-card-page bg-white text-slate-900 p-3 sm:p-4 border-2 border-slate-900 w-full max-w-[1050px] mx-auto my-2 shadow-xl rounded-xl font-sans text-xs">
+        <!-- Üst Resmi Başlık Bölümü -->
+        <div class="flex items-center justify-between border-b-2 border-slate-900 pb-2 mb-2">
+          <div class="flex items-center gap-2.5">
+            <div class="w-10 h-10 rounded-xl bg-slate-900 text-amber-400 font-black text-xl flex items-center justify-center shadow">
+              🏛️
+            </div>
+            <div>
+              <h1 class="text-sm sm:text-base font-black tracking-tight text-slate-900 uppercase leading-snug">${institutionName}</h1>
+              <h2 class="text-[11px] font-black text-indigo-900 tracking-wider uppercase">RESMİ DENEME SINAVI TOPLU SONUÇ ÇİZELGESİ (TOPLU KARNE LİSTESİ)</h2>
+            </div>
+          </div>
+          <div class="text-right text-[10px] text-slate-700 leading-tight space-y-0.5">
+            <div><strong>Sınav:</strong> <span class="text-slate-900 font-bold">${examTitle}</span></div>
+            <div><strong>Tarih:</strong> ${examDate} • <strong>Şube:</strong> <span class="font-bold text-indigo-900">${targetClass}</span></div>
+            <div><strong>Puan Standardı:</strong> <span class="font-bold text-amber-800">Taban 200 • Tavan 500 Puan</span></div>
+          </div>
+        </div>
+
+        <!-- 5'li Özet İstatistik Şeridi -->
+        <div class="grid grid-cols-5 gap-2 mb-2.5 bg-slate-100 p-2 rounded-lg border border-slate-300 text-center text-xs">
+          <div>
+            <span class="block text-[9px] font-bold text-slate-500 uppercase leading-none">Katılan Talebe</span>
+            <span class="text-sm font-black text-slate-900 font-mono mt-0.5 inline-block">${totalStudents}</span>
+          </div>
+          <div>
+            <span class="block text-[9px] font-bold text-slate-500 uppercase leading-none">Ortalama Doğru</span>
+            <span class="text-sm font-black text-emerald-700 font-mono mt-0.5 inline-block">${avgCorrect}</span>
+          </div>
+          <div>
+            <span class="block text-[9px] font-bold text-slate-500 uppercase leading-none">Ortalama Yanlış</span>
+            <span class="text-sm font-black text-rose-700 font-mono mt-0.5 inline-block">${avgWrong}</span>
+          </div>
+          <div>
+            <span class="block text-[9px] font-bold text-slate-500 uppercase leading-none">Ortalama Net</span>
+            <span class="text-sm font-black text-cyan-700 font-mono mt-0.5 inline-block">${avgNet}</span>
+          </div>
+          <div class="bg-amber-100/90 rounded py-0.5 border border-amber-300">
+            <span class="block text-[9px] font-black text-amber-900 uppercase leading-none">Ortalama Puan</span>
+            <span class="text-sm font-black text-amber-900 font-mono mt-0.5 inline-block">${avgScore}</span>
+          </div>
+        </div>
+
+        <!-- Ana Toplu Liste Karne Tablosu -->
+        <div class="border border-slate-300 rounded-lg overflow-hidden mb-3">
+          <table class="w-full text-left text-[10px] border-collapse table-auto">
+            <thead class="bg-slate-900 text-white font-bold uppercase text-[9px] tracking-wider">
+              <tr>
+                <th class="py-1 px-1 text-center w-8 border-r border-slate-800" title="Genel Sıra">Sıra</th>
+                <th class="py-1 px-1 text-center w-8 border-r border-slate-800" title="Şube Sırası">Şube S.</th>
+                <th class="py-1 px-1.5 w-11 border-r border-slate-800">No</th>
+                <th class="py-1 px-1.5 border-r border-slate-800 min-w-[120px]">Talebe Adı Soyadı</th>
+                <th class="py-1 px-1 border-r border-slate-800 w-10 text-center">Şube</th>
+                <th class="py-1 px-0.5 border-r border-slate-800 w-7 text-center">Kit.</th>
+                ${subjects.map(s => `
+                  <th class="py-1 px-1 text-center border-r border-slate-800 bg-slate-800" title="${s.name} (${s.coeff || 1} Kat.)">
+                    <div class="truncate max-w-[65px] mx-auto text-[9.5px] leading-tight font-black">${getShortSubName(s.name)}</div>
+                    <div class="text-[8px] font-mono text-cyan-300 font-normal leading-none mt-0.5">D/Y • Net</div>
+                  </th>
+                `).join('')}
+                <th class="py-1 px-1 text-center w-9 border-r border-slate-800 bg-emerald-950/70 text-emerald-300 font-bold">Top.D</th>
+                <th class="py-1 px-1 text-center w-9 border-r border-slate-800 bg-rose-950/70 text-rose-300 font-bold">Top.Y</th>
+                <th class="py-1 px-1 text-center w-11 border-r border-slate-800 bg-cyan-950/70 text-cyan-300 font-black">Net</th>
+                <th class="py-1 px-1 text-center w-12 bg-amber-950/80 text-amber-300 font-black">Puan</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-200">
+              ${filtered.length === 0 ? `
+                <tr>
+                  <td colspan="${7 + subjects.length}" class="p-5 text-center text-slate-500">Bu şubeye ait sınav kaydı bulunmamaktadır.</td>
+                </tr>
+              ` : filtered.map((r, idx) => {
+                const isEven = idx % 2 === 0;
+                return `
+                  <tr class="${isEven ? 'bg-white' : 'bg-slate-50/70'} hover:bg-indigo-50/50 transition">
+                    <td class="py-1 px-1 text-center font-mono font-bold text-slate-800 border-r border-slate-200">
+                      <span class="inline-block px-1 py-0.2 rounded text-[9.5px] ${r.generalRank === 1 ? 'bg-amber-400 font-black text-slate-950' : (r.generalRank === 2 ? 'bg-slate-300 font-bold text-slate-950' : (r.generalRank === 3 ? 'bg-amber-700 font-bold text-white' : 'text-slate-700'))}">
+                        ${r.generalRank}
+                      </span>
+                    </td>
+                    <td class="py-1 px-1 text-center font-mono font-bold text-slate-600 border-r border-slate-200 text-[9.5px]">
+                      ${r.classRank || idx + 1}
+                    </td>
+                    <td class="py-1 px-1.5 font-mono font-bold text-emerald-800 border-r border-slate-200 text-[9.5px]">
+                      ${r.studentNo}
+                    </td>
+                    <td class="py-1 px-1.5 font-bold text-slate-900 uppercase truncate max-w-[140px] border-r border-slate-200 text-[10px]">
+                      ${r.studentName}
+                    </td>
+                    <td class="py-1 px-1 text-center font-semibold text-slate-700 border-r border-slate-200 text-[9.5px]">
+                      ${r.className}
+                    </td>
+                    <td class="py-1 px-0.5 text-center font-mono font-bold text-cyan-700 border-r border-slate-200 text-[9.5px]">
+                      ${r.booklet || 'A'}
+                    </td>
+                    ${subjects.map(s => {
+                      const subRes = (r.subjectsResult && r.subjectsResult[s.name]) ? r.subjectsResult[s.name] : { correct: 0, wrong: 0, net: 0 };
+                      return `
+                        <td class="py-1 px-1 text-center font-mono border-r border-slate-200 leading-tight">
+                          <div class="text-[8.5px] text-slate-600">
+                            <span class="font-bold text-emerald-700">${subRes.correct || 0}</span>/<span class="font-bold text-rose-600">${subRes.wrong || 0}</span>
+                          </div>
+                          <div class="font-black text-indigo-950 text-[9.5px]">${subRes.net || 0}</div>
+                        </td>
+                      `;
+                    }).join('')}
+                    <td class="py-1 px-1 text-center font-mono font-bold text-emerald-800 border-r border-slate-200 bg-emerald-50/40 text-[9.5px]">
+                      ${r.totalCorrect}
+                    </td>
+                    <td class="py-1 px-1 text-center font-mono font-bold text-rose-700 border-r border-slate-200 bg-rose-50/40 text-[9.5px]">
+                      ${r.totalWrong}
+                    </td>
+                    <td class="py-1 px-1 text-center font-mono font-black text-cyan-900 border-r border-slate-200 bg-cyan-50/50 text-[10px]">
+                      ${r.totalNet}
+                    </td>
+                    <td class="py-1 px-1 text-center font-mono font-black text-amber-900 bg-amber-50/70 text-[10.5px]">
+                      ${r.totalScore}
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+            <!-- Kurum Ortalamaları Dipnot Satırı -->
+            <tfoot class="bg-slate-900 text-white font-bold text-[9px] border-t-2 border-slate-800">
+              <tr>
+                <td colspan="6" class="py-1.5 px-2 text-right tracking-wider uppercase border-r border-slate-800">
+                  🎯 GENEL ORTALAMALAR:
+                </td>
+                ${subjects.map(s => {
+                  const sSum = subjectSums[s.name];
+                  const sAvgNet = totalStudents > 0 ? (sSum.net / totalStudents).toFixed(2) : '0.00';
+                  const sAvgC = totalStudents > 0 ? (sSum.correct / totalStudents).toFixed(1) : '0.0';
+                  const sAvgW = totalStudents > 0 ? (sSum.wrong / totalStudents).toFixed(1) : '0.0';
+                  return `
+                    <td class="py-1 px-1 text-center font-mono border-r border-slate-800 leading-tight">
+                      <div class="text-[8px] text-cyan-300 font-semibold">${sAvgC}/${sAvgW}</div>
+                      <div class="text-[9.5px] text-white font-black">${sAvgNet}</div>
+                    </td>
+                  `;
+                }).join('')}
+                <td class="py-1.5 px-1 text-center font-mono text-emerald-300 border-r border-slate-800 text-[9.5px]">${avgCorrect}</td>
+                <td class="py-1.5 px-1 text-center font-mono text-rose-300 border-r border-slate-800 text-[9.5px]">${avgWrong}</td>
+                <td class="py-1.5 px-1 text-center font-mono font-black text-cyan-300 border-r border-slate-800 text-[10px]">${avgNet}</td>
+                <td class="py-1.5 px-1 text-center font-mono font-black text-amber-300 text-[10.5px]">${avgScore}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        <!-- İmzalar ve Resmi Onay -->
+        <div class="grid grid-cols-3 gap-4 text-center text-[10px] mt-2 pt-2 border-t border-slate-300">
+          <div>
+            <span class="font-bold text-slate-800 block">Sınav Değerlendirme Komisyonu</span>
+            <span class="text-[9px] text-slate-500 block mt-4">(İmza)</span>
+          </div>
+          <div>
+            <span class="font-bold text-slate-800 block">Rehberlik Servisi</span>
+            <span class="text-[9px] text-slate-500 block mt-4">(İmza)</span>
+          </div>
+          <div>
+            <span class="font-bold text-slate-800 block">Kurum Müdürü</span>
+            <span class="text-[9px] text-slate-500 block mt-4">(Mühür / İmza)</span>
+          </div>
+        </div>
+      </div>
+    `;
+  },
+
+  // Toplu Liste Karneyi Yazdırma Penceresi (A4 Yatay Çizim)
+  printBulkReportCardList(html) {
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html lang="tr">
+      <head>
+        <title>Toplu Liste Karne - Resmi Sonuç Çizelgesi</title>
+        <meta charset="UTF-8">
+        <script src="https://cdn.tailwindcss.com"></script>
+        <style>
+          @page {
+            size: A4 landscape;
+            margin: 4mm;
+          }
+          * {
+            box-sizing: border-box;
+          }
+          @media print {
+            html, body {
+              width: 100% !important;
+              margin: 0 !important;
+              padding: 0 !important;
+              background: white !important;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+            .bulk-card-page {
+              box-shadow: none !important;
+              margin: 0 auto !important;
+              padding: 2mm !important;
+              border: 1.5px solid #0f172a !important;
+              page-break-after: auto;
+              width: 100% !important;
+              max-width: 100% !important;
+              min-width: 0 !important;
+              border-radius: 4px !important;
+            }
+            .no-print { display: none !important; }
+          }
+        </style>
+      </head>
+      <body class="bg-slate-200 p-4">
+        <div class="no-print max-w-[1050px] mx-auto mb-4 bg-slate-900 text-white p-3.5 rounded-2xl flex items-center justify-between shadow-2xl">
+          <div class="flex items-center gap-2.5">
+            <span class="text-2xl">📋</span>
+            <div>
+              <h3 class="font-black text-sm text-amber-400">Toplu Liste Karne Hazır</h3>
+              <p class="text-xs text-slate-300">Yatay A4 formatında resmi çizelge olarak basabilir veya PDF olarak kaydedebilirsiniz.</p>
+            </div>
+          </div>
+          <button onclick="window.print()" class="px-5 py-2.5 bg-gradient-to-r from-amber-500 to-emerald-500 hover:from-amber-600 hover:to-emerald-600 text-slate-950 font-black rounded-xl shadow-lg transition flex items-center gap-1.5 cursor-pointer">
+            <span>🖨️</span> <span>Listeyi Yazdır / PDF İndir</span>
+          </button>
+        </div>
+        ${html}
       </body>
       </html>
     `);

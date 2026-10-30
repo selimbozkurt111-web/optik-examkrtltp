@@ -6,6 +6,10 @@ window.App = {
   currentTab: 'login',
   activeExamId: null,
   activeScanResult: null,
+  activePhotoResult: null,
+  activePhotoBatchResults: [],
+  isProcessingPhoto: false,
+  _pasteListenerAttached: false,
   currentTheme: 'dark',
 
   init() {
@@ -13,6 +17,20 @@ window.App = {
       this.initTheme();
     } catch (e) {
       console.warn('initTheme hatası:', e);
+    }
+
+    try {
+      this.initPasteListener();
+    } catch (e) {
+      console.warn('initPasteListener hatası:', e);
+    }
+
+    try {
+      if (window.PortalStore && typeof window.PortalStore.recalculateAllStoredResults === 'function') {
+        window.PortalStore.recalculateAllStoredResults();
+      }
+    } catch (e) {
+      console.warn('Geçmiş sınav sonuçları otomatik puanlama güncellemesi:', e);
     }
 
     try {
@@ -260,8 +278,11 @@ window.App = {
               <button onclick="App.switchTab('istatistikler')" class="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs font-bold transition flex-shrink-0 ${this.currentTab === 'istatistikler' ? 'bg-emerald-500 text-slate-950 font-black shadow-md' : 'text-slate-400 hover:text-white'}">
                 📊 Sistem İstatistikleri
               </button>
-              <button onclick="App.impersonateInstitution('inst_oay'); setTimeout(() => App.switchTab('kamera_tara'), 50);" class="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs font-bold transition flex-shrink-0 flex items-center gap-1.5 text-emerald-400 hover:text-emerald-300 border border-emerald-500/30 bg-emerald-500/10 cursor-pointer" title="Doğrudan Mobil Optik Okumayı Başlat">
+              <button onclick="App.impersonateInstitution('inst_oay'); setTimeout(() => App.switchTab('kamera_tara'), 50);" class="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs font-bold transition flex-shrink-0 flex items-center gap-1.5 text-emerald-400 hover:text-emerald-300 border border-emerald-500/30 bg-emerald-500/10 cursor-pointer" title="Doğrudan Mobil Canlı Kamera Okumasını Başlat">
                 <span>📱</span> <span>Kamera ile Oku</span>
+              </button>
+              <button onclick="App.impersonateInstitution('inst_oay'); setTimeout(() => App.switchTab('foto_tara'), 50);" class="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs font-bold transition flex-shrink-0 flex items-center gap-1.5 text-teal-400 hover:text-teal-300 border border-teal-500/30 bg-teal-500/10 cursor-pointer" title="Fotoğraf Çek veya Yükle ile Oku">
+                <span>📷</span> <span>Fotoğraf ile Oku</span>
               </button>
             ` : `
               <button onclick="App.switchTab('sinavlar')" class="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs font-bold transition flex-shrink-0 flex items-center gap-1.5 ${this.currentTab === 'sinavlar' ? 'bg-emerald-500 text-slate-950 font-black shadow-md' : 'text-slate-400 hover:text-white'}">
@@ -275,6 +296,9 @@ window.App = {
               </button>
               <button onclick="App.switchTab('kamera_tara')" class="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs font-bold transition flex-shrink-0 flex items-center gap-1.5 ${this.currentTab === 'kamera_tara' ? 'bg-emerald-500 text-slate-950 font-black shadow-md' : 'text-slate-400 hover:text-white'}">
                 <span>📱</span> <span>Kamera ile Oku</span>
+              </button>
+              <button onclick="App.switchTab('foto_tara')" class="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs font-bold transition flex-shrink-0 flex items-center gap-1.5 ${this.currentTab === 'foto_tara' ? 'bg-teal-500 text-slate-950 font-black shadow-md' : 'text-slate-400 hover:text-white'}">
+                <span>📷</span> <span>Fotoğraf ile Oku</span>
               </button>
               <button onclick="App.switchTab('neticeler')" class="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs font-bold transition flex-shrink-0 flex items-center gap-1.5 ${this.currentTab === 'neticeler' ? 'bg-emerald-500 text-slate-950 font-black shadow-md' : 'text-slate-400 hover:text-white'}">
                 <span>🏆</span> <span>Neticeler & Sıralama</span>
@@ -291,11 +315,14 @@ window.App = {
       if (this.currentTab === 'kurumlar') return this.renderSuperInstitutions();
       if (this.currentTab === 'ortak_sinavlar') return this.renderSuperGlobalExams();
       if (this.currentTab === 'istatistikler') return this.renderSuperStats();
+      if (this.currentTab === 'foto_tara') return this.renderPhotoScannerView(session.institutionId || 'inst_oay');
+      if (this.currentTab === 'kamera_tara') return this.renderCameraScannerView(session.institutionId || 'inst_oay');
     } else {
       if (this.currentTab === 'sinavlar') return this.renderExamsView(session.institutionId);
       if (this.currentTab === 'ogrenciler') return this.renderStudentsView(session.institutionId);
       if (this.currentTab === 'optik_yazdir') return this.renderOpticalPrintView(session.institutionId);
       if (this.currentTab === 'kamera_tara') return this.renderCameraScannerView(session.institutionId);
+      if (this.currentTab === 'foto_tara') return this.renderPhotoScannerView(session.institutionId);
       if (this.currentTab === 'neticeler') return this.renderResultsView(session.institutionId);
     }
     return '';
@@ -326,7 +353,7 @@ window.App = {
           <form onsubmit="App.handleLogin(event)" class="space-y-4">
             <div>
               <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Kullanıcı Adı</label>
-              <input type="text" id="login-username" required placeholder="admin veya kurs adınız"
+              <input type="text" id="login-username" required placeholder="Kullanıcı adınızı giriniz"
                 autocapitalize="none" autocorrect="off" autocomplete="username" spellcheck="false"
                 class="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-white font-medium focus:border-emerald-500 focus:outline-none transition">
             </div>
@@ -349,17 +376,6 @@ window.App = {
               <span>→</span>
             </button>
           </form>
-
-          <!-- Mobilde Tek Tıkla Hızlı Giriş Butonları -->
-          <div class="mt-4 pt-3 border-t border-slate-800/80 space-y-2">
-            <span class="block text-[10px] text-slate-400 font-bold uppercase tracking-wider text-center">⚡ Telefonda Tek Dokunuşla Hızlı Giriş</span>
-            <button type="button" onclick="App.quickLogin('admin', '123')" class="w-full py-2 px-3 bg-slate-800 hover:bg-slate-700 active:scale-95 text-amber-300 font-bold text-xs rounded-xl border border-amber-500/30 transition flex items-center justify-center gap-2 cursor-pointer shadow">
-              <span>👑</span> <span>Ana Yönetici Girişi (admin / 123)</span>
-            </button>
-            <button type="button" onclick="App.quickLogin('oay', '123')" class="w-full py-2 px-3 bg-slate-800 hover:bg-slate-700 active:scale-95 text-emerald-300 font-bold text-xs rounded-xl border border-emerald-500/30 transition flex items-center justify-center gap-2 cursor-pointer shadow">
-              <span>🏫</span> <span>Örnek Kurs Girişi (oay / 123)</span>
-            </button>
-          </div>
         </div>
       </div>
     `;
@@ -508,9 +524,14 @@ window.App = {
             <h2 class="text-xl font-black text-white tracking-tight">Deneme Sınavları</h2>
             <p class="text-xs text-slate-400 mt-0.5">Sınav tanımlayabilir, optik form basabilir veya kamerayla okumaya geçebilirsiniz.</p>
           </div>
-          <button onclick="App.showCreateExamModal('${instId}')" class="w-full sm:w-auto px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black text-xs rounded-xl shadow-md transition flex items-center justify-center gap-1.5 cursor-pointer">
-            <span>+</span> <span>Yeni Deneme Sınavı Oluştur</span>
-          </button>
+          <div class="flex items-center gap-2 w-full sm:w-auto">
+            <button onclick="App.showImportTxtResultsModal('${instId}')" class="flex-1 sm:flex-initial px-3.5 py-2.5 bg-indigo-600/30 hover:bg-indigo-600 text-indigo-300 hover:text-white font-bold text-xs rounded-xl border border-indigo-500/40 shadow-md transition flex items-center justify-center gap-1.5 cursor-pointer" title="FMT Format Şablonu ve Optik TXT / DAT Yükle">
+              <span>📄</span> <span>FMT / TXT Yükle</span>
+            </button>
+            <button onclick="App.showCreateExamModal('${instId}')" class="flex-1 sm:flex-initial px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black text-xs rounded-xl shadow-md transition flex items-center justify-center gap-1.5 cursor-pointer">
+              <span>+</span> <span>Yeni Deneme Sınavı Oluştur</span>
+            </button>
+          </div>
         </div>
 
         ${exams.length === 0 ? `
@@ -548,8 +569,14 @@ window.App = {
 
                   <div class="mt-4 pt-3 border-t border-slate-800/80 flex flex-col gap-2">
                     <div class="flex gap-2">
-                      <button onclick="App.startScanForExam('${instId}', '${exam.id}')" class="flex-1 py-2 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black text-xs rounded-xl shadow transition flex items-center justify-center gap-1">
-                        <span>📱</span> <span>Kamerayla Oku</span>
+                      <button onclick="App.startScanForExam('${instId}', '${exam.id}')" class="flex-1 py-2 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black text-xs rounded-xl shadow transition flex items-center justify-center gap-1" title="Canlı Kamerayla Oku">
+                        <span>📱</span> <span>Kamerayla</span>
+                      </button>
+                      <button onclick="App.startPhotoScanForExam('${instId}', '${exam.id}')" class="flex-1 py-2 bg-teal-500 hover:bg-teal-600 text-slate-950 font-black text-xs rounded-xl shadow transition flex items-center justify-center gap-1" title="Fotoğraf Çek veya Yükle ile Oku">
+                        <span>📷</span> <span>Fotoğrafla</span>
+                      </button>
+                      <button onclick="App.showImportTxtResultsModal('${instId}', '${exam.id}')" class="px-2.5 py-2 bg-indigo-600/20 hover:bg-indigo-600 text-indigo-300 hover:text-white font-bold text-xs rounded-xl border border-indigo-500/40 transition" title="Optik Okuyucu TXT / DAT Dosyası Yükle">
+                        📄
                       </button>
                       <button onclick="App.showManualResultModal('${instId}', '${exam.id}')" class="px-2.5 py-2 bg-cyan-600/20 hover:bg-cyan-600 text-cyan-300 hover:text-white font-bold text-xs rounded-xl border border-cyan-500/40 transition" title="Elle Not / Cevap Gir">
                         ✍️
@@ -666,25 +693,30 @@ window.App = {
 
           <!-- Dersler ve Katsayılar Tablosu -->
           <div class="bg-slate-950/80 p-3.5 rounded-2xl border border-slate-800 space-y-2">
-            <div class="flex items-center justify-between pb-1">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-1">
               <div>
                 <label class="text-xs font-bold uppercase text-slate-300">📚 Ders Bölümleri & Soru Sayıları</label>
-                <p class="text-[10px] text-slate-500">Her dersin sadece kaç soru olduğunu giriniz; soru aralıkları ve toplam soru sayısı otomatik hesaplanır.</p>
+                <p class="text-[10px] text-slate-400">Derslerin soru sayılarını ve katsayılarını düzenleyin. <strong>Taban 200 • Tavan 500</strong> puan standardına göre net katsayılarını otomatik veya elle belirleyebilirsiniz.</p>
               </div>
-              <button type="button" onclick="App.addSubjectRow('subject-rows-container')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-emerald-400 text-[11px] font-bold rounded-lg border border-slate-700 transition cursor-pointer">
-                + Ders Ekle
-              </button>
+              <div class="flex items-center gap-2">
+                <button type="button" onclick="App.autoDistributeCoefficients('subject-rows-container')" class="px-2.5 py-1 bg-gradient-to-r from-amber-500/20 to-orange-500/20 hover:from-amber-500/30 hover:to-orange-500/30 text-amber-300 text-[11px] font-bold rounded-lg border border-amber-500/40 transition cursor-pointer flex items-center gap-1 shadow-sm" title="Tüm derslerin katsayılarını Taban 200 - Tavan 500 standardına göre otomatik hesaplar ve kutulara yazar">
+                  <span>⚡</span> <span>Otomatik Katsayı Ver</span>
+                </button>
+                <button type="button" onclick="App.addSubjectRow('subject-rows-container')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-emerald-400 text-[11px] font-bold rounded-lg border border-slate-700 transition cursor-pointer">
+                  + Ders Ekle
+                </button>
+              </div>
             </div>
 
             <div class="overflow-x-auto w-full max-w-full" style="-webkit-overflow-scrolling: touch;">
-              <table class="w-full text-left text-[11px] min-w-[460px]">
+              <table class="w-full text-left text-[11px] min-w-[500px]">
                 <thead class="text-slate-500 uppercase border-b border-slate-800 font-bold">
                   <tr>
                     <th class="p-1.5">Ders Adı</th>
                     <th class="p-1.5 text-center">Soru Sayısı</th>
                     <th class="p-1.5 text-center">Aralık</th>
                     <th class="p-1.5 text-center">Ceza (Yanlış Götürme)</th>
-                    <th class="p-1.5 text-center">Katsayı</th>
+                    <th class="p-1.5 text-center" title="1 Net başına düşen puan katsayısı. Elle değiştirebilir veya Otomatik Katsayı Ver butonuna basabilirsiniz.">Net Katsayısı (Elle Düzenlenebilir)</th>
                     <th class="p-1.5 text-right">Sil</th>
                   </tr>
                 </thead>
@@ -693,9 +725,11 @@ window.App = {
                 </tbody>
               </table>
             </div>
+
+            <!-- Canlı Katsayı ve Toplam Puan Önizleme Rozeti -->
+            <div id="subject-rows-container-preview" class="p-2.5 bg-slate-900/90 border border-slate-800/80 rounded-xl"></div>
           </div>
 
-          <!-- 4 Kitapçık (A, B, C, D) Cevap Anahtarları -->
           <!-- 4 Kitapçık (A, B, C, D) Ders Ders Cevap Anahtarları -->
           <div class="space-y-3 p-3.5 bg-slate-950/80 rounded-2xl border border-slate-800">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800/80 pb-2.5">
@@ -842,7 +876,7 @@ window.App = {
             </select>
           </td>
           <td class="p-1.5 text-center">
-            <input type="number" step="0.1" class="sub-coeff w-14 px-1.5 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs text-emerald-400 font-bold" value="${sub.coeff !== undefined ? sub.coeff : 1}">
+            <input type="number" step="0.0001" class="sub-coeff w-24 px-1.5 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs text-emerald-400 font-mono font-bold focus:border-amber-500 focus:outline-none" value="${sub.coeff !== undefined ? sub.coeff : 1}" oninput="App.updateLiveCoeffPreview('${containerId}')" title="1 Net puan katsayısı (Elle değiştirebilirsiniz)">
           </td>
           <td class="p-1.5 text-right">
             <button type="button" onclick="App.removeSubjectRow(this, '${containerId}')" class="p-1 text-rose-400 hover:text-rose-300 text-xs cursor-pointer">🗑️</button>
@@ -852,6 +886,7 @@ window.App = {
     }).join('');
 
     this.recalcSubjectRanges(containerId);
+    this.updateLiveCoeffPreview(containerId);
   },
 
   recalcSubjectRanges(containerId = 'subject-rows-container') {
@@ -883,6 +918,8 @@ window.App = {
     if (totalInput && totalCount > 0) {
       totalInput.value = totalCount;
     }
+
+    this.updateLiveCoeffPreview(containerId);
 
     // Dersler değiştikçe veya soru sayıları güncellendikçe ders ders cevap anahtarı kutularını yenile
     const prefix = isEdit ? 'edit' : 'create';
@@ -919,7 +956,7 @@ window.App = {
         </select>
       </td>
       <td class="p-1.5 text-center">
-        <input type="number" step="0.1" class="sub-coeff w-14 px-1.5 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs text-emerald-400 font-bold" value="1">
+        <input type="number" step="0.0001" class="sub-coeff w-24 px-1.5 py-1 bg-slate-900 border border-slate-800 rounded text-center text-xs text-emerald-400 font-mono font-bold focus:border-amber-500 focus:outline-none" value="1" oninput="App.updateLiveCoeffPreview('${containerId}')" title="1 Net puan katsayısı (Elle değiştirebilirsiniz)">
       </td>
       <td class="p-1.5 text-right">
         <button type="button" onclick="App.removeSubjectRow(this, '${containerId}')" class="p-1 text-rose-400 hover:text-rose-300 text-xs cursor-pointer">🗑️</button>
@@ -927,6 +964,7 @@ window.App = {
     `;
     container.appendChild(tr);
     this.recalcSubjectRanges(containerId);
+    this.updateLiveCoeffPreview(containerId);
   },
 
   removeSubjectRow(btn, containerId = 'subject-rows-container') {
@@ -934,7 +972,112 @@ window.App = {
     if (row) {
       row.remove();
       this.recalcSubjectRanges(containerId);
+      this.updateLiveCoeffPreview(containerId);
     }
+  },
+
+  // Otomatik Katsayı Dağıtım Motoru (Taban 200 - Tavan 500 Puan Standardı)
+  autoDistributeCoefficients(containerId = 'subject-rows-container') {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    const rows = container.querySelectorAll('.subject-row');
+    if (rows.length === 0) return;
+
+    let totalWeightedCapacity = 0;
+    const rowData = [];
+
+    rows.forEach(r => {
+      const qInput = r.querySelector('.sub-qcount');
+      const coeffInput = r.querySelector('.sub-coeff');
+      const count = parseInt(qInput ? qInput.value : 0, 10) || 1;
+      let rawW = parseFloat(coeffInput ? coeffInput.value : 1);
+      if (isNaN(rawW) || rawW <= 0) rawW = 1;
+
+      rowData.push({ row: r, count, coeffInput, rawW });
+      totalWeightedCapacity += (count * rawW);
+    });
+
+    if (totalWeightedCapacity <= 0) return;
+
+    const TARGET_SPAN = 300; // Taban 200 + Net 300 = 500 Tavan
+    
+    // Ders isimlerine göre standart LGS/Ortaokul ders ağırlığı tespiti
+    // Türkçe, Matematik, Fen = 4 ağırlık birimi; İnkılap/Sosyal, Din, İngilizce = 1 ağırlık birimi
+    let hasKnownLessonWeights = false;
+    let standardUnits = 0;
+    const standardWeights = [];
+
+    rowData.forEach(item => {
+      const nameInput = item.row.querySelector('.sub-name');
+      const name = nameInput ? nameInput.value.toLowerCase() : '';
+      let stdW = 1;
+      if (name.includes('türk') || name.includes('mat') || name.includes('fen')) {
+        stdW = 4;
+        hasKnownLessonWeights = true;
+      } else if (name.includes('sosyal') || name.includes('ink') || name.includes('tarih') || name.includes('din') || name.includes('ing') || name.includes('english')) {
+        stdW = 1;
+        hasKnownLessonWeights = true;
+      } else {
+        stdW = item.rawW;
+      }
+      standardWeights.push(stdW);
+      standardUnits += (item.count * stdW);
+    });
+
+    const useStandardWeights = (hasKnownLessonWeights && standardUnits > 0);
+    const scaleFactor = useStandardWeights ? (TARGET_SPAN / standardUnits) : (TARGET_SPAN / totalWeightedCapacity);
+
+    rowData.forEach((item, idx) => {
+      const baseW = useStandardWeights ? standardWeights[idx] : item.rawW;
+      const exactCoeff = parseFloat((baseW * scaleFactor).toFixed(4));
+      if (item.coeffInput) {
+        item.coeffInput.value = exactCoeff;
+      }
+    });
+
+    this.updateLiveCoeffPreview(containerId);
+    this.showToast('Katsayılar Taban 200 • Tavan 500 standardına göre otomatik dağıtıldı!', 'success');
+  },
+
+  // Canlı Katsayı ve Toplam Puan Önizleme Rozeti
+  updateLiveCoeffPreview(containerId = 'subject-rows-container') {
+    const container = document.getElementById(containerId);
+    const previewContainer = document.getElementById(`${containerId}-preview`);
+    if (!container || !previewContainer) return;
+
+    const rows = container.querySelectorAll('.subject-row');
+    let totalQuestions = 0;
+    let totalNetPoints = 0;
+
+    rows.forEach(r => {
+      const qInput = r.querySelector('.sub-qcount');
+      const coeffInput = r.querySelector('.sub-coeff');
+      const count = parseInt(qInput ? qInput.value : 0, 10) || 0;
+      const coeff = parseFloat(coeffInput ? coeffInput.value : 0) || 0;
+      totalQuestions += count;
+      totalNetPoints += (count * coeff);
+    });
+
+    const baseScore = 200;
+    const totalMaxScore = baseScore + totalNetPoints;
+    const isExact500 = Math.abs(totalMaxScore - 500) < 0.5;
+
+    previewContainer.innerHTML = `
+      <div class="flex items-center gap-2 flex-wrap text-slate-300">
+        <span class="text-slate-400 font-bold">Özet:</span>
+        <span class="bg-slate-800 text-slate-200 px-2 py-0.5 rounded text-[11px] font-bold">Toplam Soru: <strong class="text-white">${totalQuestions}</strong></span>
+        <span class="bg-slate-800 text-slate-200 px-2 py-0.5 rounded text-[11px] font-bold">Taban: <strong class="text-amber-400">200.00</strong></span>
+        <span class="bg-slate-800 text-slate-200 px-2 py-0.5 rounded text-[11px] font-bold">Net Puan Kapasitesi: <strong class="text-cyan-400">${totalNetPoints.toFixed(2)}</strong></span>
+        <span class="px-2.5 py-0.5 rounded text-[11px] font-black ${isExact500 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'}">
+          Tavan Puan: <strong>${totalMaxScore.toFixed(2)}</strong> / 500.00 ${isExact500 ? '✓' : ''}
+        </span>
+      </div>
+      <div class="text-[10px] text-slate-400 mt-1 sm:mt-0 font-medium">
+        ${isExact500 
+          ? '<span class="text-emerald-400 font-bold">✓ Taban 200 • Tavan 500 standardı tam sağlandı.</span>' 
+          : '<span class="text-amber-300 font-medium">💡 İpucu: Katsayıları elle düzenleyebilir veya <strong>⚡ Otomatik Katsayı Ver</strong> butonuna basabilirsiniz.</span>'}
+      </div>
+    `;
   },
 
   collectSubjectsFromForm(containerId = 'subject-rows-container') {
@@ -1561,25 +1704,30 @@ window.App = {
 
           <!-- Dersler Tablosu -->
           <div class="bg-slate-950/80 p-3.5 rounded-2xl border border-slate-800 space-y-2">
-            <div class="flex items-center justify-between pb-1">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-1">
               <div>
                 <label class="text-xs font-bold uppercase text-slate-300">📚 Ders Bölümleri & Soru Sayıları</label>
-                <p class="text-[10px] text-slate-500">Derslerin soru sayılarını, katsayılarını ve ceza oranlarını düzenleyin.</p>
+                <p class="text-[10px] text-slate-400">Derslerin soru sayılarını ve katsayılarını düzenleyin. <strong>Taban 200 • Tavan 500</strong> puan standardına göre net katsayılarını otomatik veya elle belirleyebilirsiniz.</p>
               </div>
-              <button type="button" onclick="App.addSubjectRow('edit-subject-rows-container')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-emerald-400 text-[11px] font-bold rounded-lg border border-slate-700 transition cursor-pointer">
-                + Ders Ekle
-              </button>
+              <div class="flex items-center gap-2">
+                <button type="button" onclick="App.autoDistributeCoefficients('edit-subject-rows-container')" class="px-2.5 py-1 bg-gradient-to-r from-amber-500/20 to-orange-500/20 hover:from-amber-500/30 hover:to-orange-500/30 text-amber-300 text-[11px] font-bold rounded-lg border border-amber-500/40 transition cursor-pointer flex items-center gap-1 shadow-sm" title="Tüm derslerin katsayılarını Taban 200 - Tavan 500 standardına göre otomatik hesaplar ve kutulara yazar">
+                  <span>⚡</span> <span>Otomatik Katsayı Ver</span>
+                </button>
+                <button type="button" onclick="App.addSubjectRow('edit-subject-rows-container')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-emerald-400 text-[11px] font-bold rounded-lg border border-slate-700 transition cursor-pointer">
+                  + Ders Ekle
+                </button>
+              </div>
             </div>
 
             <div class="overflow-x-auto w-full max-w-full" style="-webkit-overflow-scrolling: touch;">
-              <table class="w-full text-left text-[11px] min-w-[460px]">
+              <table class="w-full text-left text-[11px] min-w-[500px]">
                 <thead class="text-slate-500 uppercase border-b border-slate-800 font-bold">
                   <tr>
                     <th class="p-1.5">Ders Adı</th>
                     <th class="p-1.5 text-center">Soru Sayısı</th>
                     <th class="p-1.5 text-center">Aralık</th>
                     <th class="p-1.5 text-center">Ceza</th>
-                    <th class="p-1.5 text-center">Katsayı</th>
+                    <th class="p-1.5 text-center" title="1 Net başına düşen puan katsayısı. Elle değiştirebilir veya Otomatik Katsayı Ver butonuna basabilirsiniz.">Net Katsayısı (Elle Düzenlenebilir)</th>
                     <th class="p-1.5 text-right">Sil</th>
                   </tr>
                 </thead>
@@ -1588,6 +1736,9 @@ window.App = {
                 </tbody>
               </table>
             </div>
+
+            <!-- Canlı Katsayı ve Toplam Puan Önizleme Rozeti -->
+            <div id="edit-subject-rows-container-preview" class="p-2.5 bg-slate-900/90 border border-slate-800/80 rounded-xl"></div>
           </div>
 
           <!-- 4 Kitapçık Ders Ders Cevap Anahtarları -->
@@ -1846,12 +1997,20 @@ window.App = {
   // 5. KURS PANELİ: TALEBE YÖNETİMİ
   renderStudentsView(instId) {
     const students = window.PortalStore.getStudents(instId);
+    const uniqueClasses = Array.from(new Set(students.map(s => (s.className || '').trim()).filter(Boolean))).sort();
+    const query = (this.studentSearchQuery || '').trim();
+    const classFilter = this.studentClassFilter || 'all';
+
     return `
       <div class="space-y-6">
+        <!-- Üst Başlık ve Aksiyonlar -->
         <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-900 border border-slate-800 p-5 rounded-2xl shadow-lg">
           <div>
-            <h2 class="text-xl font-black text-white tracking-tight">Kayıtlı Talebeler (${students.length})</h2>
-            <p class="text-xs text-slate-400 mt-0.5">Optik formlarda QR kod basmak ve karneleri göndermek için talebelerinizi ekleyiniz.</p>
+            <h2 class="text-xl font-black text-white tracking-tight flex items-center gap-2">
+              <span>Kayıtlı Talebeler</span>
+              <span class="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-mono text-xs border border-emerald-500/30">${students.length}</span>
+            </h2>
+            <p class="text-xs text-slate-400 mt-0.5">Talebe bilgilerini ve veli telefonlarını düzenleyebilir, QR kodlu optik form basabilirsiniz.</p>
           </div>
           <div class="flex flex-wrap items-center gap-2">
             <button onclick="App.showBulkStudentModal('${instId}')" class="px-3.5 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-slate-950 font-black text-xs rounded-xl shadow-lg transition flex items-center gap-1.5 cursor-pointer">
@@ -1860,44 +2019,80 @@ window.App = {
             <button onclick="App.downloadExcelTemplate()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl transition flex items-center gap-1.5 cursor-pointer" title="Excel Örnek Şablonu İndir">
               <span>📄</span> <span>Excel Şablonu İndir</span>
             </button>
-            <button onclick="App.showAddStudentModal('${instId}')" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-700 font-bold text-xs rounded-xl shadow transition cursor-pointer">
-              + Tek Talebe Ekle
+            <button onclick="App.showStudentModal('${instId}')" class="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs rounded-xl shadow-lg transition flex items-center gap-1.5 cursor-pointer">
+              <span>➕</span> <span>Yeni Talebe Ekle</span>
             </button>
           </div>
         </div>
 
+        <!-- Arama ve Şube Filtreleme Çubuğu -->
+        <div class="flex flex-col sm:flex-row items-center justify-between gap-3 bg-slate-900 border border-slate-800 p-4 rounded-2xl">
+          <div class="relative w-full sm:w-80">
+            <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500 text-sm">🔍</span>
+            <input type="text" id="student-search-input" value="${query}" oninput="App.handleStudentSearch(this.value)" placeholder="Talebe adı, soyadı veya no ile ara..." class="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none">
+          </div>
+          <div class="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
+            <span class="text-xs font-bold text-slate-400">Şube:</span>
+            <select id="student-class-filter" onchange="App.handleStudentClassFilter(this.value)" class="px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white font-bold focus:border-emerald-500 focus:outline-none">
+              <option value="all" ${classFilter === 'all' ? 'selected' : ''}>Tüm Şubeler (${students.length})</option>
+              ${uniqueClasses.map(c => `<option value="${c}" ${c === classFilter ? 'selected' : ''}>${c} Şubesi (${students.filter(s => (s.className || 'Genel') === c).length})</option>`).join('')}
+            </select>
+            <span class="text-[11px] text-slate-400 font-mono ml-2">Gösterilen: <strong id="student-filtered-count-badge" class="text-emerald-400 font-bold">${students.length}</strong></span>
+          </div>
+        </div>
+
+        <!-- Talebe Listesi Tablosu -->
         <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-lg w-full max-w-full">
           <div class="w-full max-w-full overflow-x-auto" style="-webkit-overflow-scrolling: touch;">
-            <table class="w-full text-left text-xs min-w-[480px]">
+            <table class="w-full text-left text-xs min-w-[560px]">
               <thead class="bg-slate-950 border-b border-slate-800 text-slate-400 font-bold uppercase tracking-wider">
                 <tr>
-                  <th class="p-3">No</th>
+                  <th class="p-3 w-16">No</th>
                   <th class="p-3">Adı Soyadı</th>
-                  <th class="p-3">Sınıfı</th>
-                  <th class="p-3">Veli Telefonu</th>
-                  <th class="p-3 text-right">İşlem</th>
+                  <th class="p-3">Sınıfı / Şubesi</th>
+                  <th class="p-3">Veli Telefonu (WhatsApp)</th>
+                  <th class="p-3">Notlar</th>
+                  <th class="p-3 text-right">İşlemler</th>
                 </tr>
               </thead>
-              <tbody class="divide-y divide-slate-800/80">
-                ${students.length === 0 ? `
-                  <tr>
-                    <td colspan="5" class="p-8 text-center text-slate-500">
-                      Henüz talebe eklenmedi. "Excel'den Toplu Yükle" veya "+ Tek Talebe Ekle" butonunu kullanabilirsiniz.
-                    </td>
-                  </tr>
-                ` : students.map(st => `
-                  <tr class="hover:bg-slate-800/40 transition">
-                    <td class="p-3 font-mono font-bold text-emerald-400">${st.studentNo}</td>
-                    <td class="p-3 font-bold text-white">${st.firstName} ${st.lastName}</td>
-                    <td class="p-3 font-semibold text-slate-300">${st.className}</td>
-                    <td class="p-3 font-mono text-slate-400">${st.parentPhone || '-'}</td>
-                    <td class="p-3 text-right">
-                      <button onclick="App.deleteStudentPrompt('${instId}', '${st.id}', '${st.firstName} ${st.lastName}')" class="text-rose-400 hover:text-rose-300 p-1">
-                        🗑️
-                      </button>
-                    </td>
-                  </tr>
-                `).join('')}
+              <tbody id="student-table-tbody" class="divide-y divide-slate-800/80">
+                <tr id="student-table-empty-row" style="display: ${students.length === 0 ? '' : 'none'};">
+                  <td colspan="6" class="p-8 text-center text-slate-500">
+                    Henüz talebe bulunmuyor veya arama kriterine uygun kayıt yok.
+                  </td>
+                </tr>
+                ${students.map(st => {
+                  const searchStr = window.PortalStore.normalizeTr(`${st.studentNo} ${st.firstName} ${st.lastName} ${st.className} ${st.parentPhone || ''} ${st.notes || ''}`);
+                  return `
+                    <tr class="student-table-row hover:bg-slate-800/40 transition" data-search="${searchStr}" data-class="${st.className || ''}">
+                      <td class="p-3 font-mono font-bold text-emerald-400">${st.studentNo}</td>
+                      <td class="p-3 font-bold text-white">
+                        <button type="button" onclick="App.showStudentModal('${instId}', '${st.id}')" class="text-left hover:text-emerald-300 hover:underline cursor-pointer flex items-center gap-1.5" title="Bilgileri Düzenlemek İçin Tıklayın">
+                          <span>${st.firstName} ${st.lastName}</span>
+                        </button>
+                      </td>
+                      <td class="p-3">
+                        <span class="px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 font-bold text-[11px] border border-slate-700/60">${st.className || 'Genel'}</span>
+                      </td>
+                      <td class="p-3 font-mono text-slate-300">
+                        ${st.parentPhone ? `📱 ${st.parentPhone}` : '<span class="text-slate-600">-</span>'}
+                      </td>
+                      <td class="p-3 text-slate-400 text-[11px] max-w-[160px] truncate" title="${st.notes || ''}">
+                        ${st.notes || '-'}
+                      </td>
+                      <td class="p-3 text-right">
+                        <div class="flex items-center justify-end gap-1.5">
+                          <button onclick="App.showStudentModal('${instId}', '${st.id}')" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-amber-300 hover:text-amber-200 border border-slate-700 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer" title="Talebe Bilgilerini Düzenle">
+                            <span>✍️</span> <span>Düzenle</span>
+                          </button>
+                          <button onclick="App.deleteStudentPrompt('${instId}', '${st.id}', '${st.firstName} ${st.lastName}')" class="p-1.5 bg-slate-800 hover:bg-rose-950/60 text-rose-400 hover:text-rose-300 border border-slate-700 rounded-lg text-xs font-bold transition cursor-pointer" title="Talebeyi Sil">
+                            🗑️
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  `;
+                }).join('')}
               </tbody>
             </table>
           </div>
@@ -1906,18 +2101,212 @@ window.App = {
     `;
   },
 
-  showAddStudentModal(instId) {
-    const studentNo = prompt('Okul / Kurum Numarası:', (100 + Math.floor(Math.random() * 900)).toString());
-    if (!studentNo) return;
-    const firstName = prompt('Öğrenci Adı:');
-    if (!firstName) return;
-    const lastName = prompt('Öğrenci Soyadı:');
-    const className = prompt('Sınıfı / Şubesi:', '8-A');
-    const parentPhone = prompt('Veli Telefon Numarası (WhatsApp için):', '05550000000');
+  // Talebe Ekleme / Düzenleme Modalı
+  showStudentModal(instId, studentId = null) {
+    const existing = document.getElementById('student-form-modal');
+    if (existing) existing.remove();
 
-    window.PortalStore.addStudent(instId, { studentNo, firstName, lastName, className, parentPhone });
-    this.showToast('Talebe kaydedildi!', 'success');
-    this.render();
+    const isEdit = Boolean(studentId);
+    let student = null;
+    if (isEdit) {
+      student = window.PortalStore.getStudentById(instId, studentId);
+      if (!student) {
+        this.showToast('Talebe bilgisi bulunamadı.', 'error');
+        return;
+      }
+    }
+
+    const defaultClass = student ? (student.className || '8-A') : '8-A';
+    const quickClasses = ['5-A', '6-A', '7-A', '8-A', '9-A', '10-A', '11-A', '12-A', 'Mezun'];
+
+    const modal = document.createElement('div');
+    modal.id = 'student-form-modal';
+    modal.className = 'fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-sm animate-fade-in';
+    modal.innerHTML = `
+      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-7 max-w-lg w-full shadow-2xl relative max-h-[92vh] flex flex-col">
+        <!-- Üst Başlık -->
+        <div class="flex items-center justify-between pb-3 border-b border-slate-800 mb-4 flex-shrink-0">
+          <div class="flex items-center gap-2.5">
+            <span class="text-2xl">${isEdit ? '✍️' : '➕'}</span>
+            <div>
+              <h3 class="text-base sm:text-lg font-black text-white">${isEdit ? 'Talebe Bilgilerini Düzenle' : 'Yeni Talebe Kaydı'}</h3>
+              <p class="text-xs text-slate-400 font-medium">${isEdit ? `${student.firstName} ${student.lastName} (No: ${student.studentNo})` : 'Optik form basımı ve sınav dereceleri için bilgileri giriniz.'}</p>
+            </div>
+          </div>
+          <button onclick="document.getElementById('student-form-modal').remove()" class="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-sm font-bold cursor-pointer">✕</button>
+        </div>
+
+        <form id="student-form" onsubmit="App.handleStudentFormSubmit(event, '${instId}', '${studentId || ''}')" class="space-y-4 overflow-y-auto flex-1 pr-1">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-bold text-slate-300 mb-1">
+                Talebe No (Okul/Kurum No) <span class="text-rose-400">*</span>
+              </label>
+              <input type="text" id="st-no" required value="${student ? student.studentNo : ''}" placeholder="Örn: 101" class="w-full px-3 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-emerald-400 font-mono font-bold text-xs focus:border-emerald-500 focus:outline-none">
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-slate-300 mb-1">
+                Sınıf / Şube <span class="text-rose-400">*</span>
+              </label>
+              <input type="text" id="st-class" required value="${student ? student.className : defaultClass}" placeholder="Örn: 8-A" class="w-full px-3 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white font-bold text-xs focus:border-emerald-500 focus:outline-none uppercase">
+            </div>
+          </div>
+
+          <!-- Hızlı Şube Seçim Butonları -->
+          <div>
+            <span class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Hızlı Şube Seç:</span>
+            <div class="flex flex-wrap gap-1.5">
+              ${quickClasses.map(qc => `
+                <button type="button" onclick="document.getElementById('st-class').value = '${qc}'" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-emerald-400 text-[11px] font-bold rounded-lg border border-slate-700 transition cursor-pointer">
+                  ${qc}
+                </button>
+              `).join('')}
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-bold text-slate-300 mb-1">
+                Adı <span class="text-rose-400">*</span>
+              </label>
+              <input type="text" id="st-first-name" required value="${student ? student.firstName : ''}" placeholder="Örn: AHMET" class="w-full px-3 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white font-bold text-xs focus:border-emerald-500 focus:outline-none uppercase">
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-slate-300 mb-1">
+                Soyadı <span class="text-rose-400">*</span>
+              </label>
+              <input type="text" id="st-last-name" required value="${student ? student.lastName : ''}" placeholder="Örn: YILMAZ" class="w-full px-3 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white font-bold text-xs focus:border-emerald-500 focus:outline-none uppercase">
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-slate-300 mb-1">
+              Veli Cep Telefonu (WhatsApp Karne İçin)
+            </label>
+            <div class="relative">
+              <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500 text-xs font-mono">📱</span>
+              <input type="tel" id="st-phone" value="${student ? (student.parentPhone || '') : ''}" placeholder="Örn: 05551234567" class="w-full pl-8 pr-3 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white font-mono text-xs focus:border-emerald-500 focus:outline-none">
+            </div>
+            <p class="text-[10px] text-slate-500 mt-1">Sınav tamamlandığında veliye doğrudan WhatsApp karne mesajı gönderilmesini sağlar.</p>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-slate-300 mb-1">
+              Özel Notlar / Açıklama
+            </label>
+            <input type="text" id="st-notes" value="${student ? (student.notes || '') : ''}" placeholder="İsteğe bağlı not..." class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-slate-300 text-xs focus:border-emerald-500 focus:outline-none">
+          </div>
+
+          <div class="pt-3 border-t border-slate-800 flex items-center justify-between gap-2">
+            ${isEdit ? `
+              <button type="button" onclick="document.getElementById('student-form-modal').remove(); App.deleteStudentPrompt('${instId}', '${student.id}', '${student.firstName} ${student.lastName}')" class="px-3 py-2.5 bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white font-bold text-xs rounded-xl border border-rose-500/30 transition flex items-center gap-1 cursor-pointer" title="Talebeyi Sil">
+                <span>🗑️</span> <span>Talebeyi Sil</span>
+              </button>
+            ` : '<div></div>'}
+            <div class="flex items-center gap-2">
+              <button type="button" onclick="document.getElementById('student-form-modal').remove()" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl transition cursor-pointer">
+                Vazgeç
+              </button>
+              <button type="submit" class="px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-slate-950 font-black text-xs rounded-xl shadow-lg transition flex items-center gap-1.5 cursor-pointer">
+                <span>${isEdit ? '💾' : '➕'}</span>
+                <span>${isEdit ? 'Değişiklikleri Kaydet' : 'Talebeyi Kaydet'}</span>
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    `;
+    document.body.appendChild(modal);
+  },
+
+  handleStudentFormSubmit(event, instId, studentId) {
+    event.preventDefault();
+    const studentNo = document.getElementById('st-no').value.trim();
+    const firstName = document.getElementById('st-first-name').value.trim();
+    const lastName = document.getElementById('st-last-name').value.trim();
+    const className = document.getElementById('st-class').value.trim();
+    const parentPhone = document.getElementById('st-phone').value.trim();
+    const notes = document.getElementById('st-notes').value.trim();
+
+    if (!studentNo || !firstName || !lastName) {
+      this.showToast('Lütfen numara, ad ve soyad alanlarını doldurunuz.', 'warning');
+      return;
+    }
+
+    if (studentId) {
+      const res = window.PortalStore.updateStudent(instId, studentId, {
+        studentNo,
+        firstName,
+        lastName,
+        className,
+        parentPhone,
+        notes
+      });
+      if (res && res.success) {
+        this.showToast(`✓ ${firstName} ${lastName} bilgileri başarıyla güncellendi!`, 'success');
+        const modal = document.getElementById('student-form-modal');
+        if (modal) modal.remove();
+        this.render();
+      } else {
+        this.showToast(res ? res.message : 'Güncelleme yapılamadı.', 'error');
+      }
+    } else {
+      const students = window.PortalStore.getStudents(instId);
+      if (students.some(s => s.studentNo === studentNo)) {
+        this.showToast(`"${studentNo}" numaralı bir talebe zaten kayıtlı!`, 'error');
+        return;
+      }
+      window.PortalStore.addStudent(instId, {
+        studentNo,
+        firstName,
+        lastName,
+        className,
+        parentPhone,
+        notes
+      });
+      this.showToast(`✓ ${firstName} ${lastName} başarıyla kaydedildi!`, 'success');
+      const modal = document.getElementById('student-form-modal');
+      if (modal) modal.remove();
+      this.render();
+    }
+  },
+
+  showAddStudentModal(instId) {
+    this.showStudentModal(instId, null);
+  },
+
+  handleStudentSearch(query) {
+    this.studentSearchQuery = query || '';
+    const q = window.PortalStore.normalizeTr(query);
+    const rows = document.querySelectorAll('.student-table-row');
+    let visibleCount = 0;
+    rows.forEach(row => {
+      const text = row.dataset.search || '';
+      const cls = row.dataset.class || '';
+      const classMatch = !this.studentClassFilter || this.studentClassFilter === 'all' || cls === this.studentClassFilter;
+      const textMatch = !q || text.includes(q);
+      if (classMatch && textMatch) {
+        row.style.display = '';
+        visibleCount++;
+      } else {
+        row.style.display = 'none';
+      }
+    });
+    const emptyRow = document.getElementById('student-table-empty-row');
+    if (emptyRow) {
+      emptyRow.style.display = visibleCount === 0 ? '' : 'none';
+    }
+    const countBadge = document.getElementById('student-filtered-count-badge');
+    if (countBadge) {
+      countBadge.textContent = visibleCount.toString();
+    }
+  },
+
+  handleStudentClassFilter(cls) {
+    this.studentClassFilter = cls || 'all';
+    this.handleStudentSearch(this.studentSearchQuery || '');
   },
 
   deleteStudentPrompt(instId, studentId, name) {
@@ -2459,6 +2848,9 @@ window.App = {
             <button onclick="App.triggerScan()" class="flex-1 sm:flex-initial px-3.5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black text-xs rounded-xl shadow-lg transition flex items-center justify-center gap-1.5 cursor-pointer">
               <span>📸</span> <span>Tek Kare Oku</span>
             </button>
+            <button onclick="App.showImportTxtResultsModal('${instId}', '${this.activeExamId}')" class="flex-1 sm:flex-initial px-3.5 py-2.5 bg-indigo-600/30 hover:bg-indigo-600 text-indigo-300 hover:text-white font-black text-xs rounded-xl border border-indigo-500/50 shadow-lg transition flex items-center justify-center gap-1.5 cursor-pointer" title="Optik Okuyucu TXT Dosyası Yükle">
+              <span>📄</span> <span>TXT Yükle</span>
+            </button>
             <div class="px-3 py-2 bg-slate-950 rounded-xl border border-slate-800 text-xs text-slate-400 font-mono hidden sm:flex items-center gap-1.5">
               <span>Okunan:</span>
               <strong id="continuous-counter" class="text-emerald-400 font-black text-sm">0</strong>
@@ -2477,7 +2869,7 @@ window.App = {
           <!-- Kamera Başlatma / İzin İsteme Katmanı (Mobil Uyumlu) -->
           <div id="camera-start-prompt" class="absolute inset-0 bg-slate-950/85 backdrop-blur-sm flex flex-col items-center justify-center p-4 text-center z-20 transition-all">
             <div class="w-14 h-14 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-3xl mb-2.5 border border-emerald-500/40 shadow-lg animate-pulse">
-              📷
+              📸
             </div>
             <h4 class="text-sm font-black text-white mb-1">Kamerayı Başlat</h4>
             <p class="text-xs text-slate-300 max-w-xs mb-3">Telefonunuzun kamerasını açarak sınav kağıtlarını canlı okutabilirsiniz.</p>
@@ -2813,14 +3205,20 @@ window.App = {
           </div>
         ` : ''}
 
-        <div class="flex gap-2">
+        <div class="flex flex-wrap gap-2">
           ${(result.parentPhone && !isBlank) ? `
             <button onclick="App.sendWhatsAppCard('${encodeURIComponent(result.parentPhone)}', '${encodeURIComponent(result.studentName)}', '${result.totalNet}', '${result.totalScore}', '${encodeURIComponent(JSON.stringify(result.topicAnalysis || []))}')" class="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs rounded-xl shadow transition flex items-center justify-center gap-1.5 cursor-pointer">
-              <span>💬</span> <span>Veliye WhatsApp Karnesi Gönder</span>
+              <span>💬</span> <span>WhatsApp</span>
             </button>
           ` : ''}
+          <button onclick="App.showManualResultModal('${result.institutionId || ''}', '${result.examId}', '${result.studentNo}')" class="px-3 py-2.5 bg-slate-800 hover:bg-slate-700 text-amber-300 font-bold text-xs rounded-xl transition flex items-center justify-center gap-1 cursor-pointer" title="Cevapları ve Notu Düzenle">
+            <span>✍️</span> <span>Düzenle</span>
+          </button>
+          <button onclick="App.deleteExamResultPrompt('${result.institutionId || ''}', '${result.examId}', '${result.id || ''}', '${result.studentNo}', '${encodeURIComponent(result.studentName)}')" class="px-3 py-2.5 bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white font-bold text-xs rounded-xl border border-rose-500/30 transition flex items-center justify-center gap-1 cursor-pointer" title="Bu Okunan Optik Kağıdı Sil">
+            <span>🗑️</span> <span>Sil</span>
+          </button>
           <button onclick="App.switchTab('neticeler')" class="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs rounded-xl transition cursor-pointer">
-            Tüm Neticeler & Sıralama →
+            Tüm Neticeler →
           </button>
         </div>
       </div>
@@ -2869,12 +3267,18 @@ window.App = {
         <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 bg-slate-900 border border-slate-800 p-4 sm:p-5 rounded-2xl shadow-lg w-full max-w-full">
           <div class="w-full lg:w-auto">
             <h2 class="text-xl font-black text-white tracking-tight">Sınav Neticeleri & Sıralama</h2>
-            <p class="text-xs text-slate-400 mt-0.5 truncate">${currentExam.title} (${rankings.length} Talebe Katıldı)</p>
+            <div class="flex items-center gap-2 mt-0.5 flex-wrap">
+              <p class="text-xs text-slate-400 truncate">${currentExam.title} (${rankings.length} Talebe Katıldı)</p>
+              <span class="px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-300 font-mono font-bold text-[10px] border border-amber-500/20">Taban: 200 • Tavan: 500 Puan</span>
+            </div>
           </div>
           <div class="flex flex-wrap items-center gap-2 w-full lg:w-auto">
             <select onchange="App.handleResultsExamChange(this.value, '${instId}')" class="w-full sm:w-auto px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-bold text-xs max-w-full">
               ${exams.map(e => `<option value="${e.id}" ${e.id === currentExam.id ? 'selected' : ''}>${e.title}</option>`).join('')}
             </select>
+            <button onclick="App.showImportTxtResultsModal('${instId}', '${currentExam.id}')" class="flex-1 sm:flex-initial px-3 py-2 bg-indigo-600/30 hover:bg-indigo-600 text-indigo-300 hover:text-white font-bold text-xs rounded-xl border border-indigo-500/40 transition flex items-center justify-center gap-1 cursor-pointer" title="FMT Format Şablonu ve Optik TXT / DAT Yükle">
+              <span>📄</span> <span>FMT / TXT Yükle</span>
+            </button>
             <button onclick="App.showManualResultModal('${instId}', '${currentExam.id}')" class="flex-1 sm:flex-initial px-3 py-2 bg-cyan-600/20 hover:bg-cyan-600 text-cyan-300 hover:text-white font-bold text-xs rounded-xl border border-cyan-500/40 transition flex items-center justify-center gap-1 cursor-pointer" title="Elle Öğrenci Notu / Cevabı Ekle">
               <span>✍️</span> <span>Elle Not Gir</span>
             </button>
@@ -2889,6 +3293,9 @@ window.App = {
             </button>
             <button onclick="App.downloadResultsCsv('${instId}', '${currentExam.id}', false)" class="flex-1 sm:flex-initial px-3 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl border border-slate-700 transition flex items-center justify-center gap-1 cursor-pointer" title="Excel / CSV Olarak İndir">
               <span>📥</span> <span>Excel İndir</span>
+            </button>
+            <button onclick="App.showBulkReportCardListModal('${instId}', '${currentExam.id}')" class="w-full sm:w-auto px-3.5 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black text-xs rounded-xl shadow-lg transition flex items-center justify-center gap-1.5 cursor-pointer" title="Tüm öğrencilerin ders ders D-Y-Net ve puanlarını içeren resmi toplu sonuç listesi karnesini aç ve yazdır">
+              <span>📋</span> <span>Toplu Liste Karne</span>
             </button>
             <button onclick="App.printAllReportCards('${instId}', '${currentExam.id}')" class="w-full sm:w-auto px-3.5 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-slate-950 font-black text-xs rounded-xl shadow-lg transition flex items-center justify-center gap-1 cursor-pointer">
               <span>📜</span> <span>Tüm Karneler</span>
@@ -2908,7 +3315,7 @@ window.App = {
                   <th class="p-3 text-center">Doğru</th>
                   <th class="p-3 text-center">Yanlış</th>
                   <th class="p-3 text-center">Net</th>
-                  <th class="p-3 text-center">Puan</th>
+                  <th class="p-3 text-center">Puan (200-500)</th>
                   <th class="p-3 text-right">Karne & Paylaş</th>
                 </tr>
               </thead>
@@ -2937,6 +3344,9 @@ window.App = {
                       <div class="flex items-center justify-end gap-1.5">
                         <button onclick="App.showManualResultModal('${instId}', '${currentExam.id}', '${r.studentNo}')" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-amber-300 rounded-lg text-[11px] font-bold transition cursor-pointer" title="Cevapları / Puanı Elle Düzenle">
                           ✍️
+                        </button>
+                        <button onclick="App.deleteExamResultPrompt('${instId}', '${currentExam.id}', '${r.id || ''}', '${r.studentNo}', '${encodeURIComponent(r.studentName)}')" class="px-2 py-1 bg-slate-800 hover:bg-rose-900/60 text-rose-400 hover:text-rose-300 rounded-lg text-[11px] font-bold transition cursor-pointer" title="Bu Talebenin Optik Okuma Neticesini Sil">
+                          🗑️
                         </button>
                         <button onclick="App.showStudentTopicAnalysisModal('${instId}', '${currentExam.id}', '${r.studentNo}')" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-indigo-300 rounded-lg text-[11px] font-bold transition cursor-pointer" title="Talebenin Konu ve Kazanım Karnesi">
                           🎯
@@ -3000,6 +3410,128 @@ window.App = {
       combinedHtml += window.OpticalSheetGenerator.renderReportCardHtml(r, exam, instName);
     });
     window.OpticalSheetGenerator.printReportCards(combinedHtml);
+  },
+
+  // Optik Okuma Neticesi Silme Onay Kutusu
+  deleteExamResultPrompt(instId, examId, resultId, studentNo, encodedStudentName) {
+    const studentName = decodeURIComponent(encodedStudentName || '');
+    const displayName = studentName ? `"${studentName}" (${studentNo || ''})` : `Talebe #${studentNo}`;
+    if (confirm(`${displayName} adlı talebenin bu sınavdaki optik okuma neticesini silmek istediğinize emin misiniz?\n\nBu işlem sonucunda okunan cevaplar silinir ve derece sıralaması anında güncellenir.`)) {
+      const session = window.PortalStore.getCurrentSession();
+      const effectiveInstId = instId || (session ? session.institutionId : null);
+      const ok = window.PortalStore.deleteExamResult(effectiveInstId, examId, resultId || studentNo);
+      if (ok) {
+        this.showToast(`${displayName} optik neticesi başarıyla silindi.`, 'info');
+        const modal = document.getElementById('manual-result-modal');
+        if (modal) modal.remove();
+        const scanCard = document.getElementById('scan-result-card');
+        if (scanCard) scanCard.innerHTML = '';
+        this.render();
+      } else {
+        this.showToast('Silme işlemi tamamlanamadı.', 'error');
+      }
+    }
+  },
+
+  // Toplu Liste Karne (Resmi Sonuç Çizelgesi) Modalı
+  showBulkReportCardListModal(instId, examId, selectedClass = 'all') {
+    const existing = document.getElementById('bulk-report-modal');
+    if (existing) existing.remove();
+
+    const session = window.PortalStore.getCurrentSession();
+    const effectiveInstId = instId || (session ? session.institutionId : null);
+    const exam = window.PortalStore.getExamById(effectiveInstId, examId);
+    if (!exam) {
+      this.showToast('Sınav bulunamadı.', 'error');
+      return;
+    }
+
+    const rankings = window.PortalStore.calculateExamRankings(effectiveInstId, examId);
+    if (rankings.length === 0) {
+      this.showToast('Bu sınavda henüz optik okuma sonucu bulunmuyor.', 'warning');
+      return;
+    }
+
+    const classes = [...new Set(rankings.map(r => r.className || 'Genel'))];
+    const instName = session ? session.institutionName : 'EĞİTİM KURUMU';
+
+    const modal = document.createElement('div');
+    modal.id = 'bulk-report-modal';
+    modal.className = 'fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-sm animate-fade-in';
+    modal.innerHTML = `
+      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-4 sm:p-6 max-w-[96vw] xl:max-w-7xl w-full shadow-2xl relative max-h-[94vh] flex flex-col">
+        <!-- Başlık ve Üst Butonlar -->
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-3 border-b border-slate-800 mb-3 gap-3">
+          <div class="flex items-center gap-2.5">
+            <div class="w-10 h-10 rounded-xl bg-purple-500/20 text-purple-300 flex items-center justify-center text-2xl border border-purple-500/30">
+              📋
+            </div>
+            <div>
+              <h3 class="text-base sm:text-lg font-black text-white">Toplu Liste Karne & Resmi Sonuç Çizelgesi</h3>
+              <p class="text-xs text-slate-400 font-medium">${exam.title} (${rankings.length} Talebe Katıldı)</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2 w-full sm:w-auto">
+            <button onclick="App.printBulkReportCardList('${effectiveInstId}', '${exam.id}')" class="flex-1 sm:flex-initial px-4 py-2 bg-gradient-to-r from-amber-500 to-emerald-500 hover:from-amber-600 hover:to-emerald-600 text-slate-950 font-black text-xs rounded-xl shadow-lg transition flex items-center justify-center gap-1.5 cursor-pointer">
+              <span>🖨️</span> <span>Listeyi Yazdır / PDF Al</span>
+            </button>
+            <button onclick="App.downloadResultsCsv('${effectiveInstId}', '${exam.id}', false)" class="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl border border-slate-700 transition flex items-center justify-center gap-1 cursor-pointer" title="Excel Olarak İndir">
+              <span>📥</span> <span>Excel</span>
+            </button>
+            <button onclick="document.getElementById('bulk-report-modal').remove()" class="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-sm font-bold cursor-pointer">✕</button>
+          </div>
+        </div>
+
+        <!-- Şube Filtreleme Çubuğu -->
+        <div class="flex items-center justify-between mb-3 bg-slate-950 p-3 rounded-2xl border border-slate-800 flex-wrap gap-2">
+          <div class="flex items-center gap-2">
+            <label class="text-xs font-bold text-slate-300">Şube / Sınıf Seçiniz:</label>
+            <select id="bulk-list-class-filter" onchange="App.handleBulkReportCardListFilter('${effectiveInstId}', '${exam.id}')" class="px-3 py-1.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white font-bold">
+              <option value="all" ${selectedClass === 'all' ? 'selected' : ''}>Tüm Şubeler (${rankings.length} Talebe)</option>
+              ${classes.map(c => `<option value="${c}" ${c === selectedClass ? 'selected' : ''}>${c} Şubesi (${rankings.filter(r => (r.className || 'Genel') === c).length} Talebe)</option>`).join('')}
+            </select>
+          </div>
+          <div class="text-[11px] text-slate-400 font-mono">
+            Puanlama Standardı: <strong class="text-amber-400 font-bold">Taban 200 • Tavan 500 Puan</strong>
+          </div>
+        </div>
+
+        <!-- Önizleme Alanı (Kaydırılabilir) -->
+        <div id="bulk-list-preview-container" class="flex-1 overflow-y-auto overflow-x-auto rounded-2xl border border-slate-800 bg-slate-950/40 p-2" style="-webkit-overflow-scrolling: touch;">
+          ${window.OpticalSheetGenerator.renderBulkReportCardListHtml(exam, rankings, instName, selectedClass)}
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+  },
+
+  handleBulkReportCardListFilter(instId, examId) {
+    const select = document.getElementById('bulk-list-class-filter');
+    const container = document.getElementById('bulk-list-preview-container');
+    if (!select || !container) return;
+
+    const session = window.PortalStore.getCurrentSession();
+    const effectiveInstId = instId || (session ? session.institutionId : null);
+    const exam = window.PortalStore.getExamById(effectiveInstId, examId);
+    const rankings = window.PortalStore.calculateExamRankings(effectiveInstId, examId);
+    const instName = session ? session.institutionName : 'EĞİTİM KURUMU';
+
+    container.innerHTML = window.OpticalSheetGenerator.renderBulkReportCardListHtml(exam, rankings, instName, select.value);
+  },
+
+  printBulkReportCardList(instId, examId) {
+    const session = window.PortalStore.getCurrentSession();
+    const effectiveInstId = instId || (session ? session.institutionId : null);
+    const exam = window.PortalStore.getExamById(effectiveInstId, examId);
+    if (!exam) return;
+
+    const rankings = window.PortalStore.calculateExamRankings(effectiveInstId, examId);
+    const filterSelect = document.getElementById('bulk-list-class-filter');
+    const selectedClass = filterSelect ? filterSelect.value : 'all';
+    const instName = session ? session.institutionName : 'EĞİTİM KURUMU';
+
+    const html = window.OpticalSheetGenerator.renderBulkReportCardListHtml(exam, rankings, instName, selectedClass);
+    window.OpticalSheetGenerator.printBulkReportCardList(html);
   },
 
   // 9. SÜPER YÖNETİCİ: MERKEZİ ORTAK SINAVLAR VE LEADERBOARD
@@ -3110,9 +3642,9 @@ window.App = {
 
     const modal = document.createElement('div');
     modal.id = 'global-leaderboard-modal';
-    modal.className = 'fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-sm animate-fade-in';
+    modal.className = 'fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-sm animate-fade-in';
     modal.innerHTML = `
-      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-7 max-w-4xl w-full shadow-2xl relative max-h-[90vh] flex flex-col">
+      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-7 max-w-4xl w-full shadow-2xl relative max-h-[90vh] flex flex-col">
         <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-4 border-b border-slate-800 mb-4 gap-3">
           <div>
             <div class="flex items-center gap-2">
@@ -3181,7 +3713,7 @@ window.App = {
   },
 
   // ==========================================
-  // 10. ELLE (MANUEL) OPTİK CEVAP VE NOT GİRİŞİ
+  // 10. ELLE (MANUEL) DERS DERS OPTİK CEVAP VE NOT GİRİŞİ
   // ==========================================
   showManualResultModal(instId, examId, studentNoToPreload = null) {
     const existing = document.getElementById('manual-result-modal');
@@ -3189,83 +3721,171 @@ window.App = {
 
     const session = window.PortalStore.getCurrentSession();
     const effectiveInstId = instId || (session ? session.institutionId : null);
-    const exam = window.PortalStore.getExamById(effectiveInstId, examId);
+    const exam = window.PortalStore.getExamById(effectiveInstId, examId) || window.PortalStore.getGlobalExams().find(e => e.id === examId);
     if (!exam) {
       this.showToast('Sınav bulunamadı.', 'error');
       return;
     }
 
     const students = window.PortalStore.getStudents(effectiveInstId);
-    const existingResults = window.PortalStore.getResultsByExam(effectiveInstId, examId);
+    const existingResults = window.PortalStore.getResultsByExam(effectiveInstId, examId) || [];
     const existingResult = studentNoToPreload ? existingResults.find(r => r.studentNo === studentNoToPreload) : null;
 
-    const initialAnswers = existingResult ? existingResult.answers : '';
+    const initialAnswers = existingResult ? (existingResult.answers || '') : '';
     const initialBooklet = existingResult ? (existingResult.booklet || 'A') : 'A';
     const initialStudentNo = studentNoToPreload || (students[0] ? students[0].studentNo : '');
     const initialScoreOverride = (existingResult && existingResult.totalScore !== undefined) ? existingResult.totalScore : '';
+
+    const qCount = parseInt(exam.questionCount, 10) || 20;
+    const subjects = (Array.isArray(exam.subjects) && exam.subjects.length > 0)
+      ? exam.subjects.map((s, idx) => {
+          const startQ = parseInt(s.startQ, 10) || 1;
+          const endQ = parseInt(s.endQ, 10) || qCount;
+          return {
+            name: s.name || `Ders ${idx + 1}`,
+            startQ: startQ,
+            endQ: endQ,
+            count: Math.max(1, endQ - startQ + 1)
+          };
+        })
+      : [{
+          name: 'Genel',
+          startQ: 1,
+          endQ: qCount,
+          count: qCount
+        }];
 
     const modal = document.createElement('div');
     modal.id = 'manual-result-modal';
     modal.className = 'fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-sm animate-fade-in';
     modal.innerHTML = `
-      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-7 max-w-xl w-full shadow-2xl relative max-h-[92vh] overflow-y-auto">
-        <div class="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
+      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-7 max-w-2xl w-full shadow-2xl relative max-h-[94vh] flex flex-col">
+        <!-- Başlık -->
+        <div class="flex items-center justify-between pb-3 border-b border-slate-800 mb-3.5 flex-shrink-0">
           <div class="flex items-center gap-2.5">
             <span class="text-2xl">✍️</span>
             <div>
-              <h3 class="text-base font-black text-white">Elle Optik Cevap & Not Girişi</h3>
-              <p class="text-xs text-slate-400 font-medium">\${exam.title} (\${exam.questionCount} Soru)</p>
+              <h3 class="text-base sm:text-lg font-black text-white">Ders Ders Elle Optik Not Girişi</h3>
+              <p class="text-xs text-slate-400 font-medium">${exam.title} <span class="text-emerald-400 font-bold font-mono">(${exam.questionCount} Soru • ${subjects.length} Ders)</span></p>
             </div>
           </div>
           <button onclick="document.getElementById('manual-result-modal').remove()" class="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-sm font-bold cursor-pointer">✕</button>
         </div>
 
-        <form onsubmit="App.handleSaveManualResult(event, '\${effectiveInstId}', '\${exam.id}')" class="space-y-4">
+        <form onsubmit="App.handleSaveManualResult(event, '${effectiveInstId}', '${exam.id}')" class="space-y-3.5 overflow-y-auto pr-1 flex-1">
+          <!-- Talebe Seçimi -->
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Talebe Seçiniz</label>
-              <select id="manual-student-select" onchange="App.handleManualStudentChange(this.value, '\${effectiveInstId}')" class="w-full px-3 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white font-bold text-xs focus:border-emerald-500 focus:outline-none">
+              <select id="manual-student-select" onchange="App.handleManualStudentChange(this.value, '${effectiveInstId}', '${exam.id}')" class="w-full px-3 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white font-bold text-xs focus:border-emerald-500 focus:outline-none">
                 <option value="">-- Kayıtlı Listeden Seç --</option>
-                \${students.map(s => `<option value="\${s.studentNo}" \${s.studentNo === initialStudentNo ? 'selected' : ''}>\${s.studentNo} - \${s.firstName} \${s.lastName} (\${s.className})</option>`).join('')}
+                ${students.map(s => `<option value="${s.studentNo}" ${s.studentNo === initialStudentNo ? 'selected' : ''}>${s.studentNo} - ${s.firstName} ${s.lastName} (${s.className})</option>`).join('')}
               </select>
             </div>
             <div>
               <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Talebe No (Manuel Giriş)</label>
-              <input type="text" id="manual-student-no" required value="\${initialStudentNo}" placeholder="Örn: 105" class="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white font-medium text-xs focus:border-emerald-500 focus:outline-none">
+              <input type="text" id="manual-student-no" required value="${initialStudentNo}" placeholder="Örn: 105" class="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white font-medium text-xs focus:border-emerald-500 focus:outline-none">
             </div>
           </div>
 
+          <!-- Kitapçık ve Özel Puan -->
           <div class="grid grid-cols-2 gap-3">
             <div>
               <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Kitapçık Türü</label>
-              <select id="manual-booklet-select" onchange="App.handleManualAnswersInput('\${exam.id}')" class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-bold text-xs">
-                <option value="A" \${initialBooklet === 'A' ? 'selected' : ''}>A Kitapçığı</option>
-                <option value="B" \${initialBooklet === 'B' ? 'selected' : ''}>B Kitapçığı</option>
-                <option value="C" \${initialBooklet === 'C' ? 'selected' : ''}>C Kitapçığı</option>
-                <option value="D" \${initialBooklet === 'D' ? 'selected' : ''}>D Kitapçığı</option>
+              <select id="manual-booklet-select" onchange="App.handleManualBookletChange('${exam.id}')" class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-bold text-xs">
+                <option value="A" ${initialBooklet === 'A' ? 'selected' : ''}>A Kitapçığı</option>
+                <option value="B" ${initialBooklet === 'B' ? 'selected' : ''}>B Kitapçığı</option>
+                <option value="C" ${initialBooklet === 'C' ? 'selected' : ''}>C Kitapçığı</option>
+                <option value="D" ${initialBooklet === 'D' ? 'selected' : ''}>D Kitapçığı</option>
               </select>
             </div>
             <div>
               <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Özel Puan (İsteğe Bağlı)</label>
-              <input type="number" step="0.1" id="manual-score-override" placeholder="Otomatik hesaplanır" value="\${initialScoreOverride}" class="w-full px-3.5 py-2 bg-slate-950 border border-slate-800 rounded-xl text-amber-300 font-mono text-xs focus:border-amber-400 focus:outline-none">
+              <input type="number" step="0.1" id="manual-score-override" placeholder="Otomatik (200-500)" value="${initialScoreOverride}" class="w-full px-3.5 py-2 bg-slate-950 border border-slate-800 rounded-xl text-amber-300 font-mono text-xs focus:border-amber-400 focus:outline-none">
             </div>
           </div>
 
-          <!-- Öğrenci Cevapları Girişi -->
-          <div class="space-y-2 p-3.5 bg-slate-950/80 rounded-2xl border border-slate-800">
-            <div class="flex items-center justify-between">
-              <label class="text-xs font-bold text-emerald-400 uppercase">Öğrenci Cevap Dizilimi (\${exam.questionCount} Soru)</label>
-              <span id="manual-char-count" class="text-[11px] font-mono text-slate-400">0 / \${exam.questionCount}</span>
+          <!-- Cevap Giriş Alanı: Ders Ders vs Tek Satır Sekmeleri -->
+          <div class="bg-slate-950/80 border border-slate-800 rounded-2xl p-3 sm:p-4 space-y-3">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-2.5 flex-wrap gap-2">
+              <div class="flex items-center gap-1.5">
+                <button type="button" id="manual-tab-subjects" onclick="App.switchManualInputTab('subjects')" class="px-3 py-1.5 rounded-xl text-xs font-black bg-emerald-500 text-slate-950 transition cursor-pointer">
+                  📚 Ders Ders Giriş
+                </button>
+                <button type="button" id="manual-tab-raw" onclick="App.switchManualInputTab('raw')" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-400 hover:text-slate-200 transition cursor-pointer">
+                  📝 Tek Satır / Toplu Metin
+                </button>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <button type="button" onclick="App.fillSampleAnswers('${exam.id}', 'key')" class="px-2.5 py-1 bg-cyan-950/70 hover:bg-cyan-900 border border-cyan-800/60 text-cyan-300 text-[11px] font-bold rounded-lg transition cursor-pointer" title="Seçili kitapçığın tüm cevap anahtarını otomatik doldur">
+                  🔑 Tüm Anahtar
+                </button>
+                <button type="button" onclick="App.fillSampleAnswers('${exam.id}', 'clear')" class="px-2.5 py-1 bg-rose-950/70 hover:bg-rose-900 border border-rose-800/60 text-rose-300 text-[11px] font-bold rounded-lg transition cursor-pointer" title="Tüm cevap kutularını temizle">
+                  ✕ Temizle
+                </button>
+              </div>
             </div>
-            <textarea id="manual-answers-input" rows="3" oninput="App.handleManualAnswersInput('\${exam.id}')" placeholder="Örn: ABCDABCD... (Boş sorular için boşluk bırakınız)" class="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs font-mono text-white tracking-widest focus:border-emerald-500 focus:outline-none uppercase">\${initialAnswers}</textarea>
-            <div class="flex gap-2">
-              <button type="button" onclick="App.fillSampleAnswers('\${exam.id}', 'A')" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-[10px] text-slate-300 rounded font-mono">Tümünü 'A' Yap</button>
-              <button type="button" onclick="App.fillSampleAnswers('\${exam.id}', 'key')" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-[10px] text-cyan-300 rounded font-mono">Cevap Anahtarını Kopyala</button>
-              <button type="button" onclick="App.fillSampleAnswers('\${exam.id}', 'clear')" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-[10px] text-rose-300 rounded font-mono">Temizle</button>
+
+            <!-- 1. BÖLÜM: DERS DERS GİRİŞ KUTULARI -->
+            <div id="manual-pane-subjects" class="space-y-2.5 max-h-72 overflow-y-auto pr-1">
+              ${subjects.map((sub, idx) => {
+                const subVal = initialAnswers.slice(sub.startQ - 1, sub.endQ) || '';
+                return `
+                  <div class="p-3 bg-slate-900/90 rounded-2xl border border-slate-800 hover:border-slate-700 transition">
+                    <div class="flex items-center justify-between mb-1.5 flex-wrap gap-1">
+                      <div class="flex items-center gap-1.5 min-w-0">
+                        <span class="w-5 h-5 rounded-md bg-emerald-500/10 text-emerald-400 font-black text-[11px] flex items-center justify-center border border-emerald-500/20 flex-shrink-0">${idx + 1}</span>
+                        <strong class="text-xs text-white font-bold truncate">${sub.name}</strong>
+                        <span class="text-[10px] text-slate-400 font-mono">(${sub.startQ}-${sub.endQ}. Soru • ${sub.count} Soru)</span>
+                      </div>
+                      <div class="flex items-center gap-1.5">
+                        <span id="manual-sub-badge-${idx}" class="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md ${subVal.length === sub.count ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-slate-800 text-slate-400'}">
+                          ${subVal.length} / ${sub.count}
+                        </span>
+                        <button type="button" onclick="App.fillManualSubjectAnswer('${exam.id}', ${idx}, 'key')" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-cyan-300 text-[10px] font-medium rounded cursor-pointer transition" title="Sadece bu dersin cevap anahtarını doldur">🔑 Anahtar</button>
+                        <button type="button" onclick="App.fillManualSubjectAnswer('${exam.id}', ${idx}, 'clear')" class="px-1.5 py-0.5 bg-slate-800 hover:bg-slate-700 text-rose-300 text-[10px] font-medium rounded cursor-pointer transition" title="Bu dersin cevaplarını temizle">✕</button>
+                      </div>
+                    </div>
+                    <div>
+                      <input type="text"
+                             id="manual-sub-ans-${idx}"
+                             data-idx="${idx}"
+                             data-start="${sub.startQ}"
+                             data-end="${sub.endQ}"
+                             data-count="${sub.count}"
+                             maxlength="${sub.count}"
+                             value="${subVal}"
+                             autocomplete="off"
+                             spellcheck="false"
+                             oninput="App.handleManualSubjectAnswerInput('${exam.id}', ${idx}, ${sub.count})"
+                             onkeydown="App.handleManualSubjectKeydown(event, ${idx}, ${subjects.length})"
+                             placeholder="Örn: ABCD... (${sub.count} harf)"
+                             class="manual-subject-input w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs font-mono text-emerald-300 font-bold tracking-widest uppercase focus:border-emerald-500 focus:outline-none">
+                    </div>
+                    <div id="manual-sub-stat-${idx}" class="text-[10px] font-mono text-slate-400 mt-1 flex items-center justify-between min-h-[16px] px-0.5">
+                      <!-- Canlı Ders İstatistiği (Doğru, Yanlış, Boş, Net) -->
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+
+            <!-- 2. BÖLÜM: TEK SATIR / TOPLU METİN GİRİŞİ (Gizli Sekme) -->
+            <div id="manual-pane-raw" class="hidden space-y-2">
+              <div class="flex items-center justify-between">
+                <label class="text-xs font-bold text-slate-400 uppercase">Tüm Sınav Cevap Dizisi (Tek Metin)</label>
+                <span id="manual-char-count" class="text-[11px] font-mono text-slate-400">${initialAnswers.length} / ${exam.questionCount}</span>
+              </div>
+              <textarea id="manual-answers-input" rows="3" oninput="App.handleManualRawAnswersInput('${exam.id}')" placeholder="Örn: ABCDABCD... (Boş sorular için boşluk bırakınız)" class="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs font-mono text-white tracking-widest focus:border-emerald-500 focus:outline-none uppercase font-bold">${initialAnswers}</textarea>
+              <div class="flex gap-2">
+                <button type="button" onclick="App.fillSampleAnswers('${exam.id}', 'A')" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-[10px] text-slate-300 rounded font-mono cursor-pointer">Tümünü 'A' Yap</button>
+                <button type="button" onclick="App.fillSampleAnswers('${exam.id}', 'key')" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-[10px] text-cyan-300 rounded font-mono cursor-pointer">Cevap Anahtarını Kopyala</button>
+                <button type="button" onclick="App.fillSampleAnswers('${exam.id}', 'clear')" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-[10px] text-rose-300 rounded font-mono cursor-pointer">Temizle</button>
+              </div>
             </div>
           </div>
 
-          <!-- Canlı Önizleme Kartı -->
+          <!-- Canlı Önizleme Kartı (Taban: 200 • Tavan: 500 Puan) -->
           <div id="manual-preview-card" class="grid grid-cols-5 gap-2 text-center p-3 bg-slate-950 rounded-2xl border border-slate-800">
             <div>
               <span class="block text-[10px] text-slate-500 font-bold uppercase">Doğru</span>
@@ -3289,8 +3909,16 @@ window.App = {
             </div>
           </div>
 
-          <div class="pt-2">
-            <button type="submit" class="w-full py-3.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-slate-950 font-black text-xs rounded-xl shadow-lg transition flex items-center justify-center gap-2 cursor-pointer">
+          <!-- Kaydet & Sil Butonları -->
+          <div class="pt-2 flex items-center gap-2">
+            <div id="manual-delete-btn-container">
+              ${existingResult ? `
+                <button type="button" onclick="App.deleteExamResultPrompt('${effectiveInstId}', '${exam.id}', '${existingResult.id || ''}', '${existingResult.studentNo}', '${encodeURIComponent(existingResult.studentName || '')}')" class="py-3 px-3.5 bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white font-bold text-xs rounded-xl border border-rose-500/30 transition flex items-center justify-center gap-1.5 cursor-pointer" title="Bu optik okuma kaydını sil">
+                  <span>🗑️</span> <span>Sil</span>
+                </button>
+              ` : ''}
+            </div>
+            <button type="submit" class="flex-1 py-3.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-slate-950 font-black text-xs rounded-xl shadow-lg transition flex items-center justify-center gap-2 cursor-pointer">
               <span>💾</span> <span>Sonucu Kaydet & Sıralamayı Güncelle</span>
             </button>
           </div>
@@ -3299,31 +3927,200 @@ window.App = {
     `;
     document.body.appendChild(modal);
 
-    this.handleManualAnswersInput(exam.id);
+    this.updateManualScorePreview(exam.id, initialAnswers);
   },
 
-  handleManualStudentChange(studentNo, instId) {
-    const input = document.getElementById('manual-student-no');
-    if (input && studentNo) {
-      input.value = studentNo;
+  switchManualInputTab(mode) {
+    const paneSubjects = document.getElementById('manual-pane-subjects');
+    const paneRaw = document.getElementById('manual-pane-raw');
+    const tabSubjects = document.getElementById('manual-tab-subjects');
+    const tabRaw = document.getElementById('manual-tab-raw');
+
+    if (mode === 'subjects') {
+      if (paneSubjects) paneSubjects.classList.remove('hidden');
+      if (paneRaw) paneRaw.classList.add('hidden');
+      if (tabSubjects) {
+        tabSubjects.className = 'px-3 py-1.5 rounded-xl text-xs font-black bg-emerald-500 text-slate-950 transition cursor-pointer';
+      }
+      if (tabRaw) {
+        tabRaw.className = 'px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-400 hover:text-slate-200 transition cursor-pointer';
+      }
+    } else {
+      if (paneSubjects) paneSubjects.classList.add('hidden');
+      if (paneRaw) paneRaw.classList.remove('hidden');
+      if (tabSubjects) {
+        tabSubjects.className = 'px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-400 hover:text-slate-200 transition cursor-pointer';
+      }
+      if (tabRaw) {
+        tabRaw.className = 'px-3 py-1.5 rounded-xl text-xs font-black bg-emerald-500 text-slate-950 transition cursor-pointer';
+      }
     }
   },
 
-  handleManualAnswersInput(examId) {
+  handleManualSubjectAnswerInput(examId, subjectIdx, maxCount) {
+    const input = document.getElementById(`manual-sub-ans-${subjectIdx}`);
+    if (!input) return;
+
+    const cursorPos = input.selectionStart;
+    input.value = input.value.toUpperCase();
+    input.setSelectionRange(cursorPos, cursorPos);
+
+    const val = input.value;
+    const badge = document.getElementById(`manual-sub-badge-${subjectIdx}`);
+    if (badge) {
+      badge.textContent = `${val.length} / ${maxCount}`;
+      if (val.length === maxCount) {
+        badge.className = 'text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
+      } else {
+        badge.className = 'text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-slate-800 text-slate-400';
+      }
+    }
+
+    this.assembleAnswersFromSubjects(examId);
+
+    // Eğer bu ders kutusu tamamlandıysa otomatik sonraki derse odaklan
+    if (val.length >= maxCount) {
+      const nextInput = document.getElementById(`manual-sub-ans-${subjectIdx + 1}`);
+      if (nextInput) {
+        nextInput.focus();
+        nextInput.select();
+      }
+    }
+  },
+
+  handleManualSubjectKeydown(event, idx, totalSubs) {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      const nextInput = document.getElementById(`manual-sub-ans-${idx + 1}`);
+      if (nextInput) {
+        nextInput.focus();
+        nextInput.select();
+      }
+    } else if (event.key === 'ArrowDown') {
+      const nextInput = document.getElementById(`manual-sub-ans-${idx + 1}`);
+      if (nextInput) nextInput.focus();
+    } else if (event.key === 'ArrowUp') {
+      const prevInput = document.getElementById(`manual-sub-ans-${idx - 1}`);
+      if (prevInput) prevInput.focus();
+    }
+  },
+
+  assembleAnswersFromSubjects(examId) {
+    const session = window.PortalStore.getCurrentSession();
+    const instId = session ? session.institutionId : null;
+    const exam = window.PortalStore.getExamById(instId, examId) || window.PortalStore.getGlobalExams().find(e => e.id === examId);
+    if (!exam) return '';
+
+    const qCount = parseInt(exam.questionCount, 10) || 20;
+    const subjects = (Array.isArray(exam.subjects) && exam.subjects.length > 0)
+      ? exam.subjects
+      : [{ name: 'Genel', startQ: 1, endQ: qCount }];
+
+    let charArr = new Array(qCount).fill(' ');
+
+    subjects.forEach((sub, idx) => {
+      const input = document.getElementById(`manual-sub-ans-${idx}`);
+      if (!input) return;
+      const val = input.value.toUpperCase();
+      const start = (parseInt(sub.startQ, 10) || 1) - 1;
+      for (let i = 0; i < val.length; i++) {
+        if (start + i < qCount) {
+          charArr[start + i] = val[i];
+        }
+      }
+    });
+
+    const fullAnswers = charArr.join('').replace(/\s+$/, '');
+    const answersTextarea = document.getElementById('manual-answers-input');
+    if (answersTextarea) {
+      answersTextarea.value = fullAnswers;
+    }
+
+    const charCount = document.getElementById('manual-char-count');
+    if (charCount) {
+      charCount.textContent = `${fullAnswers.length} / ${qCount}`;
+    }
+
+    this.updateManualScorePreview(examId, fullAnswers);
+    return fullAnswers;
+  },
+
+  distributeAnswersToSubjects(examId, fullAnswers = '') {
     const session = window.PortalStore.getCurrentSession();
     const instId = session ? session.institutionId : null;
     const exam = window.PortalStore.getExamById(instId, examId) || window.PortalStore.getGlobalExams().find(e => e.id === examId);
     if (!exam) return;
 
-    const answersInput = document.getElementById('manual-answers-input');
-    const bookletSelect = document.getElementById('manual-booklet-select');
-    const charCount = document.getElementById('manual-char-count');
+    const qCount = parseInt(exam.questionCount, 10) || 20;
+    const subjects = (Array.isArray(exam.subjects) && exam.subjects.length > 0)
+      ? exam.subjects
+      : [{ name: 'Genel', startQ: 1, endQ: qCount }];
 
-    const answers = answersInput ? answersInput.value.toUpperCase() : '';
+    subjects.forEach((sub, idx) => {
+      const input = document.getElementById(`manual-sub-ans-${idx}`);
+      const badge = document.getElementById(`manual-sub-badge-${idx}`);
+      const sStart = (parseInt(sub.startQ, 10) || 1) - 1;
+      const sEnd = parseInt(sub.endQ, 10) || qCount;
+      const sCount = Math.max(1, sEnd - sStart);
+
+      const subVal = fullAnswers.slice(sStart, sEnd) || '';
+      if (input) {
+        input.value = subVal.trimEnd();
+      }
+      if (badge) {
+        badge.textContent = `${subVal.trimEnd().length} / ${sCount}`;
+        if (subVal.trimEnd().length === sCount) {
+          badge.className = 'text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
+        } else {
+          badge.className = 'text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-slate-800 text-slate-400';
+        }
+      }
+    });
+
+    const answersTextarea = document.getElementById('manual-answers-input');
+    if (answersTextarea && answersTextarea.value !== fullAnswers) {
+      answersTextarea.value = fullAnswers;
+    }
+
+    const charCount = document.getElementById('manual-char-count');
+    if (charCount) {
+      charCount.textContent = `${fullAnswers.length} / ${qCount}`;
+    }
+
+    this.updateManualScorePreview(examId, fullAnswers);
+  },
+
+  handleManualRawAnswersInput(examId) {
+    const answersTextarea = document.getElementById('manual-answers-input');
+    if (!answersTextarea) return;
+
+    const cursorPos = answersTextarea.selectionStart;
+    answersTextarea.value = answersTextarea.value.toUpperCase();
+    answersTextarea.setSelectionRange(cursorPos, cursorPos);
+
+    const answers = answersTextarea.value;
+    this.distributeAnswersToSubjects(examId, answers);
+  },
+
+  handleManualBookletChange(examId) {
+    const answersInput = document.getElementById('manual-answers-input');
+    const answers = answersInput ? answersInput.value : '';
+    this.updateManualScorePreview(examId, answers);
+  },
+
+  updateManualScorePreview(examId, answersOverride = null) {
+    const session = window.PortalStore.getCurrentSession();
+    const instId = session ? session.institutionId : null;
+    const exam = window.PortalStore.getExamById(instId, examId) || window.PortalStore.getGlobalExams().find(e => e.id === examId);
+    if (!exam) return;
+
+    const bookletSelect = document.getElementById('manual-booklet-select');
     const booklet = bookletSelect ? bookletSelect.value : 'A';
 
-    if (charCount) {
-      charCount.textContent = `\${answers.length} / \${exam.questionCount}`;
+    let answers = answersOverride;
+    if (answers === null) {
+      const answersInput = document.getElementById('manual-answers-input');
+      answers = answersInput ? answersInput.value.toUpperCase() : '';
     }
 
     const scored = window.PortalStore.scoreStudentAnswers(answers, exam, booklet);
@@ -3340,6 +4137,97 @@ window.App = {
     if (elE) elE.textContent = scored.totalEmpty;
     if (elN) elN.textContent = scored.totalNet;
     if (elS) elS.textContent = scored.totalScore;
+
+    // Ders bazlı canlı istatistik rozetlerini güncelle
+    const subjects = (Array.isArray(exam.subjects) && exam.subjects.length > 0)
+      ? exam.subjects
+      : [{ name: 'Genel', startQ: 1, endQ: parseInt(exam.questionCount, 10) || 20 }];
+
+    subjects.forEach((sub, idx) => {
+      const statEl = document.getElementById(`manual-sub-stat-${idx}`);
+      if (!statEl) return;
+      const subRes = (scored.subjectsResult && scored.subjectsResult[sub.name]) ? scored.subjectsResult[sub.name] : null;
+      if (subRes) {
+        statEl.innerHTML = `
+          <span>D: <strong class="text-emerald-400 font-bold">${subRes.correct}</strong> • Y: <strong class="text-rose-400 font-bold">${subRes.wrong}</strong> • B: <strong class="text-slate-400 font-bold">${subRes.empty}</strong></span>
+          <span class="text-cyan-400 font-bold font-mono">Net: ${subRes.net}</span>
+        `;
+      } else {
+        statEl.innerHTML = '';
+      }
+    });
+  },
+
+  handleManualAnswersInput(examId) {
+    this.updateManualScorePreview(examId);
+  },
+
+  handleManualStudentChange(studentNo, instId, examId) {
+    const input = document.getElementById('manual-student-no');
+    if (input) {
+      input.value = studentNo || '';
+    }
+
+    const effectiveInstId = instId || (window.PortalStore.getCurrentSession() && window.PortalStore.getCurrentSession().institutionId);
+    if (!studentNo || !examId) return;
+
+    const existingResults = window.PortalStore.getResultsByExam(effectiveInstId, examId) || [];
+    const existing = existingResults.find(r => r.studentNo === studentNo);
+
+    const bookletSelect = document.getElementById('manual-booklet-select');
+    const scoreOverride = document.getElementById('manual-score-override');
+    const deleteContainer = document.getElementById('manual-delete-btn-container');
+
+    if (existing) {
+      if (bookletSelect && existing.booklet) bookletSelect.value = existing.booklet;
+      if (scoreOverride) scoreOverride.value = (existing.totalScore !== undefined) ? existing.totalScore : '';
+      this.distributeAnswersToSubjects(examId, existing.answers || '');
+      if (deleteContainer) {
+        deleteContainer.innerHTML = `
+          <button type="button" onclick="App.deleteExamResultPrompt('${effectiveInstId}', '${examId}', '${existing.id || ''}', '${existing.studentNo}', '${encodeURIComponent(existing.studentName || '')}')" class="py-3 px-3.5 bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white font-bold text-xs rounded-xl border border-rose-500/30 transition flex items-center justify-center gap-1.5 cursor-pointer" title="Bu optik okuma kaydını sil">
+            <span>🗑️</span> <span>Sil</span>
+          </button>
+        `;
+      }
+      this.showToast(`✓ #${studentNo} için kayıtlı sınav neticesi yüklendi.`, 'info');
+    } else {
+      if (scoreOverride) scoreOverride.value = '';
+      if (deleteContainer) deleteContainer.innerHTML = '';
+      this.distributeAnswersToSubjects(examId, '');
+    }
+  },
+
+  fillManualSubjectAnswer(examId, subjectIdx, type) {
+    const session = window.PortalStore.getCurrentSession();
+    const instId = session ? session.institutionId : null;
+    const exam = window.PortalStore.getExamById(instId, examId) || window.PortalStore.getGlobalExams().find(e => e.id === examId);
+    if (!exam) return;
+
+    const subjects = (Array.isArray(exam.subjects) && exam.subjects.length > 0)
+      ? exam.subjects
+      : [{ name: 'Genel', startQ: 1, endQ: parseInt(exam.questionCount, 10) || 20 }];
+
+    const sub = subjects[subjectIdx];
+    if (!sub) return;
+
+    const sStart = (parseInt(sub.startQ, 10) || 1) - 1;
+    const sEnd = parseInt(sub.endQ, 10) || (parseInt(exam.questionCount, 10) || 20);
+    const sCount = Math.max(1, sEnd - sStart);
+
+    const input = document.getElementById(`manual-sub-ans-${subjectIdx}`);
+    if (!input) return;
+
+    if (type === 'clear') {
+      input.value = '';
+    } else if (type === 'key') {
+      const bookletSelect = document.getElementById('manual-booklet-select');
+      const booklet = bookletSelect ? bookletSelect.value : 'A';
+      const key = (exam.answerKeys && exam.answerKeys[booklet]) ? exam.answerKeys[booklet] : '';
+      const subKey = key.slice(sStart, sEnd) || 'A'.repeat(sCount);
+      input.value = subKey;
+    }
+
+    this.handleManualSubjectAnswerInput(examId, subjectIdx, sCount);
   },
 
   fillSampleAnswers(examId, type) {
@@ -3348,23 +4236,20 @@ window.App = {
     const exam = window.PortalStore.getExamById(instId, examId) || window.PortalStore.getGlobalExams().find(e => e.id === examId);
     if (!exam) return;
 
-    const answersInput = document.getElementById('manual-answers-input');
+    const qCount = parseInt(exam.questionCount, 10) || 20;
     const bookletSelect = document.getElementById('manual-booklet-select');
     const booklet = bookletSelect ? bookletSelect.value : 'A';
-    const qCount = parseInt(exam.questionCount, 10) || 20;
 
-    if (!answersInput) return;
-
+    let newAnswers = '';
     if (type === 'clear') {
-      answersInput.value = '';
+      newAnswers = '';
     } else if (type === 'A') {
-      answersInput.value = 'A'.repeat(qCount);
+      newAnswers = 'A'.repeat(qCount);
     } else if (type === 'key') {
-      const key = (exam.answerKeys && exam.answerKeys[booklet]) ? exam.answerKeys[booklet] : 'A'.repeat(qCount);
-      answersInput.value = key;
+      newAnswers = (exam.answerKeys && exam.answerKeys[booklet]) ? exam.answerKeys[booklet] : 'A'.repeat(qCount);
     }
 
-    this.handleManualAnswersInput(examId);
+    this.distributeAnswersToSubjects(examId, newAnswers);
   },
 
   handleSaveManualResult(e, instId, examId) {
@@ -3376,7 +4261,7 @@ window.App = {
     }
 
     const booklet = document.getElementById('manual-booklet-select').value;
-    const answers = document.getElementById('manual-answers-input').value.trim().toUpperCase();
+    const answers = this.assembleAnswersFromSubjects(examId) || (document.getElementById('manual-answers-input') ? document.getElementById('manual-answers-input').value.trim().toUpperCase() : '');
     const scoreOverride = document.getElementById('manual-score-override').value;
 
     const res = window.PortalStore.saveManualExamResult(instId, {
@@ -3388,13 +4273,1073 @@ window.App = {
     });
 
     if (res && res.success) {
-      this.showToast(`✓ #\${studentNo} için optik cevaplar ve not başarıyla kaydedildi!`, 'success');
+      this.showToast(`✓ #${studentNo} için optik cevaplar ve not başarıyla kaydedildi!`, 'success');
       const modal = document.getElementById('manual-result-modal');
       if (modal) modal.remove();
       this.render();
     } else {
       this.showToast('Kayıt başarısız: ' + (res ? res.message : ''), 'error');
     }
+  },
+
+  // ==========================================
+  // 10.B. FMT İLE OPTİK OKUYUCU DOSYASI (.TXT / .DAT) İÇE AKTARMA MOTORU
+  // ==========================================
+  showImportTxtResultsModal(instId, preselectedExamId = null) {
+    const existing = document.getElementById('import-txt-modal');
+    if (existing) existing.remove();
+
+    const session = window.PortalStore.getCurrentSession();
+    const effectiveInstId = instId || (session ? session.institutionId : null);
+    const exams = window.PortalStore.getExams(effectiveInstId) || [];
+
+    if (exams.length === 0) {
+      this.showToast('Lütfen önce "Sınavlar" sekmesinden bir deneme sınavı oluşturunuz.', 'warning');
+      return;
+    }
+
+    const defaultExamId = preselectedExamId || (exams[0] ? exams[0].id : '');
+    const currentExam = exams.find(e => e.id === defaultExamId) || exams[0];
+
+    // Aktif FMT şablonunu belirle (varsayılan: sınavın soru sayısına en uygun şablon)
+    const fmtList = window.PortalStore.getFmtTemplates(effectiveInstId);
+    let initialFmt = fmtList[0];
+    if (currentExam.questionCount === 60) {
+      initialFmt = fmtList.find(f => f.id === 'fmt_sekonik_60') || fmtList[0];
+    } else if (currentExam.questionCount === 120) {
+      initialFmt = fmtList.find(f => f.id === 'fmt_tyt_120') || fmtList[0];
+    }
+    this.activeFmt = JSON.parse(JSON.stringify(initialFmt));
+
+    const modal = document.createElement('div');
+    modal.id = 'import-txt-modal';
+    modal.className = 'fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-sm animate-fade-in';
+    modal.innerHTML = `
+      <div ondragover="event.preventDefault();" 
+           ondrop="App.handleSmartFileDrop(event, '${effectiveInstId}');"
+           class="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-6 max-w-4xl w-full shadow-2xl relative max-h-[94vh] flex flex-col">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-800 mb-3.5 flex-shrink-0">
+          <div class="flex items-center gap-2.5">
+            <div class="w-10 h-10 rounded-2xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-2xl border border-indigo-500/30">
+              📑
+            </div>
+            <div>
+              <h3 class="text-base sm:text-lg font-black text-white">Optik Okuyucu Dosyası Yükle (.FMT ve .TXT)</h3>
+              <p class="text-xs text-slate-400 font-medium">Önce optik formatı (.FMT) belirleyin, ardından sınav sonuç dosyasını (.TXT/.DAT) hatasız aktarın.</p>
+            </div>
+          </div>
+          <button onclick="document.getElementById('import-txt-modal').remove()" class="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-sm font-bold cursor-pointer">✕</button>
+        </div>
+
+        <form onsubmit="App.handleImportTxtSubmit(event, '${effectiveInstId}')" class="space-y-3.5 flex-1 flex flex-col min-h-0 overflow-y-auto pr-1">
+          <!-- Hedef Sınav Seçimi -->
+          <div class="bg-slate-950/80 p-3 rounded-2xl border border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div class="flex-1">
+              <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Hedef Deneme Sınavı</label>
+              <select id="import-txt-exam-select" onchange="App.handleImportExamChange('${effectiveInstId}', this.value)" class="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-white font-bold text-xs focus:border-indigo-500 focus:outline-none">
+                ${exams.map(e => `<option value="${e.id}" ${e.id === defaultExamId ? 'selected' : ''}>${e.title} (${e.questionCount} Soru)</option>`).join('')}
+              </select>
+            </div>
+            <div class="w-full sm:w-56">
+              <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Kitapçık Seçimi</label>
+              <select id="import-txt-booklet-mode" onchange="App.updateTxtImportPreview('${effectiveInstId}')" class="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-white font-medium text-xs focus:border-indigo-500 focus:outline-none">
+                <option value="auto">Otomatik Tespit (FMT'den Oku)</option>
+                <option value="force_A">Tümünü A Kitapçığı Kabul Et</option>
+                <option value="force_B">Tümünü B Kitapçığı Kabul Et</option>
+                <option value="force_C">Tümünü C Kitapçığı Kabul Et</option>
+                <option value="force_D">Tümünü D Kitapçığı Kabul Et</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- İki Adımlı Görsel Kılavuz -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 p-3 bg-slate-950/90 rounded-2xl border border-slate-800 text-xs">
+            <div class="flex items-center gap-2.5 p-2.5 bg-indigo-950/40 rounded-xl border border-indigo-500/30">
+              <span class="text-2xl">1️⃣</span>
+              <div>
+                <strong class="text-indigo-300 block font-bold text-xs">1. Dosya: FMT (Sütun Düzeni)</strong>
+                <span class="text-[11px] text-slate-400">Listeden şablon seçin veya <code>.fmt</code> dosyanızı seçip bırakın.</span>
+              </div>
+            </div>
+            <div class="flex items-center gap-2.5 p-2.5 bg-emerald-950/40 rounded-xl border border-emerald-500/30">
+              <span class="text-2xl">2️⃣</span>
+              <div>
+                <strong class="text-emerald-300 block font-bold text-xs">2. Dosya: TXT / DAT (Talebe Cevapları)</strong>
+                <span class="text-[11px] text-slate-400">Notları yapıştırın veya <code>.txt</code> dosyanızı doğrudan kutunun içine bırakın.</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- ADIM 1: OPTİK FORMAT (.FMT) BÖLÜMÜ -->
+          <div ondragover="event.preventDefault(); this.classList.add('border-indigo-400');"
+               ondragleave="this.classList.remove('border-indigo-400');"
+               ondrop="event.preventDefault(); this.classList.remove('border-indigo-400'); App.handleSmartFileDrop(event, '${effectiveInstId}');"
+               class="bg-indigo-950/20 border border-indigo-500/30 rounded-2xl p-3.5 space-y-3 transition">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-indigo-500/20 pb-2.5">
+              <div class="flex items-center gap-2">
+                <span class="w-6 h-6 rounded-lg bg-indigo-500 text-slate-950 font-black text-xs flex items-center justify-center">1</span>
+                <div>
+                  <h4 class="text-xs font-black text-white uppercase tracking-wider">Optik Format (.FMT) Tanımı</h4>
+                  <p class="text-[10px] text-indigo-300">Optik okuyucunuzun sütun dizilimi. Şablon seçebilir veya .fmt dosyası yükleyebilirsiniz.</p>
+                </div>
+              </div>
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <button type="button" onclick="App.toggleFmtFieldEditor()" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-indigo-300 text-[11px] font-bold rounded-lg border border-indigo-500/30 transition cursor-pointer flex items-center gap-1">
+                  <span>⚙️</span> <span id="btn-toggle-fmt-editor-text">Sütunları Düzenle</span>
+                </button>
+                <button type="button" onclick="App.saveCurrentFmtPrompt('${effectiveInstId}')" class="px-2.5 py-1 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 text-[11px] font-bold rounded-lg border border-emerald-500/40 transition cursor-pointer flex items-center gap-1">
+                  <span>💾</span> <span>FMT'yi Kaydet</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- FMT Seçim ve Yükleme Araç Çubuğu -->
+            <div class="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
+              <div class="sm:col-span-7">
+                <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Kullanılacak FMT Formatı</label>
+                <select id="import-fmt-select" onchange="App.switchFmtTemplate('${effectiveInstId}', this.value)" class="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-white font-bold text-xs focus:border-indigo-500 focus:outline-none">
+                  ${fmtList.map(f => `<option value="${f.id}" ${f.id === this.activeFmt.id ? 'selected' : ''}>${f.name} ${f.isCustom ? '★ (Özel)' : ''}</option>`).join('')}
+                </select>
+              </div>
+
+              <div class="sm:col-span-5 flex items-end gap-2">
+                <input type="file" id="fmt-file-input" accept=".fmt,.txt,.dat,.cfg,.ini" onchange="App.handleFmtFileSelected(this, '${effectiveInstId}')" class="hidden">
+                <button type="button" onclick="document.getElementById('fmt-file-input').click()" class="flex-1 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl shadow transition flex items-center justify-center gap-1.5 cursor-pointer">
+                  <span>📁</span> <span>.FMT Dosyası Seç</span>
+                </button>
+                <button type="button" onclick="App.toggleFmtPasteBox()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl border border-slate-700 transition cursor-pointer" title="FMT Metnini Göster / Yapıştır">
+                  📝 Metin
+                </button>
+              </div>
+            </div>
+
+            <!-- FMT Metni Yapıştırma Kutusu (Gizlenebilir) -->
+            <div id="fmt-paste-box" class="hidden p-2.5 bg-slate-950 rounded-xl border border-indigo-800/60 space-y-2 animate-fade-in">
+              <label class="block text-[11px] font-bold text-indigo-300">FMT Dosyası İçeriği (Örnek: Sekonik / Kuantum formatı):</label>
+              <textarea id="fmt-paste-textarea" oninput="App.handleFmtPasteInput('${effectiveInstId}')" rows="4" class="w-full p-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs font-mono text-indigo-200 focus:outline-none focus:border-indigo-500 leading-relaxed">${this.activeFmt.rawText || ''}</textarea>
+              <p class="text-[10px] text-slate-400">Örnek Sekonik: <code>1 1 KTP</code> / <code>2 11 OGRNO</code> / <code>12 35 ADSOYAD</code> / <code>36 39 SINIF</code> / <code>40 129 CEVAP</code></p>
+            </div>
+
+            <!-- FMT Görsel Rozetleri (Aktif Dilimler) -->
+            <div id="fmt-visual-badge-container">
+              ${this.renderFmtVisualBadge(this.activeFmt)}
+            </div>
+
+            <!-- FMT Sütun Elle Düzenleme Formu (Gizlenebilir) -->
+            <div id="fmt-field-editor" class="hidden bg-slate-950/80 rounded-xl border border-indigo-500/30 p-3 space-y-2.5 animate-fade-in">
+              <span class="block text-[11px] font-bold text-white uppercase">Sütun Başlangıç ve Bitiş Değerlerini Düzenle:</span>
+              <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs">
+                ${this.renderFmtFieldInputs(this.activeFmt, effectiveInstId)}
+              </div>
+            </div>
+          </div>
+
+          <!-- ADIM 2: OPTİK SONUÇ DOSYASI (.TXT / .DAT) BÖLÜMÜ -->
+          <div class="space-y-2.5">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-1.5">
+              <div class="flex items-center gap-2">
+                <span class="w-6 h-6 rounded-lg bg-emerald-500 text-slate-950 font-black text-xs flex items-center justify-center">2</span>
+                <div>
+                  <h4 class="text-xs font-black text-white uppercase tracking-wider">Optik Sonuç Dosyası (.TXT / .DAT / .CSV)</h4>
+                </div>
+              </div>
+              <div class="flex items-center gap-2">
+                <button type="button" onclick="App.switchTxtImportTab('paste')" id="btn-txt-tab-paste" class="px-2.5 py-1 rounded-xl text-xs font-bold bg-indigo-600 text-white transition cursor-pointer">📋 Metin Yapıştır</button>
+                <button type="button" onclick="App.switchTxtImportTab('file')" id="btn-txt-tab-file" class="px-2.5 py-1 rounded-xl text-xs font-bold bg-slate-800 text-slate-400 transition cursor-pointer">📁 Dosya Seç (.txt, .dat)</button>
+              </div>
+            </div>
+
+            <!-- Metin Yapıştırma Alanı -->
+            <div id="txt-import-pane-paste" class="flex flex-col">
+              <textarea id="import-txt-textarea" 
+                        oninput="App.updateTxtImportPreview('${effectiveInstId}')" 
+                        ondragover="event.preventDefault(); this.classList.add('border-emerald-400', 'bg-emerald-950/20');"
+                        ondragleave="this.classList.remove('border-emerald-400', 'bg-emerald-950/20');"
+                        ondrop="this.classList.remove('border-emerald-400', 'bg-emerald-950/20'); App.handleSmartFileDrop(event, '${effectiveInstId}');"
+                        placeholder="Optik okuyucu dosyasının satırlarını buraya yapıştırabilir veya .txt / .dat dosyanızı doğrudan bu alana sürükleyip bırakabilirsiniz...&#10;Örnek:&#10;A  352         4FMUHAMMEDAZİZ İNAN              AAACDCBDACCADD...&#10;B  105         4FAHMET YILMAZ                   CDCACCCADDCDBD..." 
+                        class="w-full p-3 bg-slate-950 border border-slate-800 rounded-2xl text-xs font-mono text-emerald-300 focus:border-indigo-500 focus:outline-none resize-none leading-relaxed h-28 transition"></textarea>
+            </div>
+
+            <!-- Dosya Seçme Alanı -->
+            <div id="txt-import-pane-file" 
+                 ondragover="event.preventDefault(); this.classList.add('border-emerald-500', 'bg-emerald-950/40');" 
+                 ondragleave="this.classList.remove('border-emerald-500', 'bg-emerald-950/40');" 
+                 ondrop="event.preventDefault(); this.classList.remove('border-emerald-500', 'bg-emerald-950/40'); App.handleSmartFileDrop(event, '${effectiveInstId}');"
+                 class="hidden flex-col items-center justify-center p-5 border-2 border-dashed border-slate-800 hover:border-emerald-500 rounded-2xl bg-slate-950/60 transition text-center min-h-[110px] cursor-pointer"
+                 onclick="document.getElementById('import-txt-file-input').click()">
+              <span class="text-3xl mb-1">📁</span>
+              <p class="text-xs text-white font-bold mb-0.5">Talebe cevaplarının bulunduğu TXT veya DAT dosyanızı buraya sürükleyip bırakın</p>
+              <input type="file" id="import-txt-file-input" accept=".txt,.dat,.csv" onchange="App.handleTxtFileSelected(this)" class="hidden">
+              <button type="button" onclick="event.stopPropagation(); document.getElementById('import-txt-file-input').click()" class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow transition cursor-pointer mt-1">
+                Dosya Seçiniz (.txt, .dat)
+              </button>
+              <div id="import-txt-file-info" class="text-xs font-mono text-emerald-400 mt-2 font-bold"></div>
+            </div>
+          </div>
+
+          <!-- ADIM 3: CANLI ÖNİZLEME (FMT Cetveli + Canlı Net/Puan Tablosu) -->
+          <div id="import-txt-preview-section">
+            <div class="p-4 rounded-2xl bg-slate-950/40 border border-slate-800 text-center text-slate-500 text-xs font-medium">
+              Yukarıya optik dosyasını yapıştırdığınızda veya dosya seçtiğinizde FMT cetveli ve canlı net/puan tablosu anında burada görüntülenecektir.
+            </div>
+          </div>
+
+          <!-- Otomatik Kayıt Onayı -->
+          <div class="flex items-center justify-between p-2.5 bg-slate-950 rounded-xl border border-slate-800">
+            <label class="flex items-center gap-2 cursor-pointer text-xs text-slate-300 font-medium">
+              <input type="checkbox" id="import-txt-autoregister" checked class="w-4 h-4 rounded text-indigo-600 accent-indigo-600 cursor-pointer">
+              <span>Listede olmayan yeni talebeleri kurumuma otomatik kaydet</span>
+            </label>
+            <span class="text-[10px] text-slate-500 font-mono">Otomatik Sınıf & No</span>
+          </div>
+
+          <!-- İşlem Butonları -->
+          <div class="pt-1 flex gap-2">
+            <button type="button" onclick="document.getElementById('import-txt-modal').remove()" class="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl transition cursor-pointer">
+              Vazgeç
+            </button>
+            <button type="submit" class="flex-2 py-2.5 bg-gradient-to-r from-indigo-500 to-cyan-500 hover:from-indigo-600 hover:to-cyan-600 text-white font-black text-xs rounded-xl shadow-lg transition flex items-center justify-center gap-2 cursor-pointer">
+              <span>🚀</span> <span>FMT Kurallarıyla Sonuçları Portala Aktar</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    `;
+    document.body.appendChild(modal);
+    this.updateTxtImportPreview(effectiveInstId);
+  },
+
+  handleImportExamChange(instId, examId) {
+    const exam = window.PortalStore.getExamById(instId, examId);
+    if (exam && this.activeFmt) {
+      const qCount = parseInt(exam.questionCount, 10) || 20;
+      if (this.activeFmt.fields && this.activeFmt.fields.answers) {
+        this.activeFmt.fields.answers.length = qCount;
+        this.activeFmt.fields.answers.end = this.activeFmt.fields.answers.start + qCount - 1;
+      }
+      const badgeBox = document.getElementById('fmt-visual-badge-container');
+      if (badgeBox) badgeBox.innerHTML = this.renderFmtVisualBadge(this.activeFmt);
+      const editorBox = document.getElementById('fmt-field-editor');
+      if (editorBox) {
+        editorBox.innerHTML = `
+          <span class="block text-[11px] font-bold text-white uppercase">Sütun Başlangıç ve Bitiş Değerlerini Düzenle:</span>
+          <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs">
+            ${this.renderFmtFieldInputs(this.activeFmt, instId)}
+          </div>
+        `;
+      }
+    }
+    this.updateTxtImportPreview(instId);
+  },
+
+  renderFmtVisualBadge(fmt) {
+    if (!fmt || !fmt.fields) return '';
+    const f = fmt.fields;
+    return `
+      <div class="flex flex-wrap items-center gap-1.5 text-xs font-mono">
+        <span class="px-2 py-1 rounded-lg bg-indigo-500/20 text-indigo-300 border border-indigo-500/40">
+          <strong class="font-sans text-[10px] text-slate-400 block">Kitapçık:</strong>
+          Sütun ${f.booklet.start}-${f.booklet.end}
+        </span>
+        <span class="px-2 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+          <strong class="font-sans text-[10px] text-slate-400 block">Talebe No:</strong>
+          Sütun ${f.studentNo.start}-${f.studentNo.end} (${f.studentNo.length} Hane)
+        </span>
+        <span class="px-2 py-1 rounded-lg bg-purple-500/20 text-purple-300 border border-purple-500/40">
+          <strong class="font-sans text-[10px] text-slate-400 block">Adı Soyadı:</strong>
+          Sütun ${f.studentName.start}-${f.studentName.end} (${f.studentName.length} Hane)
+        </span>
+        <span class="px-2 py-1 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/40">
+          <strong class="font-sans text-[10px] text-slate-400 block">Sınıf / Şube:</strong>
+          Sütun ${f.className.start}-${f.className.end} (${f.className.length} Hane)
+        </span>
+        <span class="px-2 py-1 rounded-lg bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 flex-1 min-w-[150px]">
+          <strong class="font-sans text-[10px] text-slate-400 block">Cevaplar:</strong>
+          Sütun ${f.answers.start}-${f.answers.end} (${f.answers.length} Soru)
+        </span>
+      </div>
+      ${(fmt.subjects && fmt.subjects.length > 0) ? `
+        <div class="mt-1.5 flex flex-wrap gap-1 text-[10px] font-mono text-cyan-300">
+          ${fmt.subjects.map(s => `<span class="bg-cyan-950/60 px-1.5 py-0.5 rounded border border-cyan-800/50">${s.name}: ${s.start}-${s.end}</span>`).join(' ')}
+        </div>
+      ` : ''}
+    `;
+  },
+
+  renderFmtFieldInputs(fmt, instId) {
+    if (!fmt || !fmt.fields) return '';
+    const f = fmt.fields;
+    const items = [
+      { key: 'booklet', label: 'Kitapçık', obj: f.booklet },
+      { key: 'studentNo', label: 'Talebe No', obj: f.studentNo },
+      { key: 'studentName', label: 'Adı Soyadı', obj: f.studentName },
+      { key: 'className', label: 'Sınıf / Şube', obj: f.className },
+      { key: 'answers', label: 'Cevaplar', obj: f.answers }
+    ];
+
+    return items.map(it => `
+      <div class="bg-slate-900 p-2 rounded-xl border border-slate-800">
+        <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">${it.label}</label>
+        <div class="flex items-center gap-1">
+          <input type="number" min="1" value="${it.obj.start}" oninput="App.handleFmtFieldChange('${it.key}', 'start', this.value, '${instId}')" class="w-full px-1.5 py-1 bg-slate-950 border border-slate-700 rounded text-center text-white font-mono font-bold text-xs" title="Başlangıç sütunu">
+          <span class="text-slate-500">-</span>
+          <input type="number" min="1" value="${it.obj.end}" oninput="App.handleFmtFieldChange('${it.key}', 'end', this.value, '${instId}')" class="w-full px-1.5 py-1 bg-slate-950 border border-slate-700 rounded text-center text-white font-mono font-bold text-xs" title="Bitiş sütunu">
+        </div>
+      </div>
+    `).join('');
+  },
+
+  handleFmtFieldChange(fieldKey, prop, val, instId) {
+    if (!this.activeFmt || !this.activeFmt.fields || !this.activeFmt.fields[fieldKey]) return;
+    const num = parseInt(val, 10);
+    if (isNaN(num) || num < 1) return;
+
+    this.activeFmt.fields[fieldKey][prop] = num;
+    const f = this.activeFmt.fields[fieldKey];
+    if (f.end >= f.start) {
+      f.length = (f.end - f.start + 1);
+    }
+
+    const badgeBox = document.getElementById('fmt-visual-badge-container');
+    if (badgeBox) badgeBox.innerHTML = this.renderFmtVisualBadge(this.activeFmt);
+    this.updateTxtImportPreview(instId);
+  },
+
+  toggleFmtFieldEditor() {
+    const editor = document.getElementById('fmt-field-editor');
+    const btnText = document.getElementById('btn-toggle-fmt-editor-text');
+    if (!editor) return;
+    const isHidden = editor.classList.contains('hidden');
+    if (isHidden) {
+      editor.classList.remove('hidden');
+      if (btnText) btnText.textContent = 'Kapat ▲';
+    } else {
+      editor.classList.add('hidden');
+      if (btnText) btnText.textContent = 'Sütunları Düzenle';
+    }
+  },
+
+  toggleFmtPasteBox() {
+    const box = document.getElementById('fmt-paste-box');
+    if (!box) return;
+    box.classList.toggle('hidden');
+  },
+
+  switchFmtTemplate(instId, tplId) {
+    const fmtList = window.PortalStore.getFmtTemplates(instId);
+    const selected = fmtList.find(f => f.id === tplId);
+    if (!selected) return;
+
+    this.activeFmt = JSON.parse(JSON.stringify(selected));
+
+    const examSelect = document.getElementById('import-txt-exam-select');
+    const examId = examSelect ? examSelect.value : null;
+    const exam = window.PortalStore.getExamById(instId, examId);
+    if (exam && this.activeFmt.fields && this.activeFmt.fields.answers) {
+      const qCount = parseInt(exam.questionCount, 10) || 20;
+      this.activeFmt.fields.answers.length = qCount;
+      this.activeFmt.fields.answers.end = this.activeFmt.fields.answers.start + qCount - 1;
+    }
+
+    const badgeBox = document.getElementById('fmt-visual-badge-container');
+    if (badgeBox) badgeBox.innerHTML = this.renderFmtVisualBadge(this.activeFmt);
+
+    const ta = document.getElementById('fmt-paste-textarea');
+    if (ta) ta.value = this.activeFmt.rawText || '';
+
+    const editorBox = document.getElementById('fmt-field-editor');
+    if (editorBox) {
+      editorBox.innerHTML = `
+        <span class="block text-[11px] font-bold text-white uppercase">Sütun Başlangıç ve Bitiş Değerlerini Düzenle:</span>
+        <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs">
+          ${this.renderFmtFieldInputs(this.activeFmt, instId)}
+        </div>
+      `;
+    }
+
+    this.showToast(`✓ Format değiştirildi: ${this.activeFmt.name}`, 'info');
+    this.updateTxtImportPreview(instId);
+  },
+
+  handleFmtFileSelected(input, instId) {
+    const file = input.files && input.files[0];
+    if (!file) return;
+
+    const examSelect = document.getElementById('import-txt-exam-select');
+    const examId = examSelect ? examSelect.value : null;
+    const exam = window.PortalStore.getExamById(instId, examId);
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const content = e.target.result;
+      const parsedFmt = window.PortalStore.parseFmtDefinition(content, exam);
+      parsedFmt.name = file.name.replace(/\.[^/.]+$/, '') + ' (.FMT)';
+      this.activeFmt = parsedFmt;
+
+      const badgeBox = document.getElementById('fmt-visual-badge-container');
+      if (badgeBox) badgeBox.innerHTML = this.renderFmtVisualBadge(this.activeFmt);
+
+      const ta = document.getElementById('fmt-paste-textarea');
+      if (ta) ta.value = content;
+
+      const editorBox = document.getElementById('fmt-field-editor');
+      if (editorBox) {
+        editorBox.innerHTML = `
+          <span class="block text-[11px] font-bold text-white uppercase">Sütun Başlangıç ve Bitiş Değerlerini Düzenle:</span>
+          <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs">
+            ${this.renderFmtFieldInputs(this.activeFmt, instId)}
+          </div>
+        `;
+      }
+
+      this.showToast(`✓ "${file.name}" FMT dosyası başarıyla çözümlendi!`, 'success');
+      this.updateTxtImportPreview(instId);
+    };
+    reader.readAsText(file, 'UTF-8');
+  },
+
+  handleFmtPasteInput(instId) {
+    const ta = document.getElementById('fmt-paste-textarea');
+    if (!ta) return;
+    const content = ta.value;
+
+    const examSelect = document.getElementById('import-txt-exam-select');
+    const examId = examSelect ? examSelect.value : null;
+    const exam = window.PortalStore.getExamById(instId, examId);
+
+    const parsedFmt = window.PortalStore.parseFmtDefinition(content, exam);
+    parsedFmt.name = 'Özel Yapıştırılan FMT';
+    this.activeFmt = parsedFmt;
+
+    const badgeBox = document.getElementById('fmt-visual-badge-container');
+    if (badgeBox) badgeBox.innerHTML = this.renderFmtVisualBadge(this.activeFmt);
+
+    const editorBox = document.getElementById('fmt-field-editor');
+    if (editorBox) {
+      editorBox.innerHTML = `
+        <span class="block text-[11px] font-bold text-white uppercase">Sütun Başlangıç ve Bitiş Değerlerini Düzenle:</span>
+        <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs">
+          ${this.renderFmtFieldInputs(this.activeFmt, instId)}
+        </div>
+      `;
+    }
+
+    this.updateTxtImportPreview(instId);
+  },
+
+  saveCurrentFmtPrompt(instId) {
+    if (!this.activeFmt) return;
+    const name = prompt('Bu FMT formatına bir isim veriniz:', this.activeFmt.name || 'Özel Kurum FMT');
+    if (!name) return;
+
+    this.activeFmt.name = name.trim();
+    const res = window.PortalStore.saveFmtTemplate(instId, this.activeFmt);
+    if (res && res.success) {
+      this.showToast(`✓ "${name}" FMT şablonu kurumunuza kaydedildi!`, 'success');
+      const fmtSelect = document.getElementById('import-fmt-select');
+      if (fmtSelect) {
+        const fmtList = window.PortalStore.getFmtTemplates(instId);
+        fmtSelect.innerHTML = fmtList.map(f => `<option value="${f.id}" ${f.id === res.template.id ? 'selected' : ''}>${f.name} ${f.isCustom ? '★ (Özel)' : ''}</option>`).join('');
+      }
+    } else {
+      this.showToast('Kayıt başarısız: ' + (res ? res.message : ''), 'error');
+    }
+  },
+
+  switchTxtImportTab(mode) {
+    const panePaste = document.getElementById('txt-import-pane-paste');
+    const paneFile = document.getElementById('txt-import-pane-file');
+    const btnPaste = document.getElementById('btn-txt-tab-paste');
+    const btnFile = document.getElementById('btn-txt-tab-file');
+
+    if (mode === 'paste') {
+      if (panePaste) panePaste.classList.remove('hidden');
+      if (paneFile) {
+        paneFile.classList.add('hidden');
+        paneFile.classList.remove('flex');
+      }
+      if (btnPaste) btnPaste.className = 'px-2.5 py-1 rounded-xl text-xs font-bold bg-indigo-600 text-white transition cursor-pointer';
+      if (btnFile) btnFile.className = 'px-2.5 py-1 rounded-xl text-xs font-bold bg-slate-800 text-slate-400 transition cursor-pointer';
+    } else {
+      if (panePaste) panePaste.classList.add('hidden');
+      if (paneFile) {
+        paneFile.classList.remove('hidden');
+        paneFile.classList.add('flex');
+      }
+      if (btnPaste) btnPaste.className = 'px-2.5 py-1 rounded-xl text-xs font-bold bg-slate-800 text-slate-400 transition cursor-pointer';
+      if (btnFile) btnFile.className = 'px-2.5 py-1 rounded-xl text-xs font-bold bg-indigo-600 text-white transition cursor-pointer';
+    }
+  },
+
+  handleSmartFileDrop(e, instId) {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    const dt = e ? e.dataTransfer : null;
+    if (!dt || !dt.files || dt.files.length === 0) return;
+    const files = Array.from(dt.files);
+
+    const fmtFile = files.find(f => {
+      const ext = (f.name.split('.').pop() || '').toLowerCase();
+      return ['fmt', 'cfg', 'ini'].includes(ext);
+    });
+
+    const txtFile = files.find(f => {
+      const ext = (f.name.split('.').pop() || '').toLowerCase();
+      return ['txt', 'dat', 'csv'].includes(ext);
+    }) || (files.length === 1 && !fmtFile ? files[0] : null);
+
+    if (fmtFile) {
+      this.handleFmtFileSelected({ files: [fmtFile] }, instId);
+    }
+    if (txtFile) {
+      this.handleTxtFileSelected({ files: [txtFile] });
+    }
+  },
+
+  handleTxtFileDrop(e) {
+    const session = window.PortalStore.getCurrentSession();
+    const instId = session ? session.institutionId : null;
+    this.handleSmartFileDrop(e, instId);
+  },
+
+  handleTxtFileSelected(input) {
+    const file = input.files && input.files[0];
+    const info = document.getElementById('import-txt-file-info');
+    if (!file) return;
+
+    if (info) info.textContent = `Seçilen: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const content = e.target.result;
+      const ta = document.getElementById('import-txt-textarea');
+      if (ta) ta.value = content;
+      this.showToast(`✓ "${file.name}" yüklendi.`, 'success');
+      const session = window.PortalStore.getCurrentSession();
+      const instId = session ? session.institutionId : null;
+      this.updateTxtImportPreview(instId);
+    };
+    reader.readAsText(file, 'UTF-8');
+  },
+
+  handleImportTxtSubmit(e, instId) {
+    e.preventDefault();
+    const examSelect = document.getElementById('import-txt-exam-select');
+    const examId = examSelect ? examSelect.value : null;
+    const textarea = document.getElementById('import-txt-textarea');
+    const autoRegister = document.getElementById('import-txt-autoregister') ? document.getElementById('import-txt-autoregister').checked : true;
+    const rawContent = textarea ? textarea.value : '';
+
+    const bookletSelect = document.getElementById('import-txt-booklet-mode');
+
+    const options = {
+      bookletMode: bookletSelect ? bookletSelect.value : 'auto'
+    };
+
+    if (!rawContent || !rawContent.trim()) {
+      this.showToast('Lütfen metin alanına sonuçları yapıştırınız veya dosya seçiniz.', 'warning');
+      return;
+    }
+
+    const exam = window.PortalStore.getExamById(instId, examId);
+    if (!exam) {
+      this.showToast('Seçilen sınav bulunamadı.', 'error');
+      return;
+    }
+
+    const result = this.processOpticalTxtLines(instId, exam, rawContent, autoRegister, options);
+    if (result && result.count > 0) {
+      const modal = document.getElementById('import-txt-modal');
+      if (modal) modal.remove();
+      this.showToast(`✓ ${result.count} talebenin sınav sonucu başarıyla portala aktarıldı!`, 'success');
+      if (result.missingKeys && result.missingKeys.length > 0) {
+        setTimeout(() => {
+          this.showToast(`⚠️ Dikkat: (${result.missingKeys.join(', ')}) Kitapçığı cevap anahtarı henüz girilmemiş. Cevaplar kaydedildi, cevap anahtarını girdiğinizde netler otomatik hesaplanacaktır.`, 'warning');
+        }, 800);
+      }
+      this.render();
+    } else {
+      this.showToast('Dosyadan okunabilir sınav sonucu çıkarılamadı. Lütfen satırları kontrol ediniz.', 'error');
+    }
+  },
+
+  renderFmtRuler(sampleLine, fmt) {
+    if (!sampleLine || !fmt || !fmt.fields) return '';
+    const f = fmt.fields;
+    const len = sampleLine.length;
+
+    // Alanların değerlerini al
+    const bSlice = (f.booklet.start > 0 && f.booklet.start <= len) ? sampleLine.substring(f.booklet.start - 1, f.booklet.end).trim() : '-';
+    const noSlice = (f.studentNo.start > 0 && f.studentNo.start <= len) ? sampleLine.substring(f.studentNo.start - 1, f.studentNo.end).trim() : '-';
+    const nameSlice = (f.studentName.start > 0 && f.studentName.start <= len) ? sampleLine.substring(f.studentName.start - 1, f.studentName.end).trim() : '-';
+    const classSlice = (f.className.start > 0 && f.className.start <= len) ? sampleLine.substring(f.className.start - 1, f.className.end).trim() : '-';
+    const ansSlice = (f.answers.start > 0 && f.answers.start <= len) ? sampleLine.substring(f.answers.start - 1, f.answers.end).trim() : '';
+
+    return `
+      <div class="bg-slate-900/90 rounded-2xl border border-slate-800 p-3.5 space-y-2.5">
+        <div class="flex items-center justify-between text-[11px] font-bold">
+          <span class="text-white flex items-center gap-1.5">
+            <span>📏</span> <span>1. Satır Canlı FMT Dilimleme Cetveli</span>
+          </span>
+          <span class="font-mono text-cyan-400">Satır Uzunluğu: ${len} Karakter</span>
+        </div>
+
+        <!-- Renkli Kesilen Alan Kartları -->
+        <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs font-mono">
+          <div class="p-2 rounded-xl bg-indigo-500/20 border border-indigo-500/40 text-indigo-300">
+            <span class="text-[10px] text-slate-400 block font-sans font-bold">Kitapçık (${f.booklet.start}-${f.booklet.end})</span>
+            <strong class="text-sm text-indigo-200">${bSlice || '-'}</strong>
+          </div>
+          <div class="p-2 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300">
+            <span class="text-[10px] text-slate-400 block font-sans font-bold">Talebe No (${f.studentNo.start}-${f.studentNo.end})</span>
+            <strong class="text-sm text-emerald-200 truncate block">${noSlice || '-'}</strong>
+          </div>
+          <div class="p-2 rounded-xl bg-purple-500/20 border border-purple-500/40 text-purple-300">
+            <span class="text-[10px] text-slate-400 block font-sans font-bold">Ad Soyad (${f.studentName.start}-${f.studentName.end})</span>
+            <strong class="text-sm text-purple-200 truncate block">${nameSlice || '-'}</strong>
+          </div>
+          <div class="p-2 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-300">
+            <span class="text-[10px] text-slate-400 block font-sans font-bold">Sınıf (${f.className.start}-${f.className.end})</span>
+            <strong class="text-sm text-amber-200 truncate block">${classSlice || '-'}</strong>
+          </div>
+          <div class="p-2 rounded-xl bg-cyan-500/20 border border-cyan-500/40 text-cyan-300">
+            <span class="text-[10px] text-slate-400 block font-sans font-bold">Cevaplar (${f.answers.start}-${f.answers.end})</span>
+            <strong class="text-xs text-cyan-200 truncate block">${ansSlice.substring(0, 15)}... (${ansSlice.replace(/\s/g, '').length} Cevap)</strong>
+          </div>
+        </div>
+
+        <!-- Karakter Çizelgesi -->
+        <div class="overflow-x-auto p-2 bg-slate-950 rounded-xl border border-slate-800 text-[11px] font-mono whitespace-pre leading-relaxed select-none">
+          <div class="text-slate-600 border-b border-slate-800 pb-1 mb-1">
+            <span>Sütun: </span><span>1....5....10...15...20...25...30...35...40...45...50...55...60...70...80...90...100..110..120..130</span>
+          </div>
+          <div class="text-slate-300">
+            ${sampleLine.substring(0, 135)}
+          </div>
+        </div>
+      </div>
+    `;
+  },
+
+  updateTxtImportPreview(instId) {
+    const previewContainer = document.getElementById('import-txt-preview-section');
+    const textarea = document.getElementById('import-txt-textarea');
+    const examSelect = document.getElementById('import-txt-exam-select');
+    const bookletSelect = document.getElementById('import-txt-booklet-mode');
+
+    if (!previewContainer || !textarea) return;
+
+    const rawText = textarea.value || '';
+    if (!rawText.trim()) {
+      previewContainer.innerHTML = `
+        <div class="p-4 rounded-2xl bg-slate-950/40 border border-slate-800 text-center text-slate-500 text-xs font-medium">
+          Yukarıya optik dosyasını yapıştırdığınızda veya dosya seçtiğinizde FMT cetveli ve canlı net/puan tablosu anında burada görüntülenecektir.
+        </div>
+      `;
+      return;
+    }
+
+    const examId = examSelect ? examSelect.value : null;
+    const exam = window.PortalStore.getExamById(instId, examId);
+    if (!exam) {
+      previewContainer.innerHTML = `
+        <div class="p-3 rounded-xl bg-amber-950/30 border border-amber-800/50 text-amber-300 text-xs">
+          ⚠️ Sınav seçilemedi. Lütfen geçerli bir deneme sınavı seçiniz.
+        </div>
+      `;
+      return;
+    }
+
+    const options = {
+      bookletMode: bookletSelect ? bookletSelect.value : 'auto'
+    };
+
+    const cleanRaw = rawText.replace(/^\uFEFF/, '');
+    const lines = cleanRaw.split(/\r?\n/).map(l => l.replace(/[\r\n]/g, '')).filter(l => l.trim().length > 0);
+    const parsedStudents = [];
+    const missingKeysSet = new Set();
+    const bookletStats = { A: 0, B: 0, C: 0, D: 0 };
+
+    lines.forEach((line, idx) => {
+      const parsed = this.parseSingleOpticalLineWithFmt(line, exam, this.activeFmt, options);
+      if (parsed) {
+        if (!parsed.studentNo) {
+          parsed.studentNo = (1000 + idx + 1).toString();
+        }
+
+        // Skor hesapla
+        let scored = {
+          totalCorrect: 0,
+          totalWrong: 0,
+          totalEmpty: exam.questionCount || 20,
+          totalNet: 0,
+          totalScore: 200,
+          isMissingAnswerKey: false
+        };
+
+        const hasKey = exam.answerKeys && exam.answerKeys[parsed.booklet] && exam.answerKeys[parsed.booklet].replace(/[^A-E*]/g, '').length > 0;
+        if (hasKey && typeof window.PortalStore.scoreStudentAnswers === 'function') {
+          const sc = window.PortalStore.scoreStudentAnswers(parsed.answers, exam, parsed.booklet);
+          if (sc && !sc.isMissingAnswerKey) {
+            scored = sc;
+          } else {
+            scored.isMissingAnswerKey = true;
+            missingKeysSet.add(parsed.booklet);
+          }
+        } else {
+          scored.isMissingAnswerKey = true;
+          missingKeysSet.add(parsed.booklet);
+        }
+
+        bookletStats[parsed.booklet] = (bookletStats[parsed.booklet] || 0) + 1;
+        parsedStudents.push({ ...parsed, scored });
+      }
+    });
+
+    if (parsedStudents.length === 0) {
+      previewContainer.innerHTML = `
+        <div class="p-3 rounded-xl bg-rose-950/30 border border-rose-800/50 text-rose-300 text-xs">
+          ⚠️ Yapıştırılan metinden talebe kaydı tespit edilemedi. Lütfen satır biçimini veya FMT ayarlarını kontrol ediniz.
+        </div>
+      `;
+      return;
+    }
+
+    const previewList = parsedStudents.slice(0, 7);
+    const missingKeysArr = Array.from(missingKeysSet);
+    const sampleLine = lines[0] || '';
+
+    let html = `
+      <div class="space-y-3">
+        <!-- 1. Satır Görsel FMT Cetveli -->
+        ${this.renderFmtRuler(sampleLine, this.activeFmt)}
+
+        <div class="bg-slate-950/80 rounded-2xl border border-slate-800 p-3 space-y-3">
+          <!-- Özet Başlık Çubuğu -->
+          <div class="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-800/80 text-xs">
+            <div class="flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span class="text-white font-bold">FMT Çözümleme Önizlemesi</span>
+              <span class="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-400 font-mono font-bold text-[11px]">${parsedStudents.length} Talebe Algılandı</span>
+            </div>
+            <div class="flex items-center gap-2 text-[11px] text-slate-400 font-mono">
+              <span>Sınav: <strong class="text-indigo-400">${exam.questionCount} Soru</strong></span>
+              <span>•</span>
+              <span>Kitapçıklar: ${Object.entries(bookletStats).filter(([_, c]) => c > 0).map(([b, c]) => `<span class="px-1.5 py-0.5 bg-slate-800 rounded text-slate-300 font-bold">${b}: ${c}</span>`).join(' ') || 'A: ' + parsedStudents.length}</span>
+            </div>
+          </div>
+
+          ${missingKeysArr.length > 0 ? `
+            <div class="p-2.5 rounded-xl bg-amber-950/40 border border-amber-800/60 text-amber-300 text-xs flex items-center gap-2">
+              <span>⚠️</span>
+              <span><strong>Uyarı:</strong> Bu sınavda <strong>${missingKeysArr.join(', ')} Kitapçığı</strong> cevap anahtarı henüz girilmemiştir. Aktarım yapılabilir, anahtar girildiğinde netler otomatik hesaplanacaktır.</span>
+            </div>
+          ` : ''}
+
+          <!-- Canlı Tablo Önizlemesi (İlk 7 Talebe) -->
+          <div class="overflow-x-auto max-h-52 overflow-y-auto rounded-xl border border-slate-800">
+            <table class="w-full text-left border-collapse text-xs">
+              <thead class="sticky top-0 bg-slate-900 text-slate-400 uppercase text-[10px] font-bold tracking-wider z-10">
+                <tr>
+                  <th class="p-2 text-center w-8">#</th>
+                  <th class="p-2">No</th>
+                  <th class="p-2">Ad Soyad</th>
+                  <th class="p-2">Sınıf</th>
+                  <th class="p-2 text-center">Ktp</th>
+                  <th class="p-2">Cevaplar (Özet)</th>
+                  <th class="p-2 text-center text-emerald-400">D</th>
+                  <th class="p-2 text-center text-rose-400">Y</th>
+                  <th class="p-2 text-center text-amber-400">B</th>
+                  <th class="p-2 text-center text-cyan-400">Net</th>
+                  <th class="p-2 text-center text-indigo-400">Puan</th>
+                  <th class="p-2 text-center">Durum</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-800/60 bg-slate-950/60 font-mono text-[11px]">
+                ${previewList.map((st, i) => {
+                  const marked = st.answers.replace(/\s/g, '').length;
+                  const sampleAns = st.answers.substring(0, 18) + (st.answers.length > 18 ? '...' : '');
+                  return `
+                    <tr class="hover:bg-slate-800/40 transition">
+                      <td class="p-2 text-center text-slate-500">${i + 1}</td>
+                      <td class="p-2 text-indigo-300 font-bold">${st.studentNo}</td>
+                      <td class="p-2 text-white font-sans font-medium truncate max-w-[130px]" title="${st.studentName}">${st.studentName}</td>
+                      <td class="p-2 text-slate-300">${st.className}</td>
+                      <td class="p-2 text-center">
+                        <span class="px-1.5 py-0.5 rounded text-[10px] font-bold ${st.booklet === 'A' ? 'bg-indigo-600/30 text-indigo-300 border border-indigo-500/40' : 'bg-amber-600/30 text-amber-300 border border-amber-500/40'}">${st.booklet}</span>
+                      </td>
+                      <td class="p-2 text-emerald-300 tracking-widest text-[10px]" title="${st.answers}">
+                        ${sampleAns} <span class="text-slate-500 font-sans">(${marked} Cevap)</span>
+                      </td>
+                      <td class="p-2 text-center text-emerald-400 font-bold">${st.scored.totalCorrect || 0}</td>
+                      <td class="p-2 text-center text-rose-400 font-bold">${st.scored.totalWrong || 0}</td>
+                      <td class="p-2 text-center text-amber-400 font-bold">${st.scored.totalEmpty !== undefined ? st.scored.totalEmpty : (exam.questionCount || 20)}</td>
+                      <td class="p-2 text-center text-cyan-300 font-black">${typeof st.scored.totalNet === 'number' ? st.scored.totalNet.toFixed(2) : '0.00'}</td>
+                      <td class="p-2 text-center text-indigo-300 font-black">${typeof st.scored.totalScore === 'number' ? st.scored.totalScore.toFixed(2) : '200.00'}</td>
+                      <td class="p-2 text-center">
+                        ${st.scored.isMissingAnswerKey ? `
+                          <span class="px-1.5 py-0.5 rounded text-[9px] bg-amber-500/20 text-amber-300 font-bold">Anahtar Yok</span>
+                        ` : `
+                          <span class="px-1.5 py-0.5 rounded text-[9px] bg-emerald-500/20 text-emerald-300 font-bold">✓ Hazır</span>
+                        `}
+                      </td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+          ${parsedStudents.length > 7 ? `
+            <div class="text-center text-[10px] text-slate-500 font-medium">
+              Toplam ${parsedStudents.length} talebeden ilk 7'si gösterilmektedir. "FMT Kurallarıyla Sonuçları Portala Aktar" butonuna bastığınızda tümü aktarılacaktır.
+            </div>
+          ` : ''}
+        </div>
+      </div>
+    `;
+
+    previewContainer.innerHTML = html;
+  },
+
+  parseSingleOpticalLineWithFmt(rawLine, exam, fmt, options = {}) {
+    if (!rawLine || typeof rawLine !== 'string') return null;
+    const line = rawLine.replace(/[\r\n]/g, '');
+    if (!line.trim()) return null;
+
+    // Başlık ve açıklama satırlarını filtrele
+    const upperTrim = line.trim().toUpperCase();
+    if (
+      upperTrim.startsWith('KURUM') ||
+      upperTrim.startsWith('SINAV') ||
+      upperTrim.startsWith('TARİH') ||
+      upperTrim.startsWith('TARİH:') ||
+      upperTrim.startsWith('ÖĞRENCİ NO') ||
+      upperTrim.startsWith('TALEBE NO') ||
+      upperTrim.startsWith('AD SOYAD') ||
+      upperTrim.startsWith('---') ||
+      upperTrim.startsWith('===') ||
+      upperTrim.length < 5
+    ) {
+      return null;
+    }
+
+    const qCount = (exam && exam.questionCount) ? parseInt(exam.questionCount, 10) : 20;
+    const bookletMode = options.bookletMode || 'auto';
+
+    const f = (fmt && fmt.fields) ? fmt.fields : {
+      booklet: { enabled: true, start: 1, end: 1 },
+      studentNo: { enabled: true, start: 2, end: 11 },
+      studentName: { enabled: true, start: 12, end: 35 },
+      className: { enabled: true, start: 36, end: 39 },
+      answers: { enabled: true, start: 40, end: 40 + qCount - 1 }
+    };
+
+    // 1. Kitapçık Türü (A, B, C, D)
+    let booklet = 'A';
+    if (bookletMode.startsWith('force_')) {
+      booklet = bookletMode.replace('force_', '').toUpperCase();
+    } else if (f.booklet && f.booklet.enabled !== false && f.booklet.start > 0) {
+      const bSlice = line.substring(f.booklet.start - 1, f.booklet.end).trim().toUpperCase();
+      if (['A', 'B', 'C', 'D'].includes(bSlice)) {
+        booklet = bSlice;
+      } else {
+        const firstChar = line[0].toUpperCase();
+        if (['A', 'B', 'C', 'D'].includes(firstChar)) {
+          booklet = firstChar;
+        }
+      }
+    }
+
+    // 2. Talebe No / TC Kimlik No
+    let studentNo = '';
+    if (f.studentNo && f.studentNo.enabled !== false && f.studentNo.start > 0) {
+      const noSlice = line.substring(f.studentNo.start - 1, f.studentNo.end).trim();
+      const numMatch = noSlice.match(/\d+/);
+      if (numMatch) {
+        studentNo = numMatch[0];
+      }
+    }
+    if (!studentNo) {
+      const prefix40 = line.substring(0, Math.min(40, line.length));
+      const tc = prefix40.match(/\b\d{11}\b/);
+      if (tc) studentNo = tc[0];
+      else {
+        const anyNum = prefix40.match(/\b\d{1,8}\b/);
+        if (anyNum) studentNo = anyNum[0];
+      }
+    }
+
+    // 3. Adı Soyadı
+    let studentName = '';
+    if (f.studentName && f.studentName.enabled !== false && f.studentName.start > 0) {
+      studentName = line.substring(f.studentName.start - 1, f.studentName.end)
+        .replace(/[^A-Za-zÇĞİÖŞÜçğıöşü\s]/g, ' ')
+        .trim()
+        .replace(/\s{2,}/g, ' ');
+    }
+    if (!studentName || studentName.length < 2) {
+      studentName = studentNo ? `Talebe #${studentNo}` : 'İsimsiz Talebe';
+    }
+
+    // 4. Sınıf / Şube
+    let className = 'Genel';
+    if (f.className && f.className.enabled !== false && f.className.start > 0) {
+      const classSlice = line.substring(f.className.start - 1, f.className.end).trim().toUpperCase();
+      if (classSlice) {
+        className = classSlice.replace(/\s+/g, '-').replace('/', '-');
+      }
+    }
+
+    // 5. Cevaplar (FMT ile Tam Konum Kesimi)
+    let finalAnswers = '';
+    if (fmt && fmt.subjects && fmt.subjects.length > 0) {
+      fmt.subjects.forEach(sub => {
+        const sStart = Math.max(0, sub.start - 1);
+        const sEnd = sub.end;
+        let sSlice = line.substring(sStart, sEnd).toUpperCase();
+        sSlice = sSlice.replace(/1/g, 'A').replace(/2/g, 'B').replace(/3/g, 'C').replace(/4/g, 'D').replace(/5/g, 'E').replace(/0/g, ' ');
+        sSlice = sSlice.replace(/[^A-E* ]/g, '');
+        const subLen = sub.length || (sub.end - sub.start + 1);
+        finalAnswers += sSlice.padEnd(subLen, ' ').substring(0, subLen);
+      });
+    } else if (f.answers && f.answers.enabled !== false && f.answers.start > 0) {
+      const aStart = Math.max(0, f.answers.start - 1);
+      const aEnd = f.answers.end || (aStart + qCount);
+      let aSlice = line.substring(aStart, aEnd).toUpperCase();
+      const digitCount = (aSlice.match(/[1-5]/g) || []).length;
+      const letterCount = (aSlice.match(/[A-E]/g) || []).length;
+      if (digitCount > letterCount && digitCount >= 5) {
+        aSlice = aSlice.replace(/1/g, 'A').replace(/2/g, 'B').replace(/3/g, 'C').replace(/4/g, 'D').replace(/5/g, 'E').replace(/0/g, ' ');
+      }
+
+      const rawBlocks = aSlice.split(/\s{2,}/).map(b => b.replace(/[^A-E* ]/g, '').trim()).filter(b => b.length > 0);
+      const examSubjects = (exam && exam.subjects && exam.subjects.length > 0) ? exam.subjects : [];
+
+      if (rawBlocks.length > 1 && examSubjects.length === rawBlocks.length) {
+        examSubjects.forEach((sub, sIdx) => {
+          const subCount = (sub.endQ - sub.startQ + 1);
+          const blk = rawBlocks[sIdx] || '';
+          finalAnswers += blk.padEnd(subCount, ' ').substring(0, subCount);
+        });
+      } else {
+        const cleanAns = aSlice.replace(/[^A-E* ]/g, '');
+        finalAnswers = cleanAns.padEnd(qCount, ' ').substring(0, qCount);
+      }
+    } else {
+      finalAnswers = ''.padEnd(qCount, ' ');
+    }
+
+    if (finalAnswers.length < qCount) {
+      finalAnswers = finalAnswers.padEnd(qCount, ' ');
+    } else if (finalAnswers.length > qCount) {
+      finalAnswers = finalAnswers.substring(0, qCount);
+    }
+
+    return {
+      studentNo: studentNo || '',
+      studentName,
+      className: className || 'Genel',
+      booklet: booklet || 'A',
+      answers: finalAnswers
+    };
+  },
+
+  parseSingleOpticalLine(rawLine, exam, options = {}) {
+    return this.parseSingleOpticalLineWithFmt(rawLine, exam, this.activeFmt, options);
+  },
+
+  processOpticalTxtLines(instId, exam, rawText, autoRegister = true, options = {}) {
+    const cleanRaw = (rawText || '').replace(/^\uFEFF/, '');
+    const lines = cleanRaw.split(/\r?\n/).map(l => l.replace(/[\r\n]/g, '')).filter(l => l.trim().length > 0);
+    if (lines.length === 0) return { count: 0 };
+
+    let count = 0;
+    const missingKeysSet = new Set();
+    const students = window.PortalStore.getStudents(instId) || [];
+
+    lines.forEach((line, lineIdx) => {
+      const parsed = this.parseSingleOpticalLineWithFmt(line, exam, this.activeFmt, options);
+      if (!parsed) return;
+
+      let studentNo = parsed.studentNo;
+      if (!studentNo) {
+        studentNo = (1000 + lineIdx + 1).toString();
+      }
+      const studentName = parsed.studentName;
+      const className = parsed.className;
+      const booklet = parsed.booklet;
+      const finalAnswers = parsed.answers;
+
+      // Talebeyi Kuruma Otomatik Kaydet (Varsa güncelle, yoksa ekle)
+      if (autoRegister) {
+        const existingSt = students.find(s => s.studentNo === studentNo || (s.firstName + ' ' + s.lastName).toUpperCase() === studentName.toUpperCase());
+        if (!existingSt) {
+          const nameParts = studentName.split(/\s+/);
+          const lastName = nameParts.length > 1 ? nameParts.pop() : '';
+          const firstName = nameParts.join(' ');
+          const newSt = window.PortalStore.addStudent(instId, {
+            studentNo,
+            firstName,
+            lastName,
+            className,
+            parentPhone: '',
+            notes: 'Optik TXT dosyasından yüklendi'
+          });
+          students.push(newSt);
+        }
+      }
+
+      // Puanlama & Kaydetme
+      let scored = {
+        totalCorrect: 0,
+        totalWrong: 0,
+        totalEmpty: exam.questionCount || 20,
+        totalNet: 0,
+        totalScore: 200,
+        subjectsResult: {},
+        answers: finalAnswers
+      };
+
+      const hasKey = exam.answerKeys && exam.answerKeys[booklet] && exam.answerKeys[booklet].replace(/[^A-E*]/g, '').length > 0;
+      if (hasKey && typeof window.PortalStore.scoreStudentAnswers === 'function') {
+        const sc = window.PortalStore.scoreStudentAnswers(finalAnswers, exam, booklet);
+        if (sc && !sc.isMissingAnswerKey) {
+          scored = sc;
+        } else {
+          missingKeysSet.add(booklet);
+        }
+      } else {
+        missingKeysSet.add(booklet);
+      }
+
+      const examResultObj = {
+        examId: exam.id,
+        examTitle: exam.title,
+        studentNo,
+        studentName,
+        className,
+        parentPhone: '',
+        booklet,
+        answers: finalAnswers,
+        subjectsResult: scored.subjectsResult || {},
+        totalCorrect: scored.totalCorrect || 0,
+        totalWrong: scored.totalWrong || 0,
+        totalEmpty: scored.totalEmpty !== undefined ? scored.totalEmpty : (exam.questionCount || 20),
+        totalNet: scored.totalNet || 0,
+        totalScore: scored.totalScore || 0,
+        topicAnalysis: scored.topicAnalysis || [],
+        markedCount: finalAnswers.replace(/\s/g, '').length,
+        isBlank: finalAnswers.replace(/\s/g, '').length === 0,
+        qrDetected: false,
+        scannedAt: new Date().toISOString()
+      };
+
+      window.PortalStore.saveExamResult(instId, examResultObj);
+      count++;
+    });
+
+    return { count, missingKeys: Array.from(missingKeysSet) };
   },
 
   // ==========================================
@@ -3434,14 +5379,14 @@ window.App = {
           <div>
             <div class="flex items-center gap-2">
               <span class="text-2xl">📊</span>
-              <h3 class="text-base sm:text-lg font-black text-white">\${exam.title} - Soru & Madde Başarı Analizi</h3>
+              <h3 class="text-base sm:text-lg font-black text-white">${exam.title} - Soru & Madde Başarı Analizi</h3>
             </div>
             <p class="text-xs text-slate-400 mt-0.5">
-              \${isGlobal ? 'Türkiye Geneli Tüm Kurumların Ortak Katılımı' : 'Kurumunuza Ait Sonuçlar'} (\${totalStudents} Talebe Değerlendirildi)
+              ${isGlobal ? 'Türkiye Geneli Tüm Kurumların Ortak Katılımı' : 'Kurumunuza Ait Sonuçlar'} (${totalStudents} Talebe Değerlendirildi)
             </p>
           </div>
           <div class="flex items-center gap-2">
-            <button onclick="App.downloadResultsCsv('\${instId || ''}', '\${exam.id}', \${isGlobal})" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl border border-slate-700 transition flex items-center gap-1 cursor-pointer">
+            <button onclick="App.downloadResultsCsv('${instId || ''}', '${exam.id}', ${isGlobal})" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl border border-slate-700 transition flex items-center gap-1 cursor-pointer">
               <span>📥</span> <span>Excel İndir</span>
             </button>
             <button onclick="document.getElementById('item-analysis-modal').remove()" class="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-sm font-bold cursor-pointer">✕</button>
@@ -3452,32 +5397,31 @@ window.App = {
         <div class="grid grid-cols-2 sm:grid-cols-5 gap-2.5 mb-4">
           <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800 text-center">
             <span class="block text-[10px] text-slate-500 font-bold uppercase">Toplam Soru</span>
-            <span class="text-lg font-black text-white font-mono">\${items.length}</span>
+            <span class="text-lg font-black text-white font-mono">${items.length}</span>
           </div>
           <div class="bg-slate-950 p-2.5 rounded-xl border border-emerald-950/50 text-center">
             <span class="block text-[10px] text-emerald-400 font-bold uppercase">Kolay Soru (%70+)</span>
-            <span class="text-lg font-black text-emerald-400 font-mono">\${easyCount}</span>
+            <span class="text-lg font-black text-emerald-400 font-mono">${easyCount}</span>
           </div>
           <div class="bg-slate-950 p-2.5 rounded-xl border border-amber-950/50 text-center">
             <span class="block text-[10px] text-amber-400 font-bold uppercase">Orta Soru (%40-%69)</span>
-            <span class="text-lg font-black text-amber-400 font-mono">\${mediumCount}</span>
+            <span class="text-lg font-black text-amber-400 font-mono">${mediumCount}</span>
           </div>
           <div class="bg-slate-950 p-2.5 rounded-xl border border-rose-950/50 text-center">
             <span class="block text-[10px] text-rose-400 font-bold uppercase">Zor Soru (<%40)</span>
-            <span class="text-lg font-black text-rose-400 font-mono">\${hardCount}</span>
+            <span class="text-lg font-black text-rose-400 font-mono">${hardCount}</span>
           </div>
           <div class="bg-slate-950 p-2.5 rounded-xl border border-purple-950/50 text-center">
             <span class="block text-[10px] text-purple-400 font-bold uppercase">İptal Edilen Soru</span>
-            <span class="text-lg font-black text-purple-400 font-mono">\${canceledCount}</span>
+            <span class="text-lg font-black text-purple-400 font-mono">${canceledCount}</span>
           </div>
         </div>
-
         <!-- Ders Filtresi -->
         <div class="flex items-center gap-2 mb-3">
           <span class="text-xs text-slate-400 font-bold">Ders Filtrele:</span>
           <select id="item-subject-filter" onchange="App.filterItemAnalysisTable(this.value)" class="px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white font-bold">
-            <option value="all">Tüm Dersler (\${items.length} Soru)</option>
-            \${subjects.map(s => `<option value="\${s.name}">\${s.name} (\${s.startQ}-\${s.endQ}. Sorular)</option>`).join('')}
+            <option value="all">Tüm Dersler (${items.length} Soru)</option>
+            ${subjects.map(s => `<option value="${s.name}">${s.name} (${s.startQ}-${s.endQ}. Sorular)</option>`).join('')}
           </select>
         </div>
 
@@ -3496,38 +5440,38 @@ window.App = {
               </tr>
             </thead>
             <tbody id="item-analysis-tbody" class="divide-y divide-slate-800/80">
-              \${items.map(item => `
-                <tr class="item-analysis-row hover:bg-slate-800/40 transition" data-subject="\${item.subjectName}">
-                  <td class="p-2.5 text-center font-mono font-bold \${item.isCanceled ? 'text-purple-400 line-through' : 'text-emerald-400'}">
-                    #\${item.questionNo}
+              ${items.map(item => `
+                <tr class="item-analysis-row hover:bg-slate-800/40 transition" data-subject="${item.subjectName}">
+                  <td class="p-2.5 text-center font-mono font-bold ${item.isCanceled ? 'text-purple-400 line-through' : 'text-emerald-400'}">
+                    #${item.questionNo}
                   </td>
-                  <td class="p-2.5 font-bold text-white">\${item.subjectName}</td>
+                  <td class="p-2.5 font-bold text-white">${item.subjectName}</td>
                   <td class="p-2.5 text-center font-mono font-black text-amber-300">
-                    \${item.isCanceled ? '*' : item.correctKeyA}
+                    ${item.isCanceled ? '*' : item.correctKeyA}
                   </td>
                   <td class="p-2.5">
                     <div class="flex items-center gap-2">
                       <div class="w-24 bg-slate-800 h-2 rounded-full overflow-hidden">
-                        <div class="h-full rounded-full \${item.isCanceled ? 'bg-purple-500' : (item.successRate >= 70 ? 'bg-emerald-500' : (item.successRate >= 40 ? 'bg-amber-500' : 'bg-rose-500'))}" style="width: \${item.successRate}%"></div>
+                        <div class="h-full rounded-full ${item.isCanceled ? 'bg-purple-500' : (item.successRate >= 70 ? 'bg-emerald-500' : (item.successRate >= 40 ? 'bg-amber-500' : 'bg-rose-500'))}" style="width: ${item.successRate}%"></div>
                       </div>
-                      <span class="font-mono font-bold text-[11px] text-slate-300">\${item.successRate}%</span>
+                      <span class="font-mono font-bold text-[11px] text-slate-300">${item.successRate}%</span>
                     </div>
                   </td>
                   <td class="p-2.5 text-center">
-                    <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase \${item.isCanceled ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40' : (item.difficulty === 'Kolay' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : (item.difficulty === 'Orta' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'))}">
-                      \${item.difficulty}
+                    <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${item.isCanceled ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40' : (item.difficulty === 'Kolay' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : (item.difficulty === 'Orta' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'))}">
+                      ${item.difficulty}
                     </span>
                   </td>
                   <td class="p-2.5 text-center font-mono text-[11px] text-slate-300">
-                    <span class="\${item.correctKeyA === 'A' ? 'text-emerald-400 font-black' : ''}">A:\${item.distribution.A || 0}</span> •
-                    <span class="\${item.correctKeyA === 'B' ? 'text-emerald-400 font-black' : ''}">B:\${item.distribution.B || 0}</span> •
-                    <span class="\${item.correctKeyA === 'C' ? 'text-emerald-400 font-black' : ''}">C:\${item.distribution.C || 0}</span> •
-                    <span class="\${item.correctKeyA === 'D' ? 'text-emerald-400 font-black' : ''}">D:\${item.distribution.D || 0}</span> •
-                    <span class="text-slate-500">Boş:\${item.distribution.empty || 0}</span>
+                    <span class="${item.correctKeyA === 'A' ? 'text-emerald-400 font-black' : ''}">A:${item.distribution.A || 0}</span> •
+                    <span class="${item.correctKeyA === 'B' ? 'text-emerald-400 font-black' : ''}">B:${item.distribution.B || 0}</span> •
+                    <span class="${item.correctKeyA === 'C' ? 'text-emerald-400 font-black' : ''}">C:${item.distribution.C || 0}</span> •
+                    <span class="${item.correctKeyA === 'D' ? 'text-emerald-400 font-black' : ''}">D:${item.distribution.D || 0}</span> •
+                    <span class="text-slate-500">Boş:${item.distribution.empty || 0}</span>
                   </td>
                   <td class="p-2.5 text-right">
-                    <button onclick="App.toggleCancelQuestionFromModal('\${instId || ''}', '\${exam.id}', \${item.questionNo}, \${isGlobal})" class="px-2 py-1 rounded text-[10px] font-bold transition cursor-pointer \${item.isCanceled ? 'bg-purple-600 hover:bg-purple-500 text-white' : 'bg-slate-800 hover:bg-rose-950/60 hover:text-rose-300 text-slate-400 border border-slate-700'}">
-                      \${item.isCanceled ? 'İptali Kaldır' : 'İptal Et'}
+                    <button onclick="App.toggleCancelQuestionFromModal('${instId || ''}', '${exam.id}', ${item.questionNo}, ${isGlobal})" class="px-2 py-1 rounded text-[10px] font-bold transition cursor-pointer ${item.isCanceled ? 'bg-purple-600 hover:bg-purple-500 text-white' : 'bg-slate-800 hover:bg-rose-950/60 hover:text-rose-300 text-slate-400 border border-slate-700'}">
+                      ${item.isCanceled ? 'İptali Kaldır' : 'İptal Et'}
                     </button>
                   </td>
                 </tr>
@@ -3822,7 +5766,7 @@ window.App = {
             <span class="text-2xl">💬</span>
             <div>
               <h3 class="text-base sm:text-lg font-black text-white">Sınıfa Toplu WhatsApp Karnesi Gönder</h3>
-              <p class="text-xs text-slate-400 font-medium">\${exam.title} (\${rankings.length} Talebe)</p>
+              <p class="text-xs text-slate-400 font-medium">${exam.title} (${rankings.length} Talebe)</p>
             </div>
           </div>
           <button onclick="document.getElementById('batch-whatsapp-modal').remove()" class="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-sm font-bold cursor-pointer">✕</button>
@@ -3832,12 +5776,12 @@ window.App = {
           <div class="flex items-center gap-2">
             <label class="text-xs font-bold text-slate-300">Şube / Sınıf Seçiniz:</label>
             <select id="batch-whatsapp-class" onchange="App.filterBatchWhatsAppClass(this.value)" class="px-3 py-1.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white font-bold">
-              <option value="all">Tüm Sınıflar (\${rankings.length} Talebe)</option>
-              \${classes.map(c => `<option value="\${c}">\${c}</option>`).join('')}
+              <option value="all">Tüm Sınıflar (${rankings.length} Talebe)</option>
+              ${classes.map(c => `<option value="${c}">${c}</option>`).join('')}
             </select>
           </div>
           <div class="text-[11px] text-slate-400">
-            Telefonu kayıtlı: <strong class="text-emerald-400">\${rankings.filter(r => !!r.parentPhone).length}</strong> / \${rankings.length}
+            Telefonu kayıtlı: <strong class="text-emerald-400">${rankings.filter(r => !!r.parentPhone).length}</strong> / ${rankings.length}
           </div>
         </div>
 
@@ -3855,22 +5799,22 @@ window.App = {
               </tr>
             </thead>
             <tbody id="batch-whatsapp-tbody" class="divide-y divide-slate-800/80">
-              \${rankings.map((r, idx) => `
-                <tr class="batch-wa-row hover:bg-slate-800/40 transition" data-class="\${r.className || 'Genel'}" id="wa-row-\${r.studentNo}">
-                  <td class="p-2.5 text-center font-bold text-slate-400">\${idx + 1}</td>
+              ${rankings.map((r, idx) => `
+                <tr class="batch-wa-row hover:bg-slate-800/40 transition" data-class="${r.className || 'Genel'}" id="wa-row-${r.studentNo}">
+                  <td class="p-2.5 text-center font-bold text-slate-400">${idx + 1}</td>
                   <td class="p-2.5">
-                    <strong class="text-white block">\${r.studentName}</strong>
-                    <span class="text-[10px] text-slate-500 font-mono">#\${r.studentNo}</span>
+                    <strong class="text-white block">${r.studentName}</strong>
+                    <span class="text-[10px] text-slate-500 font-mono">#${r.studentNo}</span>
                   </td>
-                  <td class="p-2.5 font-semibold text-slate-300">\${r.className}</td>
-                  <td class="p-2.5 font-mono \${r.parentPhone ? 'text-emerald-400' : 'text-slate-600'}">
-                    \${r.parentPhone || 'Kayıtsız'}
+                  <td class="p-2.5 font-semibold text-slate-300">${r.className}</td>
+                  <td class="p-2.5 font-mono ${r.parentPhone ? 'text-emerald-400' : 'text-slate-600'}">
+                    ${r.parentPhone || 'Kayıtsız'}
                   </td>
-                  <td class="p-2.5 text-center font-mono font-bold text-cyan-400">\${r.totalNet}</td>
-                  <td class="p-2.5 text-center font-mono font-black text-amber-400">\${r.totalScore}</td>
+                  <td class="p-2.5 text-center font-mono font-bold text-cyan-400">${r.totalNet}</td>
+                  <td class="p-2.5 text-center font-mono font-black text-amber-400">${r.totalScore}</td>
                   <td class="p-2.5 text-right">
-                    \${r.parentPhone ? `
-                      <button onclick="App.markWhatsAppSent('wa-row-\${r.studentNo}', '\${encodeURIComponent(r.parentPhone)}', '\${encodeURIComponent(r.studentName)}', '\${r.totalNet}', '\${r.totalScore}', '\${encodeURIComponent(JSON.stringify(r.topicAnalysis || []))}')" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] rounded-xl shadow transition flex items-center gap-1.5 ml-auto cursor-pointer">
+                    ${r.parentPhone ? `
+                      <button onclick="App.markWhatsAppSent('wa-row-${r.studentNo}', '${encodeURIComponent(r.parentPhone)}', '${encodeURIComponent(r.studentName)}', '${r.totalNet}', '${r.totalScore}', '${encodeURIComponent(JSON.stringify(r.topicAnalysis || []))}')" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] rounded-xl shadow transition flex items-center gap-1.5 ml-auto cursor-pointer">
                         <span>💬</span> <span>Gönder</span>
                       </button>
                     ` : `
@@ -4246,17 +6190,25 @@ window.App = {
         </div>
 
         <!-- Durum Bildirim Kartı -->
-        <div class="p-3.5 rounded-2xl mb-5 flex items-center gap-3 border ${status.code === 'connected' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300' : (status.code === 'not_configured' ? 'bg-amber-500/10 border-amber-500/30 text-amber-300' : 'bg-slate-800/80 border-slate-700 text-slate-300')}">
-          <span class="w-3 h-3 rounded-full ${status.code === 'connected' ? 'bg-emerald-400 animate-pulse' : (status.code === 'not_configured' ? 'bg-amber-400' : 'bg-slate-400')}"></span>
+        <div class="p-3.5 rounded-2xl mb-4 flex items-center gap-3 border ${status.code === 'connected' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300' : (status.code === 'error' ? 'bg-rose-500/10 border-rose-500/30 text-rose-300' : (status.code === 'not_configured' ? 'bg-amber-500/10 border-amber-500/30 text-amber-300' : 'bg-slate-800/80 border-slate-700 text-slate-300'))}">
+          <span class="w-3 h-3 rounded-full ${status.code === 'connected' ? 'bg-emerald-400 animate-pulse' : (status.code === 'error' ? 'bg-rose-400' : (status.code === 'not_configured' ? 'bg-amber-400' : 'bg-slate-400'))}"></span>
           <div class="text-xs">
             <strong class="block font-bold">${status.label}</strong>
             <span class="text-[11px] opacity-80">
               ${status.code === 'connected' 
-                ? 'Tüm hocaların kaydettiği talebeler, sınavlar ve okunan optik formlar anlık olarak bu merkeze eşitlenmektedir.' 
-                : 'Sistem şu anda güvenle yerel hafızada çalışmaktadır. Ortak bulut havuzu için aşağıdaki Firebase yapılandırmasını tanımlayabilirsiniz.'}
+                ? 'Tüm cihazlar arasında canlı eşitlik aktiftir. Yapılan değişiklikler diğer ekranlara anında yansır.' 
+                : (status.code === 'error' ? 'Bulut veritabanına ulaşılamadı. Veriler yerel hafızada korunuyor.' : 'Sistem şu anda yerel hafızada çalışmaktadır.')}
             </span>
           </div>
         </div>
+
+        ${(status.code === 'error' || (window.CloudSync && window.CloudSync.lastError)) ? `
+          <div class="p-3 mb-4 bg-rose-950/40 border border-rose-500/30 rounded-2xl text-xs space-y-1">
+            <span class="font-bold text-rose-400 block">⚠️ Bulut Bağlantı Uyarısı:</span>
+            <p class="text-[11px] text-rose-200">${(window.CloudSync && window.CloudSync.lastError) ? window.CloudSync.lastError : 'Veritabanı erişim hatası'}</p>
+            <p class="text-[10px] text-slate-300 pt-1">💡 <strong>Çözüm:</strong> Firebase Console'da <em>Firestore Database &gt; Rules</em> sekmesine girip <code>allow read, write: if true;</code> kuralını yayınlayınız.</p>
+          </div>
+        ` : ''}
 
         <!-- Yapılandırma Giriş Alanı -->
         <div class="space-y-4">
@@ -4354,6 +6306,653 @@ window.App = {
         this.render();
       }
     }
+  },
+
+  startPhotoScanForExam(instId, examId) {
+    this.activeExamId = examId;
+    this.currentTab = 'foto_tara';
+    this.render();
+  },
+
+  initPasteListener() {
+    if (this._pasteListenerAttached) return;
+    this._pasteListenerAttached = true;
+    window.addEventListener('paste', (e) => {
+      if (this.currentTab !== 'foto_tara') return;
+      const items = (e.clipboardData || (e.originalEvent && e.originalEvent.clipboardData))?.items;
+      if (!items) return;
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type && items[i].type.indexOf('image') !== -1) {
+          const blob = items[i].getAsFile();
+          if (blob) {
+            e.preventDefault();
+            const session = window.PortalStore ? window.PortalStore.getCurrentSession() : null;
+            const instId = session ? (session.institutionId || 'inst_oay') : 'inst_oay';
+            this.showToast('📋 Panodaki görsel algılandı, işleniyor...', 'info');
+            this.processSinglePhotoFile(blob, instId);
+            break;
+          }
+        }
+      }
+    });
+  },
+
+  renderPhotoScannerView(instId) {
+    const session = window.PortalStore.getCurrentSession();
+    const effectiveInstId = instId || (session ? session.institutionId : null) || 'inst_oay';
+
+    let exams = window.PortalStore.getExams(effectiveInstId);
+    if (!exams || exams.length === 0) {
+      return `
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-8 text-center max-w-xl mx-auto space-y-4">
+          <div class="w-16 h-16 rounded-2xl bg-amber-500/20 text-amber-300 flex items-center justify-center text-3xl mx-auto">
+            📝
+          </div>
+          <h3 class="text-lg font-black text-white">Henüz Kayıtlı Sınav Yok</h3>
+          <p class="text-xs text-slate-400">Fotoğraf ile optik form okutmak için önce bir deneme sınavı tanımlamalısınız.</p>
+          <button onclick="App.showCreateExamModal('${effectiveInstId}')" class="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black text-xs rounded-xl shadow-lg transition">
+            + Yeni Sınav Tanımla
+          </button>
+        </div>
+      `;
+    }
+
+    const currentExam = exams.find(e => e.id === this.activeExamId) || exams[0];
+    this.activeExamId = currentExam.id;
+    const students = window.PortalStore.getStudents(effectiveInstId);
+
+    // If activePhotoResult exists with overlayCanvas, mount after render
+    if (this.activePhotoResult && this.activePhotoResult.overlayCanvas) {
+      setTimeout(() => {
+        const mount = document.getElementById('photo-overlay-mount');
+        if (mount && this.activePhotoResult && this.activePhotoResult.overlayCanvas) {
+          mount.innerHTML = '';
+          this.activePhotoResult.overlayCanvas.style.maxWidth = '100%';
+          this.activePhotoResult.overlayCanvas.style.height = 'auto';
+          this.activePhotoResult.overlayCanvas.style.borderRadius = '8px';
+          this.activePhotoResult.overlayCanvas.style.display = 'block';
+          mount.appendChild(this.activePhotoResult.overlayCanvas);
+        }
+      }, 50);
+    }
+
+    return `
+      <div class="space-y-5 max-w-5xl mx-auto">
+        <!-- Üst Kontrol Çubuğu -->
+        <div class="bg-slate-900 border border-slate-800 p-4 sm:p-5 rounded-2xl flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 shadow-lg">
+          <div class="flex items-center gap-2.5 flex-1 min-w-0">
+            <span class="w-9 h-9 rounded-xl bg-teal-500/20 text-teal-400 flex items-center justify-center text-lg flex-shrink-0 border border-teal-500/30">
+              📷
+            </span>
+            <div>
+              <h2 class="text-sm sm:text-base font-black text-white tracking-tight">Fotoğraf ile Optik Form Okuma</h2>
+              <p class="text-[10px] text-slate-400">Yüksek netlikte fotoğraf çekin veya seçin; köşe işaretleri, QR kod ve cevaplar otomatik okunur.</p>
+            </div>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-2 w-full lg:w-auto">
+            <select id="photo-exam-select" onchange="App.handlePhotoExamChange(this.value, '${effectiveInstId}')" class="flex-1 sm:flex-initial px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-bold text-xs focus:border-teal-500 focus:outline-none">
+              ${exams.map(e => `<option value="${e.id}" ${this.activeExamId === e.id ? 'selected' : ''}>${e.title} (${e.questionCount} Soru)</option>`).join('')}
+            </select>
+            <select id="photo-student-select" class="flex-1 sm:flex-initial px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-medium text-xs focus:border-teal-500 focus:outline-none">
+              <option value="">-- Talebe: QR Koddan Oku --</option>
+              ${students.map(s => `<option value="${s.studentNo}">${s.studentNo} - ${s.firstName} ${s.lastName} (${s.className})</option>`).join('')}
+            </select>
+            <select id="photo-booklet-select" class="px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-medium text-xs focus:border-teal-500 focus:outline-none" title="Kitapçık Türü">
+              <option value="auto">📖 Kitapçık: Otomatik</option>
+              <option value="A">Kitapçık A</option>
+              <option value="B">Kitapçık B</option>
+              <option value="C">Kitapçık C</option>
+              <option value="D">Kitapçık D</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Fotoğraf Yükleme / Çekme Alanı (Dropzone) -->
+        <div id="photo-dropzone" 
+          ondragover="App.handlePhotoDragOver(event)" 
+          ondragleave="App.handlePhotoDragLeave(event)" 
+          ondrop="App.handlePhotoDrop(event, '${effectiveInstId}')"
+          class="border-2 border-dashed border-teal-500/40 hover:border-teal-400 bg-slate-900/60 hover:bg-slate-900/90 rounded-3xl p-6 sm:p-8 text-center transition-all shadow-xl relative overflow-hidden group">
+          
+          <input type="file" id="photo-input-cam" accept="image/*" capture="environment" onchange="App.handlePhotoUpload(event, '${effectiveInstId}')" class="hidden">
+          <input type="file" id="photo-input-file" accept="image/*" onchange="App.handlePhotoUpload(event, '${effectiveInstId}')" class="hidden">
+          <input type="file" id="photo-input-batch" accept="image/*" multiple onchange="App.handleBatchPhotoUpload(event, '${effectiveInstId}')" class="hidden">
+
+          <div class="max-w-xl mx-auto space-y-4">
+            <div class="w-16 h-16 rounded-2xl bg-teal-500/20 text-teal-300 flex items-center justify-center text-3xl mx-auto border border-teal-500/30 group-hover:scale-110 transition-transform">
+              📸
+            </div>
+            
+            <div>
+              <h3 class="text-base sm:text-lg font-black text-white">Optik Form Fotoğrafı Çekin veya Seçin</h3>
+              <p class="text-xs text-slate-400 mt-1 max-w-md mx-auto">
+                Yatay A4 optik formunuzun 4 köşesi ve sol üstteki karekodu görünecek biçimde dik açıdan çekiniz.
+              </p>
+            </div>
+
+            <div class="flex flex-wrap items-center justify-center gap-3 pt-2">
+              <!-- Kameradan Çek (Mobil Uyumlu) -->
+              <button type="button" onclick="document.getElementById('photo-input-cam').click()" class="px-5 py-3 bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-600 hover:to-emerald-600 text-slate-950 font-black text-xs sm:text-sm rounded-xl shadow-lg transition flex items-center gap-2 cursor-pointer active:scale-95">
+                <span>📸</span> <span>Kameradan Fotoğraf Çek</span>
+              </button>
+
+              <!-- Galeriden / Dosyadan Seç -->
+              <button type="button" onclick="document.getElementById('photo-input-file').click()" class="px-4 py-3 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs sm:text-sm rounded-xl border border-slate-700 transition flex items-center gap-2 cursor-pointer active:scale-95">
+                <span>🖼️</span> <span>Galeriden / Dosyadan Seç</span>
+              </button>
+
+              <!-- Toplu Çoklu Fotoğraf Seçimi -->
+              <button type="button" onclick="document.getElementById('photo-input-batch').click()" class="px-4 py-3 bg-indigo-600/30 hover:bg-indigo-600 text-indigo-300 hover:text-white font-bold text-xs sm:text-sm rounded-xl border border-indigo-500/50 transition flex items-center gap-2 cursor-pointer active:scale-95" title="Birden fazla kağıt fotoğrafını aynı anda yükleyin">
+                <span>📚</span> <span>Toplu Çoklu Seç</span>
+              </button>
+            </div>
+
+            <div class="pt-2 text-[11px] text-slate-500 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 font-medium">
+              <span>💡 İpucu: Fotoğrafı buraya sürükleyip bırakabilirsiniz</span>
+              <span>•</span>
+              <span>📋 Panodaki resmi <kbd class="px-1.5 py-0.5 bg-slate-800 text-slate-300 rounded font-mono border border-slate-700">Ctrl + V</kbd> ile yapıştırabilirsiniz</span>
+            </div>
+          </div>
+
+          <!-- Yükleme Göstergesi -->
+          <div id="photo-scanner-loading" class="hidden absolute inset-0 bg-slate-950/90 backdrop-blur-sm flex flex-col items-center justify-center p-4 z-20">
+            <div class="w-12 h-12 border-4 border-teal-500 border-t-transparent rounded-full animate-spin mb-3"></div>
+            <p id="photo-loading-text" class="text-xs font-bold text-teal-300">Fotoğraf taranıyor, köşe işaretleri aranıyor...</p>
+          </div>
+        </div>
+
+        <!-- Okuma Sonuç Alanı -->
+        <div id="photo-scan-result-container">
+          ${this.activePhotoResult ? this.buildPhotoScanResultHtml(this.activePhotoResult, effectiveInstId) : ''}
+        </div>
+
+        <!-- Toplu Okuma Liste Alanı -->
+        <div id="photo-batch-results-container">
+          ${(this.activePhotoBatchResults && this.activePhotoBatchResults.length > 0) ? this.buildPhotoBatchListHtml(this.activePhotoBatchResults, effectiveInstId, this.activeExamId) : ''}
+        </div>
+      </div>
+    `;
+  },
+
+  handlePhotoExamChange(examId, instId) {
+    this.activeExamId = examId;
+    const exam = window.PortalStore.getExamById(instId, examId);
+    if (exam) {
+      this.showToast(`Seçili Sınav: ${exam.title}`, 'info');
+    }
+  },
+
+  handlePhotoDragOver(event) {
+    event.preventDefault();
+    const zone = document.getElementById('photo-dropzone');
+    if (zone) zone.classList.add('border-teal-300', 'bg-slate-900');
+  },
+
+  handlePhotoDragLeave(event) {
+    event.preventDefault();
+    const zone = document.getElementById('photo-dropzone');
+    if (zone) zone.classList.remove('border-teal-300', 'bg-slate-900');
+  },
+
+  handlePhotoDrop(event, instId) {
+    event.preventDefault();
+    const zone = document.getElementById('photo-dropzone');
+    if (zone) zone.classList.remove('border-teal-300', 'bg-slate-900');
+
+    const dt = event.dataTransfer;
+    if (!dt || !dt.files || dt.files.length === 0) return;
+
+    if (dt.files.length === 1) {
+      this.processSinglePhotoFile(dt.files[0], instId);
+    } else {
+      this.handleBatchPhotoUpload({ target: { files: dt.files } }, instId);
+    }
+  },
+
+  handlePhotoUpload(event, instId) {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+    this.processSinglePhotoFile(file, instId);
+    event.target.value = '';
+  },
+
+  async processSinglePhotoFile(file, instId) {
+    if (!window.PhotoOmrScanner) {
+      this.showToast('Fotoğraf OMR motoru yükleniyor, lütfen birkaç saniye sonra tekrar deneyiniz.', 'warning');
+      return;
+    }
+    const session = window.PortalStore.getCurrentSession();
+    const effectiveInstId = instId || (session ? session.institutionId : null) || 'inst_oay';
+    const examSelect = document.getElementById('photo-exam-select');
+    const examId = examSelect ? examSelect.value : this.activeExamId;
+    const exam = window.PortalStore.getExamById(effectiveInstId, examId) || window.PortalStore.getExams(effectiveInstId)[0];
+
+    if (!exam) {
+      this.showToast('Lütfen önce bir sınav seçiniz.', 'warning');
+      return;
+    }
+
+    const studentSelect = document.getElementById('photo-student-select');
+    const forcedStudentNo = (studentSelect && studentSelect.value) ? studentSelect.value : null;
+
+    const bookletSelect = document.getElementById('photo-booklet-select');
+    const forcedBooklet = (bookletSelect && bookletSelect.value !== 'auto') ? bookletSelect.value : null;
+
+    this.showPhotoLoading(true, 'Fotoğraf taranıyor, 4 köşe ve QR kod analiz ediliyor...');
+
+    try {
+      const scanRes = await window.PhotoOmrScanner.scanImageFile(file, exam, forcedStudentNo, forcedBooklet, true);
+      this.showPhotoLoading(false);
+
+      if (!scanRes || !scanRes.success) {
+        this.showToast(scanRes ? scanRes.message : 'Fotoğraf okunamadı.', 'error');
+        this.renderPhotoScanResultView(null, effectiveInstId, scanRes ? scanRes.message : 'Kağıt algılanamadı');
+        return;
+      }
+
+      const res = scanRes.result;
+      const students = window.PortalStore.getStudents(effectiveInstId);
+      const matchedSt = students.find(s => s.studentNo === res.studentNo);
+
+      res.studentName = matchedSt ? `${matchedSt.firstName} ${matchedSt.lastName}` : (res.studentName || `Talebe #${res.studentNo}`);
+      res.className = matchedSt ? matchedSt.className : (res.className || 'Genel');
+      res.parentPhone = matchedSt ? matchedSt.parentPhone : (res.parentPhone || '');
+      res.overlayCanvas = scanRes.overlayCanvas || null;
+
+      this.activePhotoResult = res;
+
+      // Otomatik Kayıt
+      if (res.studentNo && !res.isMissingAnswerKey) {
+        window.PortalStore.saveExamResult(effectiveInstId, res);
+        this.showToast(`✓ ${res.studentName} başarıyla okundu ve kaydedildi! (${res.totalNet} Net - ${res.totalScore} Puan)`, 'success');
+      }
+
+      this.renderPhotoScanResultView(res, effectiveInstId);
+    } catch (err) {
+      this.showPhotoLoading(false);
+      console.error('Fotoğraf okuma hatası:', err);
+      this.showToast('Fotoğraf işlenirken hata oluştu: ' + (err.message || err), 'error');
+    }
+  },
+
+  async handleBatchPhotoUpload(event, instId) {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
+    if (files.length === 1) {
+      this.processSinglePhotoFile(files[0], instId);
+      event.target.value = '';
+      return;
+    }
+
+    const session = window.PortalStore.getCurrentSession();
+    const effectiveInstId = instId || (session ? session.institutionId : null) || 'inst_oay';
+    const examSelect = document.getElementById('photo-exam-select');
+    const examId = examSelect ? examSelect.value : this.activeExamId;
+    const exam = window.PortalStore.getExamById(effectiveInstId, examId) || window.PortalStore.getExams(effectiveInstId)[0];
+
+    if (!exam) {
+      this.showToast('Lütfen önce bir sınav seçiniz.', 'warning');
+      return;
+    }
+
+    this.showPhotoLoading(true, `Toplu okuma başlatılıyor (${files.length} fotoğraf)...`);
+    const results = [];
+    const students = window.PortalStore.getStudents(effectiveInstId);
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      this.updatePhotoLoadingText(`İşleniyor: ${i + 1} / ${files.length} (${file.name})...`);
+      try {
+        const scanRes = await window.PhotoOmrScanner.scanImageFile(file, exam, null, null, false);
+        if (scanRes && scanRes.success) {
+          const res = scanRes.result;
+          const matchedSt = students.find(s => s.studentNo === res.studentNo);
+          res.studentName = matchedSt ? `${matchedSt.firstName} ${matchedSt.lastName}` : (res.studentName || `Talebe #${res.studentNo}`);
+          res.className = matchedSt ? matchedSt.className : (res.className || 'Genel');
+          res.parentPhone = matchedSt ? matchedSt.parentPhone : '';
+          res.fileName = file.name;
+
+          if (res.studentNo && !res.isMissingAnswerKey) {
+            window.PortalStore.saveExamResult(effectiveInstId, res);
+          }
+          results.push({ success: true, result: res, fileName: file.name });
+        } else {
+          results.push({ success: false, message: scanRes ? scanRes.message : 'Algılanamadı', fileName: file.name });
+        }
+      } catch (e) {
+        results.push({ success: false, message: e.message, fileName: file.name });
+      }
+    }
+
+    this.showPhotoLoading(false);
+    this.activePhotoBatchResults = results;
+    const successCount = results.filter(r => r.success).length;
+    this.showToast(`✓ Toplu okuma tamamlandı: ${successCount} / ${files.length} optik form kaydedildi.`, 'success');
+    this.renderPhotoBatchListView(results, effectiveInstId, exam.id);
+    if (event.target) event.target.value = '';
+  },
+
+  showPhotoLoading(show, message) {
+    const el = document.getElementById('photo-scanner-loading');
+    const txt = document.getElementById('photo-loading-text');
+    if (!el) return;
+    if (show) {
+      el.classList.remove('hidden');
+      if (txt && message) txt.textContent = message;
+    } else {
+      el.classList.add('hidden');
+    }
+  },
+
+  updatePhotoLoadingText(text) {
+    const txt = document.getElementById('photo-loading-text');
+    if (txt) txt.textContent = text;
+  },
+
+  renderPhotoScanResultView(res, instId, errorMsg = null) {
+    const container = document.getElementById('photo-scan-result-container');
+    if (!container) return;
+    container.innerHTML = this.buildPhotoScanResultHtml(res, instId, errorMsg);
+
+    if (res && res.overlayCanvas) {
+      setTimeout(() => {
+        const mount = document.getElementById('photo-overlay-mount');
+        if (mount && res.overlayCanvas) {
+          mount.innerHTML = '';
+          res.overlayCanvas.style.maxWidth = '100%';
+          res.overlayCanvas.style.height = 'auto';
+          res.overlayCanvas.style.borderRadius = '8px';
+          res.overlayCanvas.style.display = 'block';
+          mount.appendChild(res.overlayCanvas);
+        }
+      }, 50);
+    }
+  },
+
+  buildPhotoScanResultHtml(result, instId, errorMsg = null) {
+    if (errorMsg || !result) {
+      return `
+        <div class="bg-rose-950/40 border-2 border-rose-500/70 rounded-3xl p-6 shadow-2xl animate-fade-in text-center space-y-3">
+          <div class="w-14 h-14 bg-rose-500/20 text-rose-300 rounded-2xl flex items-center justify-center text-3xl mx-auto border border-rose-500/40">
+            ⚠️
+          </div>
+          <h3 class="text-base font-black text-rose-200">Fotoğraf Okunamadı</h3>
+          <p class="text-xs text-slate-300 max-w-md mx-auto leading-relaxed">
+            ${errorMsg || 'Fotoğrafta optik formun 4 köşe işareti veya karekodu net olarak tespit edilemedi.'}
+          </p>
+          <div class="pt-2 flex justify-center gap-2">
+            <button onclick="document.getElementById('photo-input-cam').click()" class="px-5 py-2.5 bg-teal-500 hover:bg-teal-600 text-slate-950 font-black text-xs rounded-xl shadow transition cursor-pointer">
+              📸 Tekrar Fotoğraf Çek
+            </button>
+            <button onclick="App.clearPhotoResult()" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl transition cursor-pointer">
+              Temizle
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    if (result.isMissingAnswerKey) {
+      return `
+        <div class="bg-amber-950/60 border-2 border-amber-500 rounded-3xl p-6 shadow-2xl animate-fade-in text-center space-y-3">
+          <div class="w-14 h-14 bg-amber-500/20 text-amber-300 rounded-2xl flex items-center justify-center text-3xl mx-auto border border-amber-500/40 shadow-lg">
+            🔑
+          </div>
+          <h3 class="text-base font-black text-amber-200">Cevap Anahtarı Kodlanmamış!</h3>
+          <p class="text-xs text-slate-300 max-w-md mx-auto leading-relaxed">
+            <strong>${result.examTitle || 'Sınav'}</strong> için <strong>${result.booklet || 'A'} Kitapçığı</strong> cevap anahtarı henüz sisteme girilmemiştir.
+          </p>
+          <div class="pt-2">
+            <button onclick="App.showEditExamModal('${instId}', '${result.examId}')" class="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs rounded-xl shadow-lg transition inline-flex items-center gap-1.5 cursor-pointer">
+              <span>🔑</span> <span>Cevap Anahtarını Gir & Düzenle →</span>
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    const isBlank = !!result.isBlank;
+
+    return `
+      <div class="space-y-4 animate-fade-in">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+          <!-- Sol Sütun: Görsel Teşhis ve İşlenmiş Optik Form Önizlemesi -->
+          <div class="bg-slate-900 border border-slate-800 rounded-3xl p-4 sm:p-5 shadow-2xl space-y-3">
+            <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+              <div class="flex items-center gap-2">
+                <span class="text-base">🔍</span>
+                <h4 class="text-xs font-black text-white uppercase tracking-wider">İşlenen Form Önizlemesi</h4>
+              </div>
+              <span class="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 font-bold">
+                ✓ 4 Köşe & QR Doğrulandı
+              </span>
+            </div>
+            
+            <div id="photo-overlay-mount" class="w-full bg-slate-950 rounded-2xl overflow-hidden border border-slate-800 flex items-center justify-center p-1 min-h-[220px]">
+              <div class="text-xs text-slate-500 p-4">Önizleme hazırlanıyor...</div>
+            </div>
+
+            <div class="text-[10px] text-slate-400 flex flex-wrap items-center justify-between gap-2 px-1 pt-1 font-mono">
+              <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block shadow"></span> Yeşil: Algılanan İşaret</span>
+              <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block shadow"></span> Kırmızı: Boş Soru</span>
+              <span class="text-slate-500">Çözünürlük: 1600x1126</span>
+            </div>
+          </div>
+
+          <!-- Sağ Sütun: Talebe Karnesi & Puan Özeti -->
+          <div class="bg-slate-900 border-2 ${isBlank ? 'border-amber-500' : 'border-teal-500'} rounded-3xl p-5 sm:p-6 shadow-2xl space-y-4">
+            <div class="flex items-start justify-between border-b border-slate-800 pb-3">
+              <div>
+                <span class="text-[10px] font-bold text-teal-400 uppercase tracking-wider flex items-center gap-1">
+                  <span>✓</span> <span>Fotoğraftan Başarıyla Okundu</span>
+                </span>
+                <h3 class="text-xl font-black text-white mt-1">${result.studentName}</h3>
+                <div class="flex items-center gap-2 mt-1 text-xs text-slate-400 font-mono">
+                  <span>No: <strong class="text-slate-200">${result.studentNo || '-'}</strong></span>
+                  <span>•</span>
+                  <span>Şube: <strong class="text-slate-200">${result.className}</strong></span>
+                  <span>•</span>
+                  <span>Kitapçık: <strong class="text-teal-400 font-black">${result.booklet || 'A'}</strong></span>
+                </div>
+              </div>
+              <div class="text-right">
+                <span class="text-3xl font-black font-mono ${isBlank ? 'text-amber-400' : 'text-teal-400'}">${result.totalScore}</span>
+                <span class="block text-[10px] font-bold text-slate-400 uppercase">Sınav Puanı</span>
+                <span class="text-[9px] text-slate-500 font-mono">Taban 200 • Tavan 500</span>
+              </div>
+            </div>
+
+            <!-- İstatistik Kutucukları -->
+            <div class="grid grid-cols-4 gap-2 text-center">
+              <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+                <span class="block text-[10px] text-slate-500 font-bold uppercase">Doğru</span>
+                <span class="text-lg font-black text-emerald-400 font-mono">${result.totalCorrect}</span>
+              </div>
+              <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+                <span class="block text-[10px] text-slate-500 font-bold uppercase">Yanlış</span>
+                <span class="text-lg font-black text-rose-400 font-mono">${result.totalWrong}</span>
+              </div>
+              <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+                <span class="block text-[10px] text-slate-500 font-bold uppercase">Boş</span>
+                <span class="text-lg font-black text-slate-300 font-mono font-bold">${result.totalEmpty}</span>
+              </div>
+              <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+                <span class="block text-[10px] text-slate-500 font-bold uppercase">Toplam Net</span>
+                <span class="text-lg font-black text-cyan-400 font-mono">${result.totalNet}</span>
+              </div>
+            </div>
+
+            <!-- Ders Dökümü -->
+            ${(result.subjectResults && result.subjectResults.length > 0) ? `
+              <div class="bg-slate-950/70 border border-slate-800 rounded-2xl p-3">
+                <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Ders Başarı Tablosu</div>
+                <div class="space-y-1.5 max-h-44 overflow-y-auto pr-1">
+                  ${result.subjectResults.map(s => `
+                    <div class="flex items-center justify-between text-xs py-1 border-b border-slate-800/40">
+                      <span class="text-slate-200 font-bold truncate">${s.name}</span>
+                      <div class="flex items-center gap-2 font-mono text-[11px]">
+                        <span class="text-emerald-400">${s.correct}D</span>
+                        <span class="text-rose-400">${s.wrong}Y</span>
+                        <span class="text-slate-500">${s.empty}B</span>
+                        <span class="text-teal-300 font-black">${s.net} Net</span>
+                      </div>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+            ` : ''}
+
+            <!-- Konu Analizleri (Varsa) -->
+            ${(result.topicAnalysis && result.topicAnalysis.length > 0) ? `
+              <div class="bg-slate-950/70 border border-slate-800 rounded-2xl p-3">
+                <div class="flex items-center justify-between mb-2">
+                  <span class="text-[11px] font-bold text-indigo-400 uppercase tracking-wider flex items-center gap-1">
+                    <span>🎯</span> <span>Konu Başarı Analizi</span>
+                  </span>
+                  <span class="text-[10px] text-slate-400 font-mono">${result.topicAnalysis.length} Konu</span>
+                </div>
+                <div class="space-y-1.5 max-h-32 overflow-y-auto pr-1">
+                  ${result.topicAnalysis.slice(0, 5).map(t => `
+                    <div class="flex items-center justify-between text-[11px]">
+                      <span class="text-slate-300 truncate max-w-[180px]">${t.subject}: <strong class="text-white">${t.topic}</strong></span>
+                      <div class="flex items-center gap-1.5 font-mono">
+                        <span class="${t.percent >= 70 ? 'text-emerald-400' : (t.percent >= 40 ? 'text-amber-400' : 'text-rose-400')} font-bold">%${t.percent}</span>
+                        <span class="text-slate-500 text-[10px]">(${t.correct}/${t.total} D)</span>
+                      </div>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+            ` : ''}
+
+            <!-- Aksiyon Butonları -->
+            <div class="flex flex-wrap gap-2 pt-1">
+              ${(result.parentPhone && !isBlank) ? `
+                <button onclick="App.sendWhatsAppCard('${encodeURIComponent(result.parentPhone)}', '${encodeURIComponent(result.studentName)}', '${result.totalNet}', '${result.totalScore}', '${encodeURIComponent(JSON.stringify(result.topicAnalysis || []))}')" class="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs rounded-xl shadow transition flex items-center justify-center gap-1.5 cursor-pointer">
+                  <span>💬</span> <span>WhatsApp Karnesi</span>
+                </button>
+              ` : ''}
+              <button onclick="App.showManualResultModal('${result.institutionId || instId}', '${result.examId}', '${result.studentNo}')" class="px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-amber-300 font-bold text-xs rounded-xl transition flex items-center justify-center gap-1 cursor-pointer" title="Cevapları ve Notu Düzenle">
+                <span>✍️</span> <span>Düzenle</span>
+              </button>
+              <button onclick="App.deleteExamResultPrompt('${result.institutionId || instId}', '${result.examId}', '${result.id || ''}', '${result.studentNo}', '${encodeURIComponent(result.studentName)}')" class="px-3.5 py-2.5 bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white font-bold text-xs rounded-xl border border-rose-500/30 transition flex items-center justify-center gap-1 cursor-pointer" title="Bu Okunan Optik Kağıdı Sil">
+                <span>🗑️</span> <span>Sil</span>
+              </button>
+              <button onclick="App.clearPhotoResult()" class="px-3 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl transition cursor-pointer" title="Yeni Okuma İçin Temizle">
+                ✕ Temizle
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  },
+
+  renderPhotoBatchListView(batchList, instId, examId) {
+    const container = document.getElementById('photo-batch-results-container');
+    if (!container) return;
+    container.innerHTML = this.buildPhotoBatchListHtml(batchList, instId, examId);
+  },
+
+  buildPhotoBatchListHtml(batchList, instId, examId) {
+    if (!Array.isArray(batchList) || batchList.length === 0) return '';
+    const successCount = batchList.filter(b => b.success).length;
+
+    return `
+      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-2xl space-y-4 animate-fade-in mt-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
+          <div>
+            <h3 class="text-base font-black text-white flex items-center gap-2">
+              <span>📚</span> <span>Toplu Fotoğraf Okuma Listesi</span>
+            </h3>
+            <p class="text-xs text-slate-400 mt-0.5">
+              Toplam <strong>${batchList.length}</strong> kağıt işlendi: <span class="text-emerald-400 font-bold">${successCount} Başarılı</span>, <span class="text-rose-400 font-bold">${batchList.length - successCount} Hatalı/Eksik</span>
+            </p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button onclick="App.switchTab('neticeler')" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs rounded-xl transition">
+              🏆 Neticeler Listesine Git →
+            </button>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead class="text-slate-400 uppercase text-[10px] font-bold border-b border-slate-800">
+              <tr>
+                <th class="p-2">#</th>
+                <th class="p-2">Dosya Adı</th>
+                <th class="p-2">Talebe</th>
+                <th class="p-2">Kitapçık</th>
+                <th class="p-2 text-center">Net</th>
+                <th class="p-2 text-center">Puan</th>
+                <th class="p-2 text-center">Durum</th>
+                <th class="p-2 text-right">İşlem</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-800/60 font-mono">
+              ${batchList.map((item, idx) => {
+                if (item.success && item.result) {
+                  const r = item.result;
+                  return `
+                    <tr class="hover:bg-slate-800/40">
+                      <td class="p-2 text-slate-500">${idx + 1}</td>
+                      <td class="p-2 text-slate-400 truncate max-w-[140px]" title="${item.fileName || ''}">${item.fileName || '-'}</td>
+                      <td class="p-2 font-sans font-bold text-white">${r.studentName}</td>
+                      <td class="p-2 text-teal-400 font-bold text-center">${r.booklet || 'A'}</td>
+                      <td class="p-2 text-cyan-400 font-bold text-center">${r.totalNet}</td>
+                      <td class="p-2 text-emerald-400 font-black text-center">${r.totalScore}</td>
+                      <td class="p-2 text-center">
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">✓ Kaydedildi</span>
+                      </td>
+                      <td class="p-2 text-right">
+                        <button onclick="App.inspectBatchItem(${idx})" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-[10px] font-sans font-bold cursor-pointer">
+                          İncele 👁️
+                        </button>
+                      </td>
+                    </tr>
+                  `;
+                } else {
+                  return `
+                    <tr class="hover:bg-slate-800/40 bg-rose-950/20">
+                      <td class="p-2 text-slate-500">${idx + 1}</td>
+                      <td class="p-2 text-slate-400 truncate max-w-[140px]">${item.fileName || '-'}</td>
+                      <td class="p-2 font-sans text-rose-300 font-bold" colspan="4">⚠️ ${item.message || 'Okunamadı'}</td>
+                      <td class="p-2 text-center">
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-rose-500/20 text-rose-400 border border-rose-500/30">Hata</span>
+                      </td>
+                      <td class="p-2 text-right">
+                        <span class="text-slate-500 text-[10px] font-sans">-</span>
+                      </td>
+                    </tr>
+                  `;
+                }
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  },
+
+  inspectBatchItem(index) {
+    if (!this.activePhotoBatchResults || !this.activePhotoBatchResults[index]) return;
+    const item = this.activePhotoBatchResults[index];
+    if (item.success && item.result) {
+      this.activePhotoResult = item.result;
+      const session = window.PortalStore.getCurrentSession();
+      this.renderPhotoScanResultView(item.result, session ? session.institutionId : 'inst_oay');
+      const container = document.getElementById('photo-scan-result-container');
+      if (container) container.scrollIntoView({ behavior: 'smooth' });
+    }
+  },
+
+  clearPhotoResult() {
+    this.activePhotoResult = null;
+    const container = document.getElementById('photo-scan-result-container');
+    if (container) container.innerHTML = '';
   },
 
   renderFooter() {
