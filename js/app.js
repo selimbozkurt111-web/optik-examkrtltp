@@ -2862,14 +2862,14 @@ window.App = {
         <div id="continuous-status-badge" class="hidden text-xs font-bold px-4 py-2 rounded-xl bg-cyan-950/80 border border-cyan-500/50 text-cyan-300 animate-pulse text-center max-w-2xl mx-auto shadow-lg"></div>
 
         <!-- Canlı Kamera Ekranı -->
-        <div class="relative bg-black rounded-3xl overflow-hidden border-2 border-slate-800 max-w-2xl w-full mx-auto shadow-2xl" style="aspect-ratio: 4/3;">
+        <div class="relative bg-black rounded-3xl overflow-hidden border-2 border-slate-800 max-w-2xl mx-auto shadow-2xl" style="aspect-ratio: 4/3;">
           <video id="omr-video" playsinline webkit-playsinline autoplay muted class="w-full h-full object-cover"></video>
           <canvas id="omr-canvas" class="hidden"></canvas>
 
           <!-- Kamera Başlatma / İzin İsteme Katmanı (Mobil Uyumlu) -->
           <div id="camera-start-prompt" class="absolute inset-0 bg-slate-950/85 backdrop-blur-sm flex flex-col items-center justify-center p-4 text-center z-20 transition-all">
             <div class="w-14 h-14 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-3xl mb-2.5 border border-emerald-500/40 shadow-lg animate-pulse">
-              📷
+              📸
             </div>
             <h4 class="text-sm font-black text-white mb-1">Kamerayı Başlat</h4>
             <p class="text-xs text-slate-300 max-w-xs mb-3">Telefonunuzun kamerasını açarak sınav kağıtlarını canlı okutabilirsiniz.</p>
@@ -3459,7 +3459,7 @@ window.App = {
     modal.id = 'bulk-report-modal';
     modal.className = 'fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-sm animate-fade-in';
     modal.innerHTML = `
-      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-6 max-w-5xl w-full shadow-2xl relative max-h-[94vh] flex flex-col">
+      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-4 sm:p-6 max-w-[96vw] xl:max-w-7xl w-full shadow-2xl relative max-h-[94vh] flex flex-col">
         <!-- Başlık ve Üst Butonlar -->
         <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-3 border-b border-slate-800 mb-3 gap-3">
           <div class="flex items-center gap-2.5">
@@ -5416,7 +5416,6 @@ window.App = {
             <span class="text-lg font-black text-purple-400 font-mono">${canceledCount}</span>
           </div>
         </div>
-
         <!-- Ders Filtresi -->
         <div class="flex items-center gap-2 mb-3">
           <span class="text-xs text-slate-400 font-bold">Ders Filtrele:</span>
