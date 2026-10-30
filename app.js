@@ -11,6 +11,9 @@ window.App = {
   isProcessingPhoto: false,
   _pasteListenerAttached: false,
   currentTheme: 'dark',
+  studentSortBy: 'no_asc',
+  studentSearchQuery: '',
+  studentClassFilter: 'all',
 
   init() {
     try {
@@ -1999,7 +2002,95 @@ window.App = {
     const students = window.PortalStore.getStudents(instId);
     const uniqueClasses = Array.from(new Set(students.map(s => (s.className || '').trim()).filter(Boolean))).sort();
     const query = (this.studentSearchQuery || '').trim();
+    const qNorm = window.PortalStore.normalizeTr(query);
     const classFilter = this.studentClassFilter || 'all';
+    const sortBy = this.studentSortBy || 'no_asc';
+
+    // Sıralama motoru
+    let sortedStudents = [...students];
+    sortedStudents.sort((a, b) => {
+      if (sortBy === 'no_asc') {
+        const numA = parseInt(a.studentNo, 10);
+        const numB = parseInt(b.studentNo, 10);
+        if (!isNaN(numA) && !isNaN(numB) && numA !== numB) return numA - numB;
+        return (a.studentNo || '').localeCompare(b.studentNo || '', 'tr', { numeric: true, sensitivity: 'base' });
+      }
+      if (sortBy === 'no_desc') {
+        const numA = parseInt(a.studentNo, 10);
+        const numB = parseInt(b.studentNo, 10);
+        if (!isNaN(numA) && !isNaN(numB) && numA !== numB) return numB - numA;
+        return (b.studentNo || '').localeCompare(a.studentNo || '', 'tr', { numeric: true, sensitivity: 'base' });
+      }
+      if (sortBy === 'name_asc') {
+        const nameA = `${a.firstName || ''} ${a.lastName || ''}`.trim();
+        const nameB = `${b.firstName || ''} ${b.lastName || ''}`.trim();
+        return nameA.localeCompare(nameB, 'tr', { sensitivity: 'base' });
+      }
+      if (sortBy === 'name_desc') {
+        const nameA = `${a.firstName || ''} ${a.lastName || ''}`.trim();
+        const nameB = `${b.firstName || ''} ${b.lastName || ''}`.trim();
+        return nameB.localeCompare(nameA, 'tr', { sensitivity: 'base' });
+      }
+      if (sortBy === 'class_asc') {
+        const clsA = (a.className || 'Genel').trim();
+        const clsB = (b.className || 'Genel').trim();
+        const cCmp = clsA.localeCompare(clsB, 'tr', { numeric: true, sensitivity: 'base' });
+        if (cCmp !== 0) return cCmp;
+        const numA = parseInt(a.studentNo, 10);
+        const numB = parseInt(b.studentNo, 10);
+        if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+        return (a.studentNo || '').localeCompare(b.studentNo || '', 'tr', { numeric: true });
+      }
+      if (sortBy === 'class_desc') {
+        const clsA = (a.className || 'Genel').trim();
+        const clsB = (b.className || 'Genel').trim();
+        const cCmp = clsB.localeCompare(clsA, 'tr', { numeric: true, sensitivity: 'base' });
+        if (cCmp !== 0) return cCmp;
+        const numA = parseInt(a.studentNo, 10);
+        const numB = parseInt(b.studentNo, 10);
+        if (!isNaN(numA) && !isNaN(numB)) return numB - numA;
+        return (b.studentNo || '').localeCompare(a.studentNo || '', 'tr', { numeric: true });
+      }
+      return 0;
+    });
+
+    let visibleCount = 0;
+    const rowsHtml = sortedStudents.map(st => {
+      const searchStr = window.PortalStore.normalizeTr(`${st.studentNo} ${st.firstName} ${st.lastName} ${st.className} ${st.parentPhone || ''} ${st.notes || ''}`);
+      const classMatch = !classFilter || classFilter === 'all' || (st.className || 'Genel') === classFilter;
+      const textMatch = !qNorm || searchStr.includes(qNorm);
+      const isVisible = classMatch && textMatch;
+      if (isVisible) visibleCount++;
+      return `
+        <tr class="student-table-row hover:bg-slate-800/40 transition" data-search="${searchStr}" data-class="${st.className || 'Genel'}" style="${isVisible ? '' : 'display: none;'}">
+          <td class="p-3 font-mono font-bold text-emerald-400">${st.studentNo}</td>
+          <td class="p-3 font-bold text-white">
+            <button type="button" onclick="App.showStudentModal('${instId}', '${st.id}')" class="text-left hover:text-emerald-300 hover:underline cursor-pointer flex items-center gap-1.5" title="Bilgileri Düzenlemek İçin Tıklayın">
+              <span>${st.firstName} ${st.lastName}</span>
+            </button>
+          </td>
+          <td class="p-3">
+            <span class="px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 font-bold text-[11px] border border-slate-700/60">${st.className || 'Genel'}</span>
+          </td>
+          <td class="p-3 font-mono text-slate-300">
+            ${st.parentPhone ? `📱 ${st.parentPhone}` : '<span class="text-slate-600">-</span>'}
+          </td>
+          <td class="p-3 text-slate-400 text-[11px] max-w-[160px] truncate" title="${st.notes || ''}">
+            ${st.notes || '-'}
+          </td>
+          <td class="p-3 text-right">
+            <div class="flex items-center justify-end gap-1.5">
+              <button onclick="App.showStudentModal('${instId}', '${st.id}')" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-amber-300 hover:text-amber-200 border border-slate-700 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer" title="Talebe Bilgilerini Düzenle">
+                <span>✍️</span> <span>Düzenle</span>
+              </button>
+              <button onclick="App.deleteStudentPrompt('${instId}', '${st.id}', '${encodeURIComponent(st.firstName + ' ' + st.lastName)}')" class="p-1.5 bg-slate-800 hover:bg-rose-950/60 text-rose-400 hover:text-rose-300 border border-slate-700 rounded-lg text-xs font-bold transition cursor-pointer" title="Talebeyi Sil">
+                🗑️
+              </button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join('');
 
     return `
       <div class="space-y-6">
@@ -2025,19 +2116,32 @@ window.App = {
           </div>
         </div>
 
-        <!-- Arama ve Şube Filtreleme Çubuğu -->
-        <div class="flex flex-col sm:flex-row items-center justify-between gap-3 bg-slate-900 border border-slate-800 p-4 rounded-2xl">
-          <div class="relative w-full sm:w-80">
+        <!-- Arama, Şube Filtreleme ve Sıralama Çubuğu -->
+        <div class="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 bg-slate-900 border border-slate-800 p-4 rounded-2xl">
+          <div class="relative w-full lg:w-72">
             <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500 text-sm">🔍</span>
             <input type="text" id="student-search-input" value="${query}" oninput="App.handleStudentSearch(this.value)" placeholder="Talebe adı, soyadı veya no ile ara..." class="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none">
           </div>
-          <div class="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
-            <span class="text-xs font-bold text-slate-400">Şube:</span>
-            <select id="student-class-filter" onchange="App.handleStudentClassFilter(this.value)" class="px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white font-bold focus:border-emerald-500 focus:outline-none">
-              <option value="all" ${classFilter === 'all' ? 'selected' : ''}>Tüm Şubeler (${students.length})</option>
-              ${uniqueClasses.map(c => `<option value="${c}" ${c === classFilter ? 'selected' : ''}>${c} Şubesi (${students.filter(s => (s.className || 'Genel') === c).length})</option>`).join('')}
-            </select>
-            <span class="text-[11px] text-slate-400 font-mono ml-2">Gösterilen: <strong id="student-filtered-count-badge" class="text-emerald-400 font-bold">${students.length}</strong></span>
+          <div class="flex items-center gap-2.5 w-full lg:w-auto justify-end flex-wrap">
+            <div class="flex items-center gap-1.5">
+              <span class="text-xs font-bold text-slate-400">Şube:</span>
+              <select id="student-class-filter" onchange="App.handleStudentClassFilter(this.value)" class="px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white font-bold focus:border-emerald-500 focus:outline-none cursor-pointer">
+                <option value="all" ${classFilter === 'all' ? 'selected' : ''}>Tüm Şubeler (${students.length})</option>
+                ${uniqueClasses.map(c => `<option value="${c}" ${c === classFilter ? 'selected' : ''}>${c} Şubesi (${students.filter(s => (s.className || 'Genel') === c).length})</option>`).join('')}
+              </select>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <span class="text-xs font-bold text-slate-400">Sıralama:</span>
+              <select id="student-sort-select" onchange="App.handleStudentSort(this.value)" class="px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-emerald-400 font-bold focus:border-emerald-500 focus:outline-none cursor-pointer">
+                <option value="no_asc" ${sortBy === 'no_asc' ? 'selected' : ''}>🔢 No (Küçükten Büyüğe)</option>
+                <option value="no_desc" ${sortBy === 'no_desc' ? 'selected' : ''}>🔢 No (Büyükten Küçüğe)</option>
+                <option value="name_asc" ${sortBy === 'name_asc' ? 'selected' : ''}>🔤 Ad Soyad (A'dan Z'ye)</option>
+                <option value="name_desc" ${sortBy === 'name_desc' ? 'selected' : ''}>🔤 Ad Soyad (Z'den A'ya)</option>
+                <option value="class_asc" ${sortBy === 'class_asc' ? 'selected' : ''}>🏫 Sınıf / Şube (A'dan Z'ye)</option>
+                <option value="class_desc" ${sortBy === 'class_desc' ? 'selected' : ''}>🏫 Sınıf / Şube (Z'den A'ya)</option>
+              </select>
+            </div>
+            <span class="text-[11px] text-slate-400 font-mono ml-1">Gösterilen: <strong id="student-filtered-count-badge" class="text-emerald-400 font-bold">${visibleCount}</strong></span>
           </div>
         </div>
 
@@ -2047,52 +2151,42 @@ window.App = {
             <table class="w-full text-left text-xs min-w-[560px]">
               <thead class="bg-slate-950 border-b border-slate-800 text-slate-400 font-bold uppercase tracking-wider">
                 <tr>
-                  <th class="p-3 w-16">No</th>
-                  <th class="p-3">Adı Soyadı</th>
-                  <th class="p-3">Sınıfı / Şubesi</th>
+                  <th onclick="App.toggleStudentSort('no')" class="p-3 w-28 cursor-pointer select-none hover:text-white transition group" title="Okul Numarasına Göre Sırala">
+                    <div class="flex items-center gap-1.5">
+                      <span>No</span>
+                      <span class="text-[11px] px-1.5 py-0.5 rounded font-mono ${sortBy.startsWith('no_') ? 'bg-emerald-500/20 text-emerald-400 font-black border border-emerald-500/30' : 'bg-slate-800/80 text-slate-500 group-hover:text-slate-300'}">
+                        ${sortBy === 'no_asc' ? '▲ 1-9' : (sortBy === 'no_desc' ? '▼ 9-1' : '↕')}
+                      </span>
+                    </div>
+                  </th>
+                  <th onclick="App.toggleStudentSort('name')" class="p-3 cursor-pointer select-none hover:text-white transition group" title="Ad ve Soyada Göre Sırala">
+                    <div class="flex items-center gap-1.5">
+                      <span>Adı Soyadı</span>
+                      <span class="text-[11px] px-1.5 py-0.5 rounded font-mono ${sortBy.startsWith('name_') ? 'bg-emerald-500/20 text-emerald-400 font-black border border-emerald-500/30' : 'bg-slate-800/80 text-slate-500 group-hover:text-slate-300'}">
+                        ${sortBy === 'name_asc' ? '▲ A-Z' : (sortBy === 'name_desc' ? '▼ Z-A' : '↕')}
+                      </span>
+                    </div>
+                  </th>
+                  <th onclick="App.toggleStudentSort('class')" class="p-3 cursor-pointer select-none hover:text-white transition group" title="Sınıf / Şubeye Göre Sırala">
+                    <div class="flex items-center gap-1.5">
+                      <span>Sınıfı / Şubesi</span>
+                      <span class="text-[11px] px-1.5 py-0.5 rounded font-mono ${sortBy.startsWith('class_') ? 'bg-emerald-500/20 text-emerald-400 font-black border border-emerald-500/30' : 'bg-slate-800/80 text-slate-500 group-hover:text-slate-300'}">
+                        ${sortBy === 'class_asc' ? '▲ A-Z' : (sortBy === 'class_desc' ? '▼ Z-A' : '↕')}
+                      </span>
+                    </div>
+                  </th>
                   <th class="p-3">Veli Telefonu (WhatsApp)</th>
                   <th class="p-3">Notlar</th>
                   <th class="p-3 text-right">İşlemler</th>
                 </tr>
               </thead>
               <tbody id="student-table-tbody" class="divide-y divide-slate-800/80">
-                <tr id="student-table-empty-row" style="display: ${students.length === 0 ? '' : 'none'};">
+                <tr id="student-table-empty-row" style="display: ${visibleCount === 0 ? '' : 'none'};">
                   <td colspan="6" class="p-8 text-center text-slate-500">
                     Henüz talebe bulunmuyor veya arama kriterine uygun kayıt yok.
                   </td>
                 </tr>
-                ${students.map(st => {
-                  const searchStr = window.PortalStore.normalizeTr(`${st.studentNo} ${st.firstName} ${st.lastName} ${st.className} ${st.parentPhone || ''} ${st.notes || ''}`);
-                  return `
-                    <tr class="student-table-row hover:bg-slate-800/40 transition" data-search="${searchStr}" data-class="${st.className || ''}">
-                      <td class="p-3 font-mono font-bold text-emerald-400">${st.studentNo}</td>
-                      <td class="p-3 font-bold text-white">
-                        <button type="button" onclick="App.showStudentModal('${instId}', '${st.id}')" class="text-left hover:text-emerald-300 hover:underline cursor-pointer flex items-center gap-1.5" title="Bilgileri Düzenlemek İçin Tıklayın">
-                          <span>${st.firstName} ${st.lastName}</span>
-                        </button>
-                      </td>
-                      <td class="p-3">
-                        <span class="px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 font-bold text-[11px] border border-slate-700/60">${st.className || 'Genel'}</span>
-                      </td>
-                      <td class="p-3 font-mono text-slate-300">
-                        ${st.parentPhone ? `📱 ${st.parentPhone}` : '<span class="text-slate-600">-</span>'}
-                      </td>
-                      <td class="p-3 text-slate-400 text-[11px] max-w-[160px] truncate" title="${st.notes || ''}">
-                        ${st.notes || '-'}
-                      </td>
-                      <td class="p-3 text-right">
-                        <div class="flex items-center justify-end gap-1.5">
-                          <button onclick="App.showStudentModal('${instId}', '${st.id}')" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-amber-300 hover:text-amber-200 border border-slate-700 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer" title="Talebe Bilgilerini Düzenle">
-                            <span>✍️</span> <span>Düzenle</span>
-                          </button>
-                          <button onclick="App.deleteStudentPrompt('${instId}', '${st.id}', '${encodeURIComponent(st.firstName + ' ' + st.lastName)}')" class="p-1.5 bg-slate-800 hover:bg-rose-950/60 text-rose-400 hover:text-rose-300 border border-slate-700 rounded-lg text-xs font-bold transition cursor-pointer" title="Talebeyi Sil">
-                            🗑️
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  `;
-                }).join('')}
+                ${rowsHtml}
               </tbody>
             </table>
           </div>
@@ -2307,6 +2401,23 @@ window.App = {
   handleStudentClassFilter(cls) {
     this.studentClassFilter = cls || 'all';
     this.handleStudentSearch(this.studentSearchQuery || '');
+  },
+
+  handleStudentSort(sortBy) {
+    this.studentSortBy = sortBy || 'no_asc';
+    this.render();
+  },
+
+  toggleStudentSort(field) {
+    const cur = this.studentSortBy || 'no_asc';
+    if (field === 'no') {
+      this.studentSortBy = (cur === 'no_asc') ? 'no_desc' : 'no_asc';
+    } else if (field === 'name') {
+      this.studentSortBy = (cur === 'name_asc') ? 'name_desc' : 'name_asc';
+    } else if (field === 'class') {
+      this.studentSortBy = (cur === 'class_asc') ? 'class_desc' : 'class_asc';
+    }
+    this.render();
   },
 
   deleteStudentPrompt(instId, studentId, encodedName = '') {
