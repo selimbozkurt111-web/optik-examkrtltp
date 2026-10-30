@@ -3713,7 +3713,7 @@ window.App = {
   },
 
   // ==========================================
-  // 10. ELLE (MANUEL) OPTİK CEVAP VE NOT GİRİŞİ
+  // 10. ELLE (MANUEL) DERS DERS OPTİK CEVAP VE NOT GİRİŞİ
   // ==========================================
   showManualResultModal(instId, examId, studentNoToPreload = null) {
     const existing = document.getElementById('manual-result-modal');
@@ -3721,42 +3721,63 @@ window.App = {
 
     const session = window.PortalStore.getCurrentSession();
     const effectiveInstId = instId || (session ? session.institutionId : null);
-    const exam = window.PortalStore.getExamById(effectiveInstId, examId);
+    const exam = window.PortalStore.getExamById(effectiveInstId, examId) || window.PortalStore.getGlobalExams().find(e => e.id === examId);
     if (!exam) {
       this.showToast('Sınav bulunamadı.', 'error');
       return;
     }
 
     const students = window.PortalStore.getStudents(effectiveInstId);
-    const existingResults = window.PortalStore.getResultsByExam(effectiveInstId, examId);
+    const existingResults = window.PortalStore.getResultsByExam(effectiveInstId, examId) || [];
     const existingResult = studentNoToPreload ? existingResults.find(r => r.studentNo === studentNoToPreload) : null;
 
-    const initialAnswers = existingResult ? existingResult.answers : '';
+    const initialAnswers = existingResult ? (existingResult.answers || '') : '';
     const initialBooklet = existingResult ? (existingResult.booklet || 'A') : 'A';
     const initialStudentNo = studentNoToPreload || (students[0] ? students[0].studentNo : '');
     const initialScoreOverride = (existingResult && existingResult.totalScore !== undefined) ? existingResult.totalScore : '';
+
+    const qCount = parseInt(exam.questionCount, 10) || 20;
+    const subjects = (Array.isArray(exam.subjects) && exam.subjects.length > 0)
+      ? exam.subjects.map((s, idx) => {
+          const startQ = parseInt(s.startQ, 10) || 1;
+          const endQ = parseInt(s.endQ, 10) || qCount;
+          return {
+            name: s.name || `Ders ${idx + 1}`,
+            startQ: startQ,
+            endQ: endQ,
+            count: Math.max(1, endQ - startQ + 1)
+          };
+        })
+      : [{
+          name: 'Genel',
+          startQ: 1,
+          endQ: qCount,
+          count: qCount
+        }];
 
     const modal = document.createElement('div');
     modal.id = 'manual-result-modal';
     modal.className = 'fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-sm animate-fade-in';
     modal.innerHTML = `
-      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-7 max-w-xl w-full shadow-2xl relative max-h-[92vh] overflow-y-auto">
-        <div class="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
+      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-7 max-w-2xl w-full shadow-2xl relative max-h-[94vh] flex flex-col">
+        <!-- Başlık -->
+        <div class="flex items-center justify-between pb-3 border-b border-slate-800 mb-3.5 flex-shrink-0">
           <div class="flex items-center gap-2.5">
             <span class="text-2xl">✍️</span>
             <div>
-              <h3 class="text-base font-black text-white">Elle Optik Cevap & Not Girişi</h3>
-              <p class="text-xs text-slate-400 font-medium">${exam.title} (${exam.questionCount} Soru)</p>
+              <h3 class="text-base sm:text-lg font-black text-white">Ders Ders Elle Optik Not Girişi</h3>
+              <p class="text-xs text-slate-400 font-medium">${exam.title} <span class="text-emerald-400 font-bold font-mono">(${exam.questionCount} Soru • ${subjects.length} Ders)</span></p>
             </div>
           </div>
           <button onclick="document.getElementById('manual-result-modal').remove()" class="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-sm font-bold cursor-pointer">✕</button>
         </div>
 
-        <form onsubmit="App.handleSaveManualResult(event, '${effectiveInstId}', '${exam.id}')" class="space-y-4">
+        <form onsubmit="App.handleSaveManualResult(event, '${effectiveInstId}', '${exam.id}')" class="space-y-3.5 overflow-y-auto pr-1 flex-1">
+          <!-- Talebe Seçimi -->
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Talebe Seçiniz</label>
-              <select id="manual-student-select" onchange="App.handleManualStudentChange(this.value, '${effectiveInstId}')" class="w-full px-3 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white font-bold text-xs focus:border-emerald-500 focus:outline-none">
+              <select id="manual-student-select" onchange="App.handleManualStudentChange(this.value, '${effectiveInstId}', '${exam.id}')" class="w-full px-3 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white font-bold text-xs focus:border-emerald-500 focus:outline-none">
                 <option value="">-- Kayıtlı Listeden Seç --</option>
                 ${students.map(s => `<option value="${s.studentNo}" ${s.studentNo === initialStudentNo ? 'selected' : ''}>${s.studentNo} - ${s.firstName} ${s.lastName} (${s.className})</option>`).join('')}
               </select>
@@ -3767,10 +3788,11 @@ window.App = {
             </div>
           </div>
 
+          <!-- Kitapçık ve Özel Puan -->
           <div class="grid grid-cols-2 gap-3">
             <div>
               <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Kitapçık Türü</label>
-              <select id="manual-booklet-select" onchange="App.handleManualAnswersInput('${exam.id}')" class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-bold text-xs">
+              <select id="manual-booklet-select" onchange="App.handleManualBookletChange('${exam.id}')" class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-bold text-xs">
                 <option value="A" ${initialBooklet === 'A' ? 'selected' : ''}>A Kitapçığı</option>
                 <option value="B" ${initialBooklet === 'B' ? 'selected' : ''}>B Kitapçığı</option>
                 <option value="C" ${initialBooklet === 'C' ? 'selected' : ''}>C Kitapçığı</option>
@@ -3779,25 +3801,91 @@ window.App = {
             </div>
             <div>
               <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Özel Puan (İsteğe Bağlı)</label>
-              <input type="number" step="0.1" id="manual-score-override" placeholder="Otomatik hesaplanır" value="${initialScoreOverride}" class="w-full px-3.5 py-2 bg-slate-950 border border-slate-800 rounded-xl text-amber-300 font-mono text-xs focus:border-amber-400 focus:outline-none">
+              <input type="number" step="0.1" id="manual-score-override" placeholder="Otomatik (200-500)" value="${initialScoreOverride}" class="w-full px-3.5 py-2 bg-slate-950 border border-slate-800 rounded-xl text-amber-300 font-mono text-xs focus:border-amber-400 focus:outline-none">
             </div>
           </div>
 
-          <!-- Öğrenci Cevapları Girişi -->
-          <div class="space-y-2 p-3.5 bg-slate-950/80 rounded-2xl border border-slate-800">
-            <div class="flex items-center justify-between">
-              <label class="text-xs font-bold text-emerald-400 uppercase">Öğrenci Cevap Dizilimi (${exam.questionCount} Soru)</label>
-              <span id="manual-char-count" class="text-[11px] font-mono text-slate-400">0 / ${exam.questionCount}</span>
+          <!-- Cevap Giriş Alanı: Ders Ders vs Tek Satır Sekmeleri -->
+          <div class="bg-slate-950/80 border border-slate-800 rounded-2xl p-3 sm:p-4 space-y-3">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-2.5 flex-wrap gap-2">
+              <div class="flex items-center gap-1.5">
+                <button type="button" id="manual-tab-subjects" onclick="App.switchManualInputTab('subjects')" class="px-3 py-1.5 rounded-xl text-xs font-black bg-emerald-500 text-slate-950 transition cursor-pointer">
+                  📚 Ders Ders Giriş
+                </button>
+                <button type="button" id="manual-tab-raw" onclick="App.switchManualInputTab('raw')" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-400 hover:text-slate-200 transition cursor-pointer">
+                  📝 Tek Satır / Toplu Metin
+                </button>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <button type="button" onclick="App.fillSampleAnswers('${exam.id}', 'key')" class="px-2.5 py-1 bg-cyan-950/70 hover:bg-cyan-900 border border-cyan-800/60 text-cyan-300 text-[11px] font-bold rounded-lg transition cursor-pointer" title="Seçili kitapçığın tüm cevap anahtarını otomatik doldur">
+                  🔑 Tüm Anahtar
+                </button>
+                <button type="button" onclick="App.fillSampleAnswers('${exam.id}', 'clear')" class="px-2.5 py-1 bg-rose-950/70 hover:bg-rose-900 border border-rose-800/60 text-rose-300 text-[11px] font-bold rounded-lg transition cursor-pointer" title="Tüm cevap kutularını temizle">
+                  ✕ Temizle
+                </button>
+              </div>
             </div>
-            <textarea id="manual-answers-input" rows="3" oninput="App.handleManualAnswersInput('${exam.id}')" placeholder="Örn: ABCDABCD... (Boş sorular için boşluk bırakınız)" class="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs font-mono text-white tracking-widest focus:border-emerald-500 focus:outline-none uppercase">${initialAnswers}</textarea>
-            <div class="flex gap-2">
-              <button type="button" onclick="App.fillSampleAnswers('${exam.id}', 'A')" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-[10px] text-slate-300 rounded font-mono">Tümünü 'A' Yap</button>
-              <button type="button" onclick="App.fillSampleAnswers('${exam.id}', 'key')" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-[10px] text-cyan-300 rounded font-mono">Cevap Anahtarını Kopyala</button>
-              <button type="button" onclick="App.fillSampleAnswers('${exam.id}', 'clear')" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-[10px] text-rose-300 rounded font-mono">Temizle</button>
+
+            <!-- 1. BÖLÜM: DERS DERS GİRİŞ KUTULARI -->
+            <div id="manual-pane-subjects" class="space-y-2.5 max-h-72 overflow-y-auto pr-1">
+              ${subjects.map((sub, idx) => {
+                const subVal = initialAnswers.slice(sub.startQ - 1, sub.endQ) || '';
+                return `
+                  <div class="p-3 bg-slate-900/90 rounded-2xl border border-slate-800 hover:border-slate-700 transition">
+                    <div class="flex items-center justify-between mb-1.5 flex-wrap gap-1">
+                      <div class="flex items-center gap-1.5 min-w-0">
+                        <span class="w-5 h-5 rounded-md bg-emerald-500/10 text-emerald-400 font-black text-[11px] flex items-center justify-center border border-emerald-500/20 flex-shrink-0">${idx + 1}</span>
+                        <strong class="text-xs text-white font-bold truncate">${sub.name}</strong>
+                        <span class="text-[10px] text-slate-400 font-mono">(${sub.startQ}-${sub.endQ}. Soru • ${sub.count} Soru)</span>
+                      </div>
+                      <div class="flex items-center gap-1.5">
+                        <span id="manual-sub-badge-${idx}" class="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md ${subVal.length === sub.count ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-slate-800 text-slate-400'}">
+                          ${subVal.length} / ${sub.count}
+                        </span>
+                        <button type="button" onclick="App.fillManualSubjectAnswer('${exam.id}', ${idx}, 'key')" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-cyan-300 text-[10px] font-medium rounded cursor-pointer transition" title="Sadece bu dersin cevap anahtarını doldur">🔑 Anahtar</button>
+                        <button type="button" onclick="App.fillManualSubjectAnswer('${exam.id}', ${idx}, 'clear')" class="px-1.5 py-0.5 bg-slate-800 hover:bg-slate-700 text-rose-300 text-[10px] font-medium rounded cursor-pointer transition" title="Bu dersin cevaplarını temizle">✕</button>
+                      </div>
+                    </div>
+                    <div>
+                      <input type="text"
+                             id="manual-sub-ans-${idx}"
+                             data-idx="${idx}"
+                             data-start="${sub.startQ}"
+                             data-end="${sub.endQ}"
+                             data-count="${sub.count}"
+                             maxlength="${sub.count}"
+                             value="${subVal}"
+                             autocomplete="off"
+                             spellcheck="false"
+                             oninput="App.handleManualSubjectAnswerInput('${exam.id}', ${idx}, ${sub.count})"
+                             onkeydown="App.handleManualSubjectKeydown(event, ${idx}, ${subjects.length})"
+                             placeholder="Örn: ABCD... (${sub.count} harf)"
+                             class="manual-subject-input w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs font-mono text-emerald-300 font-bold tracking-widest uppercase focus:border-emerald-500 focus:outline-none">
+                    </div>
+                    <div id="manual-sub-stat-${idx}" class="text-[10px] font-mono text-slate-400 mt-1 flex items-center justify-between min-h-[16px] px-0.5">
+                      <!-- Canlı Ders İstatistiği (Doğru, Yanlış, Boş, Net) -->
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+
+            <!-- 2. BÖLÜM: TEK SATIR / TOPLU METİN GİRİŞİ (Gizli Sekme) -->
+            <div id="manual-pane-raw" class="hidden space-y-2">
+              <div class="flex items-center justify-between">
+                <label class="text-xs font-bold text-slate-400 uppercase">Tüm Sınav Cevap Dizisi (Tek Metin)</label>
+                <span id="manual-char-count" class="text-[11px] font-mono text-slate-400">${initialAnswers.length} / ${exam.questionCount}</span>
+              </div>
+              <textarea id="manual-answers-input" rows="3" oninput="App.handleManualRawAnswersInput('${exam.id}')" placeholder="Örn: ABCDABCD... (Boş sorular için boşluk bırakınız)" class="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs font-mono text-white tracking-widest focus:border-emerald-500 focus:outline-none uppercase font-bold">${initialAnswers}</textarea>
+              <div class="flex gap-2">
+                <button type="button" onclick="App.fillSampleAnswers('${exam.id}', 'A')" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-[10px] text-slate-300 rounded font-mono cursor-pointer">Tümünü 'A' Yap</button>
+                <button type="button" onclick="App.fillSampleAnswers('${exam.id}', 'key')" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-[10px] text-cyan-300 rounded font-mono cursor-pointer">Cevap Anahtarını Kopyala</button>
+                <button type="button" onclick="App.fillSampleAnswers('${exam.id}', 'clear')" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-[10px] text-rose-300 rounded font-mono cursor-pointer">Temizle</button>
+              </div>
             </div>
           </div>
 
-          <!-- Canlı Önizleme Kartı -->
+          <!-- Canlı Önizleme Kartı (Taban: 200 • Tavan: 500 Puan) -->
           <div id="manual-preview-card" class="grid grid-cols-5 gap-2 text-center p-3 bg-slate-950 rounded-2xl border border-slate-800">
             <div>
               <span class="block text-[10px] text-slate-500 font-bold uppercase">Doğru</span>
@@ -3821,12 +3909,15 @@ window.App = {
             </div>
           </div>
 
+          <!-- Kaydet & Sil Butonları -->
           <div class="pt-2 flex items-center gap-2">
-            ${existingResult ? `
-              <button type="button" onclick="App.deleteExamResultPrompt('${effectiveInstId}', '${exam.id}', '${existingResult.id || ''}', '${existingResult.studentNo}', '${encodeURIComponent(existingResult.studentName || '')}')" class="py-3.5 px-4 bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white font-bold text-xs rounded-xl border border-rose-500/30 transition flex items-center justify-center gap-1.5 cursor-pointer" title="Bu optik okuma kaydını sil">
-                <span>🗑️</span> <span>Sonucu Sil</span>
-              </button>
-            ` : ''}
+            <div id="manual-delete-btn-container">
+              ${existingResult ? `
+                <button type="button" onclick="App.deleteExamResultPrompt('${effectiveInstId}', '${exam.id}', '${existingResult.id || ''}', '${existingResult.studentNo}', '${encodeURIComponent(existingResult.studentName || '')}')" class="py-3 px-3.5 bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white font-bold text-xs rounded-xl border border-rose-500/30 transition flex items-center justify-center gap-1.5 cursor-pointer" title="Bu optik okuma kaydını sil">
+                  <span>🗑️</span> <span>Sil</span>
+                </button>
+              ` : ''}
+            </div>
             <button type="submit" class="flex-1 py-3.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-slate-950 font-black text-xs rounded-xl shadow-lg transition flex items-center justify-center gap-2 cursor-pointer">
               <span>💾</span> <span>Sonucu Kaydet & Sıralamayı Güncelle</span>
             </button>
@@ -3836,31 +3927,200 @@ window.App = {
     `;
     document.body.appendChild(modal);
 
-    this.handleManualAnswersInput(exam.id);
+    this.updateManualScorePreview(exam.id, initialAnswers);
   },
 
-  handleManualStudentChange(studentNo, instId) {
-    const input = document.getElementById('manual-student-no');
-    if (input && studentNo) {
-      input.value = studentNo;
+  switchManualInputTab(mode) {
+    const paneSubjects = document.getElementById('manual-pane-subjects');
+    const paneRaw = document.getElementById('manual-pane-raw');
+    const tabSubjects = document.getElementById('manual-tab-subjects');
+    const tabRaw = document.getElementById('manual-tab-raw');
+
+    if (mode === 'subjects') {
+      if (paneSubjects) paneSubjects.classList.remove('hidden');
+      if (paneRaw) paneRaw.classList.add('hidden');
+      if (tabSubjects) {
+        tabSubjects.className = 'px-3 py-1.5 rounded-xl text-xs font-black bg-emerald-500 text-slate-950 transition cursor-pointer';
+      }
+      if (tabRaw) {
+        tabRaw.className = 'px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-400 hover:text-slate-200 transition cursor-pointer';
+      }
+    } else {
+      if (paneSubjects) paneSubjects.classList.add('hidden');
+      if (paneRaw) paneRaw.classList.remove('hidden');
+      if (tabSubjects) {
+        tabSubjects.className = 'px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-400 hover:text-slate-200 transition cursor-pointer';
+      }
+      if (tabRaw) {
+        tabRaw.className = 'px-3 py-1.5 rounded-xl text-xs font-black bg-emerald-500 text-slate-950 transition cursor-pointer';
+      }
     }
   },
 
-  handleManualAnswersInput(examId) {
+  handleManualSubjectAnswerInput(examId, subjectIdx, maxCount) {
+    const input = document.getElementById(`manual-sub-ans-${subjectIdx}`);
+    if (!input) return;
+
+    const cursorPos = input.selectionStart;
+    input.value = input.value.toUpperCase();
+    input.setSelectionRange(cursorPos, cursorPos);
+
+    const val = input.value;
+    const badge = document.getElementById(`manual-sub-badge-${subjectIdx}`);
+    if (badge) {
+      badge.textContent = `${val.length} / ${maxCount}`;
+      if (val.length === maxCount) {
+        badge.className = 'text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
+      } else {
+        badge.className = 'text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-slate-800 text-slate-400';
+      }
+    }
+
+    this.assembleAnswersFromSubjects(examId);
+
+    // Eğer bu ders kutusu tamamlandıysa otomatik sonraki derse odaklan
+    if (val.length >= maxCount) {
+      const nextInput = document.getElementById(`manual-sub-ans-${subjectIdx + 1}`);
+      if (nextInput) {
+        nextInput.focus();
+        nextInput.select();
+      }
+    }
+  },
+
+  handleManualSubjectKeydown(event, idx, totalSubs) {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      const nextInput = document.getElementById(`manual-sub-ans-${idx + 1}`);
+      if (nextInput) {
+        nextInput.focus();
+        nextInput.select();
+      }
+    } else if (event.key === 'ArrowDown') {
+      const nextInput = document.getElementById(`manual-sub-ans-${idx + 1}`);
+      if (nextInput) nextInput.focus();
+    } else if (event.key === 'ArrowUp') {
+      const prevInput = document.getElementById(`manual-sub-ans-${idx - 1}`);
+      if (prevInput) prevInput.focus();
+    }
+  },
+
+  assembleAnswersFromSubjects(examId) {
+    const session = window.PortalStore.getCurrentSession();
+    const instId = session ? session.institutionId : null;
+    const exam = window.PortalStore.getExamById(instId, examId) || window.PortalStore.getGlobalExams().find(e => e.id === examId);
+    if (!exam) return '';
+
+    const qCount = parseInt(exam.questionCount, 10) || 20;
+    const subjects = (Array.isArray(exam.subjects) && exam.subjects.length > 0)
+      ? exam.subjects
+      : [{ name: 'Genel', startQ: 1, endQ: qCount }];
+
+    let charArr = new Array(qCount).fill(' ');
+
+    subjects.forEach((sub, idx) => {
+      const input = document.getElementById(`manual-sub-ans-${idx}`);
+      if (!input) return;
+      const val = input.value.toUpperCase();
+      const start = (parseInt(sub.startQ, 10) || 1) - 1;
+      for (let i = 0; i < val.length; i++) {
+        if (start + i < qCount) {
+          charArr[start + i] = val[i];
+        }
+      }
+    });
+
+    const fullAnswers = charArr.join('').replace(/\s+$/, '');
+    const answersTextarea = document.getElementById('manual-answers-input');
+    if (answersTextarea) {
+      answersTextarea.value = fullAnswers;
+    }
+
+    const charCount = document.getElementById('manual-char-count');
+    if (charCount) {
+      charCount.textContent = `${fullAnswers.length} / ${qCount}`;
+    }
+
+    this.updateManualScorePreview(examId, fullAnswers);
+    return fullAnswers;
+  },
+
+  distributeAnswersToSubjects(examId, fullAnswers = '') {
     const session = window.PortalStore.getCurrentSession();
     const instId = session ? session.institutionId : null;
     const exam = window.PortalStore.getExamById(instId, examId) || window.PortalStore.getGlobalExams().find(e => e.id === examId);
     if (!exam) return;
 
-    const answersInput = document.getElementById('manual-answers-input');
-    const bookletSelect = document.getElementById('manual-booklet-select');
-    const charCount = document.getElementById('manual-char-count');
+    const qCount = parseInt(exam.questionCount, 10) || 20;
+    const subjects = (Array.isArray(exam.subjects) && exam.subjects.length > 0)
+      ? exam.subjects
+      : [{ name: 'Genel', startQ: 1, endQ: qCount }];
 
-    const answers = answersInput ? answersInput.value.toUpperCase() : '';
+    subjects.forEach((sub, idx) => {
+      const input = document.getElementById(`manual-sub-ans-${idx}`);
+      const badge = document.getElementById(`manual-sub-badge-${idx}`);
+      const sStart = (parseInt(sub.startQ, 10) || 1) - 1;
+      const sEnd = parseInt(sub.endQ, 10) || qCount;
+      const sCount = Math.max(1, sEnd - sStart);
+
+      const subVal = fullAnswers.slice(sStart, sEnd) || '';
+      if (input) {
+        input.value = subVal.trimEnd();
+      }
+      if (badge) {
+        badge.textContent = `${subVal.trimEnd().length} / ${sCount}`;
+        if (subVal.trimEnd().length === sCount) {
+          badge.className = 'text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
+        } else {
+          badge.className = 'text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-slate-800 text-slate-400';
+        }
+      }
+    });
+
+    const answersTextarea = document.getElementById('manual-answers-input');
+    if (answersTextarea && answersTextarea.value !== fullAnswers) {
+      answersTextarea.value = fullAnswers;
+    }
+
+    const charCount = document.getElementById('manual-char-count');
+    if (charCount) {
+      charCount.textContent = `${fullAnswers.length} / ${qCount}`;
+    }
+
+    this.updateManualScorePreview(examId, fullAnswers);
+  },
+
+  handleManualRawAnswersInput(examId) {
+    const answersTextarea = document.getElementById('manual-answers-input');
+    if (!answersTextarea) return;
+
+    const cursorPos = answersTextarea.selectionStart;
+    answersTextarea.value = answersTextarea.value.toUpperCase();
+    answersTextarea.setSelectionRange(cursorPos, cursorPos);
+
+    const answers = answersTextarea.value;
+    this.distributeAnswersToSubjects(examId, answers);
+  },
+
+  handleManualBookletChange(examId) {
+    const answersInput = document.getElementById('manual-answers-input');
+    const answers = answersInput ? answersInput.value : '';
+    this.updateManualScorePreview(examId, answers);
+  },
+
+  updateManualScorePreview(examId, answersOverride = null) {
+    const session = window.PortalStore.getCurrentSession();
+    const instId = session ? session.institutionId : null;
+    const exam = window.PortalStore.getExamById(instId, examId) || window.PortalStore.getGlobalExams().find(e => e.id === examId);
+    if (!exam) return;
+
+    const bookletSelect = document.getElementById('manual-booklet-select');
     const booklet = bookletSelect ? bookletSelect.value : 'A';
 
-    if (charCount) {
-      charCount.textContent = `${answers.length} / ${exam.questionCount}`;
+    let answers = answersOverride;
+    if (answers === null) {
+      const answersInput = document.getElementById('manual-answers-input');
+      answers = answersInput ? answersInput.value.toUpperCase() : '';
     }
 
     const scored = window.PortalStore.scoreStudentAnswers(answers, exam, booklet);
@@ -3877,6 +4137,97 @@ window.App = {
     if (elE) elE.textContent = scored.totalEmpty;
     if (elN) elN.textContent = scored.totalNet;
     if (elS) elS.textContent = scored.totalScore;
+
+    // Ders bazlı canlı istatistik rozetlerini güncelle
+    const subjects = (Array.isArray(exam.subjects) && exam.subjects.length > 0)
+      ? exam.subjects
+      : [{ name: 'Genel', startQ: 1, endQ: parseInt(exam.questionCount, 10) || 20 }];
+
+    subjects.forEach((sub, idx) => {
+      const statEl = document.getElementById(`manual-sub-stat-${idx}`);
+      if (!statEl) return;
+      const subRes = (scored.subjectsResult && scored.subjectsResult[sub.name]) ? scored.subjectsResult[sub.name] : null;
+      if (subRes) {
+        statEl.innerHTML = `
+          <span>D: <strong class="text-emerald-400 font-bold">${subRes.correct}</strong> • Y: <strong class="text-rose-400 font-bold">${subRes.wrong}</strong> • B: <strong class="text-slate-400 font-bold">${subRes.empty}</strong></span>
+          <span class="text-cyan-400 font-bold font-mono">Net: ${subRes.net}</span>
+        `;
+      } else {
+        statEl.innerHTML = '';
+      }
+    });
+  },
+
+  handleManualAnswersInput(examId) {
+    this.updateManualScorePreview(examId);
+  },
+
+  handleManualStudentChange(studentNo, instId, examId) {
+    const input = document.getElementById('manual-student-no');
+    if (input) {
+      input.value = studentNo || '';
+    }
+
+    const effectiveInstId = instId || (window.PortalStore.getCurrentSession() && window.PortalStore.getCurrentSession().institutionId);
+    if (!studentNo || !examId) return;
+
+    const existingResults = window.PortalStore.getResultsByExam(effectiveInstId, examId) || [];
+    const existing = existingResults.find(r => r.studentNo === studentNo);
+
+    const bookletSelect = document.getElementById('manual-booklet-select');
+    const scoreOverride = document.getElementById('manual-score-override');
+    const deleteContainer = document.getElementById('manual-delete-btn-container');
+
+    if (existing) {
+      if (bookletSelect && existing.booklet) bookletSelect.value = existing.booklet;
+      if (scoreOverride) scoreOverride.value = (existing.totalScore !== undefined) ? existing.totalScore : '';
+      this.distributeAnswersToSubjects(examId, existing.answers || '');
+      if (deleteContainer) {
+        deleteContainer.innerHTML = `
+          <button type="button" onclick="App.deleteExamResultPrompt('${effectiveInstId}', '${examId}', '${existing.id || ''}', '${existing.studentNo}', '${encodeURIComponent(existing.studentName || '')}')" class="py-3 px-3.5 bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white font-bold text-xs rounded-xl border border-rose-500/30 transition flex items-center justify-center gap-1.5 cursor-pointer" title="Bu optik okuma kaydını sil">
+            <span>🗑️</span> <span>Sil</span>
+          </button>
+        `;
+      }
+      this.showToast(`✓ #${studentNo} için kayıtlı sınav neticesi yüklendi.`, 'info');
+    } else {
+      if (scoreOverride) scoreOverride.value = '';
+      if (deleteContainer) deleteContainer.innerHTML = '';
+      this.distributeAnswersToSubjects(examId, '');
+    }
+  },
+
+  fillManualSubjectAnswer(examId, subjectIdx, type) {
+    const session = window.PortalStore.getCurrentSession();
+    const instId = session ? session.institutionId : null;
+    const exam = window.PortalStore.getExamById(instId, examId) || window.PortalStore.getGlobalExams().find(e => e.id === examId);
+    if (!exam) return;
+
+    const subjects = (Array.isArray(exam.subjects) && exam.subjects.length > 0)
+      ? exam.subjects
+      : [{ name: 'Genel', startQ: 1, endQ: parseInt(exam.questionCount, 10) || 20 }];
+
+    const sub = subjects[subjectIdx];
+    if (!sub) return;
+
+    const sStart = (parseInt(sub.startQ, 10) || 1) - 1;
+    const sEnd = parseInt(sub.endQ, 10) || (parseInt(exam.questionCount, 10) || 20);
+    const sCount = Math.max(1, sEnd - sStart);
+
+    const input = document.getElementById(`manual-sub-ans-${subjectIdx}`);
+    if (!input) return;
+
+    if (type === 'clear') {
+      input.value = '';
+    } else if (type === 'key') {
+      const bookletSelect = document.getElementById('manual-booklet-select');
+      const booklet = bookletSelect ? bookletSelect.value : 'A';
+      const key = (exam.answerKeys && exam.answerKeys[booklet]) ? exam.answerKeys[booklet] : '';
+      const subKey = key.slice(sStart, sEnd) || 'A'.repeat(sCount);
+      input.value = subKey;
+    }
+
+    this.handleManualSubjectAnswerInput(examId, subjectIdx, sCount);
   },
 
   fillSampleAnswers(examId, type) {
@@ -3885,23 +4236,20 @@ window.App = {
     const exam = window.PortalStore.getExamById(instId, examId) || window.PortalStore.getGlobalExams().find(e => e.id === examId);
     if (!exam) return;
 
-    const answersInput = document.getElementById('manual-answers-input');
+    const qCount = parseInt(exam.questionCount, 10) || 20;
     const bookletSelect = document.getElementById('manual-booklet-select');
     const booklet = bookletSelect ? bookletSelect.value : 'A';
-    const qCount = parseInt(exam.questionCount, 10) || 20;
 
-    if (!answersInput) return;
-
+    let newAnswers = '';
     if (type === 'clear') {
-      answersInput.value = '';
+      newAnswers = '';
     } else if (type === 'A') {
-      answersInput.value = 'A'.repeat(qCount);
+      newAnswers = 'A'.repeat(qCount);
     } else if (type === 'key') {
-      const key = (exam.answerKeys && exam.answerKeys[booklet]) ? exam.answerKeys[booklet] : 'A'.repeat(qCount);
-      answersInput.value = key;
+      newAnswers = (exam.answerKeys && exam.answerKeys[booklet]) ? exam.answerKeys[booklet] : 'A'.repeat(qCount);
     }
 
-    this.handleManualAnswersInput(examId);
+    this.distributeAnswersToSubjects(examId, newAnswers);
   },
 
   handleSaveManualResult(e, instId, examId) {
@@ -3913,7 +4261,7 @@ window.App = {
     }
 
     const booklet = document.getElementById('manual-booklet-select').value;
-    const answers = document.getElementById('manual-answers-input').value.trim().toUpperCase();
+    const answers = this.assembleAnswersFromSubjects(examId) || (document.getElementById('manual-answers-input') ? document.getElementById('manual-answers-input').value.trim().toUpperCase() : '');
     const scoreOverride = document.getElementById('manual-score-override').value;
 
     const res = window.PortalStore.saveManualExamResult(instId, {
