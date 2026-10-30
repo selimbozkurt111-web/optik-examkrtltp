@@ -218,6 +218,39 @@ window.CloudSync = {
     } catch(e) {
       console.warn('Sonuç dinleyicisi başlatılamadı:', e);
     }
+
+    // 3. Talebeleri Gerçek Zamanlı Dinle
+    try {
+      const unsubStudents = this.db.collection('students').onSnapshot(snapshot => {
+        if (!snapshot) return;
+
+        // Bulutta silinen dokümanları yerel depodan da anında sil
+        if (typeof snapshot.docChanges === 'function') {
+          snapshot.docChanges().forEach(change => {
+            if (change.type === 'removed') {
+              const d = change.doc.data();
+              if (d && d.institutionId && (d.id || d.studentNo)) {
+                if (window.PortalStore && typeof window.PortalStore.deleteStudentLocally === 'function') {
+                  window.PortalStore.deleteStudentLocally(d.institutionId, d.id || d.studentNo, d.studentNo);
+                }
+              }
+            }
+          });
+        }
+
+        const cloudStudents = [];
+        snapshot.forEach(doc => cloudStudents.push(doc.data()));
+        const hasChange = this.mergeStudentsFromCloud(cloudStudents);
+        if (hasChange && window.App && typeof window.App.render === 'function') {
+          window.App.render();
+        }
+      }, err => {
+        console.warn('Talebe dinleyici bildirimi:', err.message);
+      });
+      this.unsubscribeListeners.push(unsubStudents);
+    } catch(e) {
+      console.warn('Talebe dinleyicisi başlatılamadı:', e);
+    }
   },
 
   // --- BİRLEŞTİRME VE EŞİTLEME YARDIMCILARI ---
@@ -328,6 +361,22 @@ window.CloudSync = {
     studentsList.forEach(data => {
       const instId = data.institutionId;
       if (instId) {
+        // Eğer bu talebe yerel olarak silinmişse (tombstone), buluttan KESİNLİKLE geri alma!
+        const isDeleted = window.PortalStore && typeof window.PortalStore.isStudentDeleted === 'function'
+          && (
+            window.PortalStore.isStudentDeleted(instId, data.id, data.studentNo) ||
+            window.PortalStore.isStudentDeleted(instId, data.studentNo) ||
+            window.PortalStore.isStudentDeleted(instId, data.id)
+          );
+
+        if (isDeleted) {
+          // Bulutta hâlâ kalmışsa arka planda sessizce kalıcı sil
+          if (typeof this.deleteStudent === 'function') {
+            this.deleteStudent(instId, data.id, data.studentNo).catch(() => {});
+          }
+          return;
+        }
+
         if (!stGroup[instId]) stGroup[instId] = [];
         stGroup[instId].push(data);
       }
@@ -337,11 +386,21 @@ window.CloudSync = {
     Object.keys(stGroup).forEach(instId => {
       const localList = window.PortalStore.getStudents(instId);
       const stMap = new Map();
-      localList.forEach(s => stMap.set(s.id, s));
+      localList.forEach(s => stMap.set(s.id || s.studentNo, s));
       stGroup[instId].forEach(s => {
-        const cur = stMap.get(s.id);
-        if (!cur || JSON.stringify(cur) !== JSON.stringify(s)) {
-          stMap.set(s.id, { ...(cur || {}), ...s });
+        const key = s.id || s.studentNo;
+        // Eğer yerelde silinmişse ekleme
+        if (window.PortalStore && typeof window.PortalStore.isStudentDeleted === 'function' &&
+            (window.PortalStore.isStudentDeleted(instId, s.id, s.studentNo) || window.PortalStore.isStudentDeleted(instId, s.studentNo))) {
+          return;
+        }
+        const cur = stMap.get(key);
+        const sClone = { ...s };
+        delete sClone.cloudUpdatedAt;
+        const curClone = cur ? { ...cur } : null;
+        if (curClone) delete curClone.cloudUpdatedAt;
+        if (!cur || JSON.stringify(curClone) !== JSON.stringify(sClone)) {
+          stMap.set(key, { ...(cur || {}), ...s });
           hasChange = true;
         }
       });
@@ -419,11 +478,48 @@ window.CloudSync = {
     }
   },
 
-  async deleteStudent(instId, studentId) {
-    if (!this.isInitialized || !instId || !studentId) return;
+  async deleteStudent(instId, studentId, studentNo = null) {
+    if (!this.isInitialized || !instId || (!studentId && !studentNo)) return;
     try {
-      const docId = `${instId}__${studentId}`;
-      await this.db.collection('students').doc(docId).delete();
+      const cleanId = studentId ? studentId.toString().trim() : '';
+      const cleanNo = studentNo ? studentNo.toString().trim() : '';
+
+      // 1. Olası tüm doğrudan doküman ID'lerini Firestore'dan sil
+      const possibleDocIds = [];
+      if (cleanId) {
+        possibleDocIds.push(`${instId}__${cleanId}`);
+        possibleDocIds.push(cleanId);
+      }
+      if (cleanNo) {
+        possibleDocIds.push(`${instId}__${cleanNo}`);
+        possibleDocIds.push(cleanNo);
+      }
+
+      await Promise.all(possibleDocIds.map(docId =>
+        this.db.collection('students').doc(docId).delete().catch(() => {})
+      ));
+
+      // 2. Firestore'da kuruma ait tüm student dokümanlarını sorgula ve eşleşenleri topluca sil
+      const snap = await this.db.collection('students')
+        .where('institutionId', '==', instId)
+        .get();
+
+      const batch = this.db.batch();
+      let count = 0;
+      snap.forEach(doc => {
+        const d = doc.data();
+        const matchesId = cleanId && (d.id === cleanId || doc.id.includes(cleanId));
+        const matchesNo = cleanNo && (d.studentNo === cleanNo || (d.studentNo && d.studentNo.toString().trim() === cleanNo) || doc.id.includes(cleanNo));
+        if (matchesId || matchesNo) {
+          batch.delete(doc.ref);
+          count++;
+        }
+      });
+
+      if (count > 0) {
+        await batch.commit();
+      }
+      console.log(`✓ Talebe buluttan kalıcı olarak silindi: ID=${cleanId}, No=${cleanNo} (Silinen doküman adedi: ${count})`);
     } catch (e) {
       console.warn('Talebe buluttan silinemedi:', e.message);
       this.handleFirestoreError(e);

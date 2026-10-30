@@ -303,7 +303,7 @@ class MultiTenantStore {
           { id: 'st_103', studentNo: '103', firstName: 'AYŞE', lastName: 'DEMİR', className: '8-B', parentPhone: '05553334455', notes: 'LGS Grubu' },
           { id: 'st_104', studentNo: '104', firstName: 'FATMA', lastName: 'ÇELİK', className: '8-B', parentPhone: '05554445566', notes: 'LGS Grubu' },
           { id: 'st_105', studentNo: '105', firstName: 'ALİ', lastName: 'ÖZTÜRK', className: '7-A', parentPhone: '05555556677', notes: 'Ara Sınıf' }
-        ];
+        ].filter(s => !this.isStudentDeleted('inst_oay', s.id, s.studentNo));
         localStorage.setItem(oayStudentsKey, JSON.stringify(defaultStudents));
       }
 
@@ -490,12 +490,77 @@ class MultiTenantStore {
     }
   }
 
+  // --- Silinen Talebeler Listesi (Tombstone - Geri Gelmeyi Kesin Olarak Önler) ---
+  getDeletedStudentsMap() {
+    try {
+      const raw = localStorage.getItem(STORAGE_PREFIX + 'deleted_students');
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  }
+
+  saveDeletedStudentsMap(map) {
+    try {
+      localStorage.setItem(STORAGE_PREFIX + 'deleted_students', JSON.stringify(map));
+    } catch (e) {
+      console.warn('Silinen talebeler kaydedilemedi:', e);
+    }
+  }
+
+  recordDeletedStudent(instId, studentId, studentNo = null) {
+    if (!instId) return;
+    const map = this.getDeletedStudentsMap();
+    if (studentId) {
+      map[`${instId}__${studentId.toString().trim()}`] = Date.now();
+    }
+    if (studentNo) {
+      map[`${instId}__${studentNo.toString().trim()}`] = Date.now();
+    }
+    this.saveDeletedStudentsMap(map);
+  }
+
+  clearDeletedStudentTombstone(instId, studentId, studentNo = null) {
+    if (!instId) return;
+    const map = this.getDeletedStudentsMap();
+    let changed = false;
+    if (studentId && map[`${instId}__${studentId.toString().trim()}`]) {
+      delete map[`${instId}__${studentId.toString().trim()}`];
+      changed = true;
+    }
+    if (studentNo && map[`${instId}__${studentNo.toString().trim()}`]) {
+      delete map[`${instId}__${studentNo.toString().trim()}`];
+      changed = true;
+    }
+    if (changed) {
+      this.saveDeletedStudentsMap(map);
+    }
+  }
+
+  isStudentDeleted(instId, studentId, studentNo = null) {
+    if (!instId) return false;
+    const map = this.getDeletedStudentsMap();
+    if (studentId && map[`${instId}__${studentId.toString().trim()}`]) return true;
+    if (studentNo && map[`${instId}__${studentNo.toString().trim()}`]) return true;
+    return false;
+  }
+
   // --- Kurum Bazlı Talebe İşlemleri ---
   getStudents(instId) {
     if (!instId) return [];
     try {
       const raw = localStorage.getItem(STORAGE_PREFIX + instId + '_students');
-      return raw ? JSON.parse(raw) : [];
+      let list = raw ? JSON.parse(raw) : [];
+      // Silinenler listesinde olanları anında filtrele ve temizle
+      const deletedMap = this.getDeletedStudentsMap();
+      if (deletedMap && Object.keys(deletedMap).length > 0) {
+        const filtered = list.filter(s => !this.isStudentDeleted(instId, s.id, s.studentNo));
+        if (filtered.length !== list.length) {
+          this.saveStudents(instId, filtered);
+          list = filtered;
+        }
+      }
+      return list;
     } catch {
       return [];
     }
@@ -520,17 +585,50 @@ class MultiTenantStore {
     };
     list.push(newSt);
     this.saveStudents(instId, list);
+    // Yeniden eklenirse silinenler listesinden çıkar
+    this.clearDeletedStudentTombstone(instId, newSt.id, newSt.studentNo);
     if (window.CloudSync && typeof window.CloudSync.syncStudent === 'function') {
       window.CloudSync.syncStudent(instId, newSt);
     }
     return newSt;
   }
 
-  deleteStudent(instId, studentId) {
-    let list = this.getStudents(instId).filter(s => s.id !== studentId);
+  deleteStudentLocally(instId, studentId, studentNo = null) {
+    if (!instId || (!studentId && !studentNo)) return;
+    const sId = studentId ? studentId.toString().trim() : null;
+    const sNo = studentNo ? studentNo.toString().trim() : null;
+    let list = this.getStudents(instId).filter(s => {
+      if (sId && s.id === sId) return false;
+      if (sNo && s.studentNo && s.studentNo.toString().trim() === sNo) return false;
+      if (sId && s.studentNo && s.studentNo.toString().trim() === sId) return false;
+      return true;
+    });
     this.saveStudents(instId, list);
+    this.recordDeletedStudent(instId, sId, sNo);
+  }
+
+  deleteStudent(instId, studentId) {
+    if (!instId || !studentId) return;
+    const list = this.getStudents(instId);
+    const target = list.find(s => s.id === studentId || s.studentNo === studentId);
+    const cleanId = target ? target.id : studentId;
+    const cleanNo = target ? target.studentNo : (studentId.startsWith('st_') ? null : studentId);
+
+    // 1. Yerel depodan sil
+    let filtered = list.filter(s => {
+      if (cleanId && s.id === cleanId) return false;
+      if (cleanNo && s.studentNo && s.studentNo.toString().trim() === cleanNo.toString().trim()) return false;
+      if (cleanId && s.studentNo && s.studentNo.toString().trim() === cleanId.toString().trim()) return false;
+      return true;
+    });
+    this.saveStudents(instId, filtered);
+
+    // 2. Silinenler listesine (Tombstone) kaydet (Buluttan veya senkronizasyondan tekrar geri gelmeyi engeller)
+    this.recordDeletedStudent(instId, cleanId, cleanNo);
+
+    // 3. Buluttan (Firestore) tüm doküman varyasyonlarını ve sorgularını kalıcı sil
     if (window.CloudSync && typeof window.CloudSync.deleteStudent === 'function') {
-      window.CloudSync.deleteStudent(instId, studentId);
+      window.CloudSync.deleteStudent(instId, cleanId, cleanNo);
     }
   }
 
@@ -791,6 +889,7 @@ class MultiTenantStore {
       const notes = (st.notes || '').toString().trim();
 
       if (fn || ln || sNo) {
+        this.clearDeletedStudentTombstone(instId, 'st_' + sNo, sNo);
         const stObj = {
           id: 'st_' + sNo,
           studentNo: sNo,
