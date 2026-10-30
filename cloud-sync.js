@@ -189,7 +189,22 @@ window.CloudSync = {
     // 2. Optik Sonuçları Gerçek Zamanlı Dinle
     try {
       const unsubResults = this.db.collection('results').onSnapshot(snapshot => {
-        if (!snapshot || snapshot.empty) return;
+        if (!snapshot) return;
+
+        // Bulutta silinen dokümanları yerel depodan da anında sil
+        if (typeof snapshot.docChanges === 'function') {
+          snapshot.docChanges().forEach(change => {
+            if (change.type === 'removed') {
+              const d = change.doc.data();
+              if (d && d.institutionId && d.examId && (d.studentNo || d.id)) {
+                if (window.PortalStore && typeof window.PortalStore.deleteExamResultLocally === 'function') {
+                  window.PortalStore.deleteExamResultLocally(d.institutionId, d.examId, d.id || d.studentNo);
+                }
+              }
+            }
+          });
+        }
+
         const cloudResults = [];
         snapshot.forEach(doc => cloudResults.push(doc.data()));
         const hasChange = this.mergeResultsFromCloud(cloudResults);
@@ -270,6 +285,18 @@ window.CloudSync = {
     resultsList.forEach(data => {
       const instId = data.institutionId;
       if (instId) {
+        // Eğer bu sonuç yerel olarak silinmişse (tombstone), buluttan kesinlikle geri alma!
+        const isDeleted = window.PortalStore && typeof window.PortalStore.isResultDeleted === 'function'
+          && (window.PortalStore.isResultDeleted(instId, data.examId, data.studentNo) || window.PortalStore.isResultDeleted(instId, data.examId, data.id));
+
+        if (isDeleted) {
+          // Bulutta hâlâ kalmışsa arka planda sessizce sil
+          if (typeof this.deleteResult === 'function') {
+            this.deleteResult(instId, data.examId, data.studentNo || data.id).catch(() => {});
+          }
+          return;
+        }
+
         if (!resGroup[instId]) resGroup[instId] = [];
         resGroup[instId].push(data);
       }
@@ -448,6 +475,57 @@ window.CloudSync = {
       this.updateStatusBadge();
     } catch (e) {
       console.warn('Sınav neticesi buluta aktarılamadı:', e.message);
+      this.handleFirestoreError(e);
+    }
+  },
+
+  // 4.B. Optik Sınav Neticesini Buluttan Kalıcı Silme (Geri Dirilmeyi Önler)
+  async deleteResult(instId, examId, resultIdOrStudentNo) {
+    if (!this.isInitialized || !instId || !resultIdOrStudentNo) return;
+    try {
+      const cleanKey = resultIdOrStudentNo.toString().trim();
+
+      // 1. Olası standart Firestore doküman ID'lerini doğrudan sil
+      const possibleDocIds = [
+        `${instId}__${cleanKey}`,
+        `${instId}__${examId}_${cleanKey}`,
+        `${instId}__${examId}__${cleanKey}`,
+        cleanKey
+      ];
+
+      await Promise.all(possibleDocIds.map(docId =>
+        this.db.collection('results').doc(docId).delete().catch(() => {})
+      ));
+
+      // 2. Firestore sorgusu ile examId ve studentNo / id eşleşen tüm kopyaları bulup temizle
+      if (examId) {
+        const snap = await this.db.collection('results')
+          .where('institutionId', '==', instId)
+          .where('examId', '==', examId)
+          .get();
+
+        const batch = this.db.batch();
+        let count = 0;
+        snap.forEach(doc => {
+          const d = doc.data();
+          if (
+            d.studentNo === cleanKey ||
+            (d.studentNo && d.studentNo.toString().trim() === cleanKey) ||
+            d.id === cleanKey ||
+            doc.id.includes(cleanKey)
+          ) {
+            batch.delete(doc.ref);
+            count++;
+          }
+        });
+
+        if (count > 0) {
+          await batch.commit();
+        }
+      }
+      console.log(`✓ Sınav neticesi Firestore bulutundan kalıcı olarak silindi: #${cleanKey}`);
+    } catch (e) {
+      console.warn('Sınav neticesi buluttan silinemedi:', e.message);
       this.handleFirestoreError(e);
     }
   },
