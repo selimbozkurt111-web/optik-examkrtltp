@@ -3459,7 +3459,7 @@ window.App = {
     modal.id = 'bulk-report-modal';
     modal.className = 'fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-sm animate-fade-in';
     modal.innerHTML = `
-      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-6 max-w-5xl w-full shadow-2xl relative max-h-[94vh] flex flex-col">
+      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-4 sm:p-6 max-w-[96vw] xl:max-w-7xl w-full shadow-2xl relative max-h-[94vh] flex flex-col">
         <!-- Başlık ve Üst Butonlar -->
         <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-3 border-b border-slate-800 mb-3 gap-3">
           <div class="flex items-center gap-2.5">
