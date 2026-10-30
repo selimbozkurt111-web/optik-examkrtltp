@@ -730,6 +730,7 @@ window.App = {
             <div id="subject-rows-container-preview" class="p-2.5 bg-slate-900/90 border border-slate-800/80 rounded-xl"></div>
           </div>
 
+          <!-- 4 Kitapçık (A, B, C, D) Cevap Anahtarları -->
           <!-- 4 Kitapçık (A, B, C, D) Ders Ders Cevap Anahtarları -->
           <div class="space-y-3 p-3.5 bg-slate-950/80 rounded-2xl border border-slate-800">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800/80 pb-2.5">
@@ -2869,7 +2870,7 @@ window.App = {
           <!-- Kamera Başlatma / İzin İsteme Katmanı (Mobil Uyumlu) -->
           <div id="camera-start-prompt" class="absolute inset-0 bg-slate-950/85 backdrop-blur-sm flex flex-col items-center justify-center p-4 text-center z-20 transition-all">
             <div class="w-14 h-14 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-3xl mb-2.5 border border-emerald-500/40 shadow-lg animate-pulse">
-              📸
+              📷
             </div>
             <h4 class="text-sm font-black text-white mb-1">Kamerayı Başlat</h4>
             <p class="text-xs text-slate-300 max-w-xs mb-3">Telefonunuzun kamerasını açarak sınav kağıtlarını canlı okutabilirsiniz.</p>
@@ -3642,9 +3643,9 @@ window.App = {
 
     const modal = document.createElement('div');
     modal.id = 'global-leaderboard-modal';
-    modal.className = 'fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-sm animate-fade-in';
+    modal.className = 'fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-sm animate-fade-in';
     modal.innerHTML = `
-      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-7 max-w-4xl w-full shadow-2xl relative max-h-[90vh] flex flex-col">
+      <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-7 max-w-4xl w-full shadow-2xl relative max-h-[90vh] flex flex-col">
         <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-4 border-b border-slate-800 mb-4 gap-3">
           <div>
             <div class="flex items-center gap-2">
@@ -3712,6 +3713,7 @@ window.App = {
     document.body.appendChild(modal);
   },
 
+  // ==========================================
   // ==========================================
   // 10. ELLE (MANUEL) DERS DERS OPTİK CEVAP VE NOT GİRİŞİ
   // ==========================================
@@ -5379,14 +5381,14 @@ window.App = {
           <div>
             <div class="flex items-center gap-2">
               <span class="text-2xl">📊</span>
-              <h3 class="text-base sm:text-lg font-black text-white">${exam.title} - Soru & Madde Başarı Analizi</h3>
+              <h3 class="text-base sm:text-lg font-black text-white">\${exam.title} - Soru & Madde Başarı Analizi</h3>
             </div>
             <p class="text-xs text-slate-400 mt-0.5">
-              ${isGlobal ? 'Türkiye Geneli Tüm Kurumların Ortak Katılımı' : 'Kurumunuza Ait Sonuçlar'} (${totalStudents} Talebe Değerlendirildi)
+              \${isGlobal ? 'Türkiye Geneli Tüm Kurumların Ortak Katılımı' : 'Kurumunuza Ait Sonuçlar'} (\${totalStudents} Talebe Değerlendirildi)
             </p>
           </div>
           <div class="flex items-center gap-2">
-            <button onclick="App.downloadResultsCsv('${instId || ''}', '${exam.id}', ${isGlobal})" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl border border-slate-700 transition flex items-center gap-1 cursor-pointer">
+            <button onclick="App.downloadResultsCsv('\${instId || ''}', '\${exam.id}', \${isGlobal})" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl border border-slate-700 transition flex items-center gap-1 cursor-pointer">
               <span>📥</span> <span>Excel İndir</span>
             </button>
             <button onclick="document.getElementById('item-analysis-modal').remove()" class="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-sm font-bold cursor-pointer">✕</button>
@@ -5397,31 +5399,32 @@ window.App = {
         <div class="grid grid-cols-2 sm:grid-cols-5 gap-2.5 mb-4">
           <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800 text-center">
             <span class="block text-[10px] text-slate-500 font-bold uppercase">Toplam Soru</span>
-            <span class="text-lg font-black text-white font-mono">${items.length}</span>
+            <span class="text-lg font-black text-white font-mono">\${items.length}</span>
           </div>
           <div class="bg-slate-950 p-2.5 rounded-xl border border-emerald-950/50 text-center">
             <span class="block text-[10px] text-emerald-400 font-bold uppercase">Kolay Soru (%70+)</span>
-            <span class="text-lg font-black text-emerald-400 font-mono">${easyCount}</span>
+            <span class="text-lg font-black text-emerald-400 font-mono">\${easyCount}</span>
           </div>
           <div class="bg-slate-950 p-2.5 rounded-xl border border-amber-950/50 text-center">
             <span class="block text-[10px] text-amber-400 font-bold uppercase">Orta Soru (%40-%69)</span>
-            <span class="text-lg font-black text-amber-400 font-mono">${mediumCount}</span>
+            <span class="text-lg font-black text-amber-400 font-mono">\${mediumCount}</span>
           </div>
           <div class="bg-slate-950 p-2.5 rounded-xl border border-rose-950/50 text-center">
             <span class="block text-[10px] text-rose-400 font-bold uppercase">Zor Soru (<%40)</span>
-            <span class="text-lg font-black text-rose-400 font-mono">${hardCount}</span>
+            <span class="text-lg font-black text-rose-400 font-mono">\${hardCount}</span>
           </div>
           <div class="bg-slate-950 p-2.5 rounded-xl border border-purple-950/50 text-center">
             <span class="block text-[10px] text-purple-400 font-bold uppercase">İptal Edilen Soru</span>
-            <span class="text-lg font-black text-purple-400 font-mono">${canceledCount}</span>
+            <span class="text-lg font-black text-purple-400 font-mono">\${canceledCount}</span>
           </div>
         </div>
+
         <!-- Ders Filtresi -->
         <div class="flex items-center gap-2 mb-3">
           <span class="text-xs text-slate-400 font-bold">Ders Filtrele:</span>
           <select id="item-subject-filter" onchange="App.filterItemAnalysisTable(this.value)" class="px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white font-bold">
-            <option value="all">Tüm Dersler (${items.length} Soru)</option>
-            ${subjects.map(s => `<option value="${s.name}">${s.name} (${s.startQ}-${s.endQ}. Sorular)</option>`).join('')}
+            <option value="all">Tüm Dersler (\${items.length} Soru)</option>
+            \${subjects.map(s => `<option value="\${s.name}">\${s.name} (\${s.startQ}-\${s.endQ}. Sorular)</option>`).join('')}
           </select>
         </div>
 
@@ -5440,38 +5443,38 @@ window.App = {
               </tr>
             </thead>
             <tbody id="item-analysis-tbody" class="divide-y divide-slate-800/80">
-              ${items.map(item => `
-                <tr class="item-analysis-row hover:bg-slate-800/40 transition" data-subject="${item.subjectName}">
-                  <td class="p-2.5 text-center font-mono font-bold ${item.isCanceled ? 'text-purple-400 line-through' : 'text-emerald-400'}">
-                    #${item.questionNo}
+              \${items.map(item => `
+                <tr class="item-analysis-row hover:bg-slate-800/40 transition" data-subject="\${item.subjectName}">
+                  <td class="p-2.5 text-center font-mono font-bold \${item.isCanceled ? 'text-purple-400 line-through' : 'text-emerald-400'}">
+                    #\${item.questionNo}
                   </td>
-                  <td class="p-2.5 font-bold text-white">${item.subjectName}</td>
+                  <td class="p-2.5 font-bold text-white">\${item.subjectName}</td>
                   <td class="p-2.5 text-center font-mono font-black text-amber-300">
-                    ${item.isCanceled ? '*' : item.correctKeyA}
+                    \${item.isCanceled ? '*' : item.correctKeyA}
                   </td>
                   <td class="p-2.5">
                     <div class="flex items-center gap-2">
                       <div class="w-24 bg-slate-800 h-2 rounded-full overflow-hidden">
-                        <div class="h-full rounded-full ${item.isCanceled ? 'bg-purple-500' : (item.successRate >= 70 ? 'bg-emerald-500' : (item.successRate >= 40 ? 'bg-amber-500' : 'bg-rose-500'))}" style="width: ${item.successRate}%"></div>
+                        <div class="h-full rounded-full \${item.isCanceled ? 'bg-purple-500' : (item.successRate >= 70 ? 'bg-emerald-500' : (item.successRate >= 40 ? 'bg-amber-500' : 'bg-rose-500'))}" style="width: \${item.successRate}%"></div>
                       </div>
-                      <span class="font-mono font-bold text-[11px] text-slate-300">${item.successRate}%</span>
+                      <span class="font-mono font-bold text-[11px] text-slate-300">\${item.successRate}%</span>
                     </div>
                   </td>
                   <td class="p-2.5 text-center">
-                    <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${item.isCanceled ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40' : (item.difficulty === 'Kolay' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : (item.difficulty === 'Orta' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'))}">
-                      ${item.difficulty}
+                    <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase \${item.isCanceled ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40' : (item.difficulty === 'Kolay' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : (item.difficulty === 'Orta' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'))}">
+                      \${item.difficulty}
                     </span>
                   </td>
                   <td class="p-2.5 text-center font-mono text-[11px] text-slate-300">
-                    <span class="${item.correctKeyA === 'A' ? 'text-emerald-400 font-black' : ''}">A:${item.distribution.A || 0}</span> •
-                    <span class="${item.correctKeyA === 'B' ? 'text-emerald-400 font-black' : ''}">B:${item.distribution.B || 0}</span> •
-                    <span class="${item.correctKeyA === 'C' ? 'text-emerald-400 font-black' : ''}">C:${item.distribution.C || 0}</span> •
-                    <span class="${item.correctKeyA === 'D' ? 'text-emerald-400 font-black' : ''}">D:${item.distribution.D || 0}</span> •
-                    <span class="text-slate-500">Boş:${item.distribution.empty || 0}</span>
+                    <span class="\${item.correctKeyA === 'A' ? 'text-emerald-400 font-black' : ''}">A:\${item.distribution.A || 0}</span> •
+                    <span class="\${item.correctKeyA === 'B' ? 'text-emerald-400 font-black' : ''}">B:\${item.distribution.B || 0}</span> •
+                    <span class="\${item.correctKeyA === 'C' ? 'text-emerald-400 font-black' : ''}">C:\${item.distribution.C || 0}</span> •
+                    <span class="\${item.correctKeyA === 'D' ? 'text-emerald-400 font-black' : ''}">D:\${item.distribution.D || 0}</span> •
+                    <span class="text-slate-500">Boş:\${item.distribution.empty || 0}</span>
                   </td>
                   <td class="p-2.5 text-right">
-                    <button onclick="App.toggleCancelQuestionFromModal('${instId || ''}', '${exam.id}', ${item.questionNo}, ${isGlobal})" class="px-2 py-1 rounded text-[10px] font-bold transition cursor-pointer ${item.isCanceled ? 'bg-purple-600 hover:bg-purple-500 text-white' : 'bg-slate-800 hover:bg-rose-950/60 hover:text-rose-300 text-slate-400 border border-slate-700'}">
-                      ${item.isCanceled ? 'İptali Kaldır' : 'İptal Et'}
+                    <button onclick="App.toggleCancelQuestionFromModal('\${instId || ''}', '\${exam.id}', \${item.questionNo}, \${isGlobal})" class="px-2 py-1 rounded text-[10px] font-bold transition cursor-pointer \${item.isCanceled ? 'bg-purple-600 hover:bg-purple-500 text-white' : 'bg-slate-800 hover:bg-rose-950/60 hover:text-rose-300 text-slate-400 border border-slate-700'}">
+                      \${item.isCanceled ? 'İptali Kaldır' : 'İptal Et'}
                     </button>
                   </td>
                 </tr>
@@ -5766,7 +5769,7 @@ window.App = {
             <span class="text-2xl">💬</span>
             <div>
               <h3 class="text-base sm:text-lg font-black text-white">Sınıfa Toplu WhatsApp Karnesi Gönder</h3>
-              <p class="text-xs text-slate-400 font-medium">${exam.title} (${rankings.length} Talebe)</p>
+              <p class="text-xs text-slate-400 font-medium">\${exam.title} (\${rankings.length} Talebe)</p>
             </div>
           </div>
           <button onclick="document.getElementById('batch-whatsapp-modal').remove()" class="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-sm font-bold cursor-pointer">✕</button>
@@ -5776,12 +5779,12 @@ window.App = {
           <div class="flex items-center gap-2">
             <label class="text-xs font-bold text-slate-300">Şube / Sınıf Seçiniz:</label>
             <select id="batch-whatsapp-class" onchange="App.filterBatchWhatsAppClass(this.value)" class="px-3 py-1.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white font-bold">
-              <option value="all">Tüm Sınıflar (${rankings.length} Talebe)</option>
-              ${classes.map(c => `<option value="${c}">${c}</option>`).join('')}
+              <option value="all">Tüm Sınıflar (\${rankings.length} Talebe)</option>
+              \${classes.map(c => `<option value="\${c}">\${c}</option>`).join('')}
             </select>
           </div>
           <div class="text-[11px] text-slate-400">
-            Telefonu kayıtlı: <strong class="text-emerald-400">${rankings.filter(r => !!r.parentPhone).length}</strong> / ${rankings.length}
+            Telefonu kayıtlı: <strong class="text-emerald-400">\${rankings.filter(r => !!r.parentPhone).length}</strong> / \${rankings.length}
           </div>
         </div>
 
@@ -5799,22 +5802,22 @@ window.App = {
               </tr>
             </thead>
             <tbody id="batch-whatsapp-tbody" class="divide-y divide-slate-800/80">
-              ${rankings.map((r, idx) => `
-                <tr class="batch-wa-row hover:bg-slate-800/40 transition" data-class="${r.className || 'Genel'}" id="wa-row-${r.studentNo}">
-                  <td class="p-2.5 text-center font-bold text-slate-400">${idx + 1}</td>
+              \${rankings.map((r, idx) => `
+                <tr class="batch-wa-row hover:bg-slate-800/40 transition" data-class="\${r.className || 'Genel'}" id="wa-row-\${r.studentNo}">
+                  <td class="p-2.5 text-center font-bold text-slate-400">\${idx + 1}</td>
                   <td class="p-2.5">
-                    <strong class="text-white block">${r.studentName}</strong>
-                    <span class="text-[10px] text-slate-500 font-mono">#${r.studentNo}</span>
+                    <strong class="text-white block">\${r.studentName}</strong>
+                    <span class="text-[10px] text-slate-500 font-mono">#\${r.studentNo}</span>
                   </td>
-                  <td class="p-2.5 font-semibold text-slate-300">${r.className}</td>
-                  <td class="p-2.5 font-mono ${r.parentPhone ? 'text-emerald-400' : 'text-slate-600'}">
-                    ${r.parentPhone || 'Kayıtsız'}
+                  <td class="p-2.5 font-semibold text-slate-300">\${r.className}</td>
+                  <td class="p-2.5 font-mono \${r.parentPhone ? 'text-emerald-400' : 'text-slate-600'}">
+                    \${r.parentPhone || 'Kayıtsız'}
                   </td>
-                  <td class="p-2.5 text-center font-mono font-bold text-cyan-400">${r.totalNet}</td>
-                  <td class="p-2.5 text-center font-mono font-black text-amber-400">${r.totalScore}</td>
+                  <td class="p-2.5 text-center font-mono font-bold text-cyan-400">\${r.totalNet}</td>
+                  <td class="p-2.5 text-center font-mono font-black text-amber-400">\${r.totalScore}</td>
                   <td class="p-2.5 text-right">
-                    ${r.parentPhone ? `
-                      <button onclick="App.markWhatsAppSent('wa-row-${r.studentNo}', '${encodeURIComponent(r.parentPhone)}', '${encodeURIComponent(r.studentName)}', '${r.totalNet}', '${r.totalScore}', '${encodeURIComponent(JSON.stringify(r.topicAnalysis || []))}')" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] rounded-xl shadow transition flex items-center gap-1.5 ml-auto cursor-pointer">
+                    \${r.parentPhone ? `
+                      <button onclick="App.markWhatsAppSent('wa-row-\${r.studentNo}', '\${encodeURIComponent(r.parentPhone)}', '\${encodeURIComponent(r.studentName)}', '\${r.totalNet}', '\${r.totalScore}', '\${encodeURIComponent(JSON.stringify(r.topicAnalysis || []))}')" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] rounded-xl shadow transition flex items-center gap-1.5 ml-auto cursor-pointer">
                         <span>💬</span> <span>Gönder</span>
                       </button>
                     ` : `
