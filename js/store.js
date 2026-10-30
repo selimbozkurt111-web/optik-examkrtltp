@@ -1366,6 +1366,49 @@ class MultiTenantStore {
     return list.filter(r => r.examId === examId);
   }
 
+  // Silinen sonuç takip (Tombstone) mekanizması - Buluttan geri dirilmeyi engeller
+  getDeletedResultsMap() {
+    try {
+      const raw = localStorage.getItem(STORAGE_PREFIX + 'deleted_results');
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  }
+
+  saveDeletedResultsMap(map) {
+    try {
+      localStorage.setItem(STORAGE_PREFIX + 'deleted_results', JSON.stringify(map));
+    } catch (e) {
+      console.warn('Silinen neticeler kaydedilemedi:', e);
+    }
+  }
+
+  recordDeletedResult(instId, examId, resultIdOrStudentNo) {
+    if (!instId || !examId || !resultIdOrStudentNo) return;
+    const map = this.getDeletedResultsMap();
+    const key = `${instId}__${examId}__${resultIdOrStudentNo.toString().trim()}`;
+    map[key] = Date.now();
+    this.saveDeletedResultsMap(map);
+  }
+
+  clearDeletedResultTombstone(instId, examId, resultIdOrStudentNo) {
+    if (!instId || !examId || !resultIdOrStudentNo) return;
+    const map = this.getDeletedResultsMap();
+    const key = `${instId}__${examId}__${resultIdOrStudentNo.toString().trim()}`;
+    if (map[key]) {
+      delete map[key];
+      this.saveDeletedResultsMap(map);
+    }
+  }
+
+  isResultDeleted(instId, examId, resultIdOrStudentNo) {
+    if (!instId || !examId || !resultIdOrStudentNo) return false;
+    const map = this.getDeletedResultsMap();
+    const key = `${instId}__${examId}__${resultIdOrStudentNo.toString().trim()}`;
+    return !!map[key];
+  }
+
   // Bir öğrencinin optik form neticesini kaydetme veya güncelleme
   saveExamResult(instId, result) {
     const all = this.getAllResults(instId);
@@ -1384,6 +1427,14 @@ class MultiTenantStore {
       all.push(fullResult);
     }
 
+    // Yeni kayıt veya güncelleme yapıldığında silinenler listesinden çıkar
+    if (fullResult.examId && fullResult.studentNo) {
+      this.clearDeletedResultTombstone(instId, fullResult.examId, fullResult.studentNo);
+    }
+    if (fullResult.examId && fullResult.id) {
+      this.clearDeletedResultTombstone(instId, fullResult.examId, fullResult.id);
+    }
+
     this.saveAllResults(instId, all);
     if (window.CloudSync && typeof window.CloudSync.syncResult === 'function') {
       window.CloudSync.syncResult(instId, fullResult);
@@ -1391,20 +1442,54 @@ class MultiTenantStore {
     return fullResult;
   }
 
-  // Bir öğrencinin optik form neticesini silme
-  deleteExamResult(instId, examId, resultIdOrStudentNo) {
-    if (!instId || !examId) return false;
+  // Yerel depodan sessizce sil (Bulut tetikleyicisi için)
+  deleteExamResultLocally(instId, examId, resultIdOrStudentNo) {
+    if (!instId || !examId || !resultIdOrStudentNo) return;
+    const keyStr = resultIdOrStudentNo.toString().trim();
     const all = this.getAllResults(instId);
     const filtered = all.filter(r => {
       if (r.examId !== examId) return true;
-      if (resultIdOrStudentNo && (r.id === resultIdOrStudentNo || r.studentNo === resultIdOrStudentNo)) {
+      if (r.id === keyStr || (r.studentNo && r.studentNo.toString().trim() === keyStr)) {
         return false;
       }
       return true;
     });
     this.saveAllResults(instId, filtered);
+  }
+
+  // Bir öğrencinin optik form neticesini kalıcı olarak silme
+  deleteExamResult(instId, examId, resultIdOrStudentNo) {
+    if (!instId || !examId || !resultIdOrStudentNo) return false;
+    const keyStr = resultIdOrStudentNo.toString().trim();
+    const all = this.getAllResults(instId);
+    
+    // Silinecek kaydı hafızada tespit et
+    const matched = all.find(r => r.examId === examId && (r.id === keyStr || (r.studentNo && r.studentNo.toString().trim() === keyStr)));
+
+    const filtered = all.filter(r => {
+      if (r.examId !== examId) return true;
+      if (r.id === keyStr || (r.studentNo && r.studentNo.toString().trim() === keyStr)) {
+        return false;
+      }
+      return true;
+    });
+    this.saveAllResults(instId, filtered);
+
+    // Silinen sonuçlar listesine (tombstone) kaydet (Tekrar buluttan çekilmesini engeller)
+    this.recordDeletedResult(instId, examId, keyStr);
+    if (matched && matched.studentNo) {
+      this.recordDeletedResult(instId, examId, matched.studentNo);
+    }
+    if (matched && matched.id) {
+      this.recordDeletedResult(instId, examId, matched.id);
+    }
+
+    // Firestore bulut veritabanından da anında ve kalıcı sil
     if (window.CloudSync && typeof window.CloudSync.deleteResult === 'function') {
-      window.CloudSync.deleteResult(instId, resultIdOrStudentNo);
+      window.CloudSync.deleteResult(instId, examId, keyStr);
+      if (matched && matched.studentNo && matched.studentNo.toString().trim() !== keyStr) {
+        window.CloudSync.deleteResult(instId, examId, matched.studentNo);
+      }
     }
     return true;
   }
