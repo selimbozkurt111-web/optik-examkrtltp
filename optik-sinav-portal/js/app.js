@@ -621,6 +621,7 @@ window.App = {
     const templates = window.PortalStore.getTemplates();
     const students = instId ? window.PortalStore.getStudents(instId) : [];
     const existingClasses = Array.from(new Set(students.map(s => (s.className || '').trim()).filter(Boolean))).sort();
+    const instExams = window.PortalStore.getAllInstitutionExams();
 
     const modal = document.createElement('div');
     modal.id = 'create-exam-modal';
@@ -639,6 +640,31 @@ window.App = {
         </div>
 
         <form onsubmit="App.handleSaveExamForm(event, '${instId || ''}', ${isGlobal})" class="space-y-4">
+          ${isGlobal ? `
+            <!-- Kurumların Sınavlarından Merkezi Sınava Kopyalama Alanı -->
+            <div class="bg-gradient-to-r from-cyan-950/60 via-slate-900 to-cyan-950/40 p-4 rounded-2xl border-2 border-cyan-500/50 shadow-lg space-y-2.5">
+              <div class="flex items-center justify-between">
+                <label class="block text-xs font-black uppercase text-cyan-300 flex items-center gap-1.5">
+                  <span>🏫</span> <span>Kurumların Kendi Sınavlarından Seç ve Aktar</span>
+                </label>
+                <span class="text-[10px] text-cyan-300 font-bold bg-cyan-500/20 px-2.5 py-0.5 rounded-full border border-cyan-500/40 font-mono">
+                  ${instExams.length} Kurum Sınavı
+                </span>
+              </div>
+              <p class="text-[11px] text-slate-300 leading-snug">
+                Kayıtlı kurs veya okulların kendi panellerinde tanımladığı sınavlardan birini seçerek tüm derslerini, soru sayılarını, katsayılarını, kazanımlarını ve 4 kitapçık cevap anahtarlarını tek tıkla bu merkezi sınava kopyalayabilirsiniz.
+              </p>
+              <select id="exam-import-institution-exam" onchange="App.handleSelectInstitutionExam(this.value)" class="w-full px-3.5 py-2.5 bg-slate-950 border border-cyan-500/60 rounded-xl text-white font-bold text-xs focus:border-cyan-400 focus:outline-none cursor-pointer">
+                <option value="">-- Kurum Sınavı Seçiniz (Formu Otomatik Doldurur) --</option>
+                ${instExams.map(ie => `
+                  <option value="${ie.institutionId}:::${ie.exam.id}">
+                    [${ie.institutionName}${ie.institutionCity ? ' • ' + ie.institutionCity : ''}] ${ie.exam.title} (${ie.exam.questionCount} Soru • ${ie.exam.examDate || '-'})
+                  </option>
+                `).join('')}
+              </select>
+            </div>
+          ` : ''}
+
           <!-- Hazır Şablon Seçimi -->
           <div class="bg-slate-950 p-3 rounded-2xl border border-slate-800">
             <label class="block text-[11px] font-bold uppercase text-emerald-400 mb-1">⚡ Hazır Sınav Formatı / Şablonu Seçiniz</label>
@@ -798,6 +824,61 @@ window.App = {
     } else {
       customInput.classList.add('hidden');
     }
+  },
+
+  // Kurumun kendi yaptığı sınavı seçip merkezi ortak sınava kopyalama motoru
+  handleSelectInstitutionExam(val) {
+    if (!val) return;
+    const parts = val.split(':::');
+    if (parts.length < 2) return;
+    const instId = parts[0];
+    const examId = parts[1];
+
+    const exam = window.PortalStore.getExamById(instId, examId);
+    if (!exam) {
+      this.showToast('Seçilen kurum sınavı bulunamadı.', 'error');
+      return;
+    }
+
+    const titleInput = document.getElementById('exam-form-title');
+    const dateInput = document.getElementById('exam-form-date');
+    const qCountInput = document.getElementById('exam-form-qcount');
+    const targetSelect = document.getElementById('exam-form-target');
+    const targetCustom = document.getElementById('exam-form-target-custom');
+    const bCountSelect = document.getElementById('exam-form-booklet-count');
+
+    if (titleInput) titleInput.value = exam.title || '';
+    if (dateInput && exam.examDate) dateInput.value = exam.examDate;
+    if (qCountInput) qCountInput.value = exam.questionCount || 20;
+
+    if (targetSelect) {
+      const tVal = exam.targetClass || '8. Sınıf';
+      const match = targetSelect.querySelector(`option[value="${tVal}"]`);
+      if (match) {
+        targetSelect.value = tVal;
+        if (targetCustom) targetCustom.classList.add('hidden');
+      } else {
+        targetSelect.value = 'custom';
+        if (targetCustom) {
+          targetCustom.classList.remove('hidden');
+          targetCustom.value = tVal;
+        }
+      }
+    }
+
+    const bookletTypes = (Array.isArray(exam.bookletTypes) && exam.bookletTypes.length > 0)
+      ? exam.bookletTypes
+      : (exam.answerKeys ? Object.keys(exam.answerKeys).filter(k => exam.answerKeys[k]) : ['A', 'B', 'C', 'D']);
+    const bCount = Math.max(1, Math.min(4, bookletTypes.length || 4));
+    if (bCountSelect) {
+      bCountSelect.value = bCount.toString();
+      this.handleBookletCountChange('create', bCount);
+    }
+
+    this.renderSubjectRows(exam.subjects || [], 'subject-rows-container');
+    this.renderBookletSubjectKeys('create', exam.subjects || [], exam.answerKeys || {});
+    this.renderQuestionTopics('create', exam.subjects || [], exam.questionTopics || {});
+    this.showToast(`✓ "${exam.title}" sınavının tüm ders ve cevapları aktarıldı!`, 'success');
   },
 
   // Sınav Şablonu Seçildiğinde Alanları Otomatik Doldur
@@ -4401,6 +4482,33 @@ window.App = {
     }
   },
 
+  // Optik okuyucu dosyalarını (ANSI Windows-1254 ve UTF-8) bozulmadan okuma motoru
+  readTextFileSmart(file, callback) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const buffer = e.target.result;
+      let text = '';
+      try {
+        // 1. Standart UTF-8 kontrolü (fatal: true ile geçersiz baytta hemen yakalar)
+        const utf8Decoder = new TextDecoder('utf-8', { fatal: true });
+        text = utf8Decoder.decode(buffer);
+      } catch {
+        // 2. Optik okuyucuların standart Türkçe Windows-1254 (ANSI) kodlaması
+        try {
+          const winDecoder = new TextDecoder('windows-1254');
+          text = winDecoder.decode(buffer);
+        } catch {
+          // 3. ISO-8859-9 yedeği
+          const isoDecoder = new TextDecoder('iso-8859-9');
+          text = isoDecoder.decode(buffer);
+        }
+      }
+      callback(text);
+    };
+    reader.readAsArrayBuffer(file);
+  },
+
   // ==========================================
   // 10.B. FMT İLE OPTİK OKUYUCU DOSYASI (.TXT / .DAT) İÇE AKTARMA MOTORU
   // ==========================================
@@ -4409,7 +4517,9 @@ window.App = {
     if (existing) existing.remove();
 
     const session = window.PortalStore.getCurrentSession();
-    const effectiveInstId = instId || (session ? session.institutionId : null);
+    const effectiveInstId = (instId && instId !== 'null' && instId !== 'undefined')
+      ? instId
+      : ((session && session.institutionId) ? session.institutionId : 'inst_oay');
     const exams = window.PortalStore.getExams(effectiveInstId) || [];
 
     if (exams.length === 0) {
@@ -4780,20 +4890,37 @@ window.App = {
     this.updateTxtImportPreview(instId);
   },
 
-  handleFmtFileSelected(input, instId) {
+  handleFmtFileSelected(input, instId, onCompleted = null) {
     const file = input.files && input.files[0];
     if (!file) return;
 
+    const session = window.PortalStore.getCurrentSession();
+    const cleanInstId = (!instId || instId === 'null' || instId === 'undefined') ? (session ? (session.institutionId || 'inst_oay') : 'inst_oay') : instId;
+
     const examSelect = document.getElementById('import-txt-exam-select');
     const examId = examSelect ? examSelect.value : null;
-    const exam = window.PortalStore.getExamById(instId, examId);
+    const exam = window.PortalStore.getExamById(cleanInstId, examId);
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const content = e.target.result;
+    this.readTextFileSmart(file, (content) => {
       const parsedFmt = window.PortalStore.parseFmtDefinition(content, exam);
       parsedFmt.name = file.name.replace(/\.[^/.]+$/, '') + ' (.FMT)';
       this.activeFmt = parsedFmt;
+
+      // Dropdown seçeneğini güncelle ve seçili yap
+      const fmtSelect = document.getElementById('import-fmt-select');
+      if (fmtSelect) {
+        let opt = fmtSelect.querySelector(`option[value="${parsedFmt.id}"]`);
+        if (!opt) {
+          opt = document.createElement('option');
+          opt.value = parsedFmt.id;
+          fmtSelect.insertBefore(opt, fmtSelect.firstChild);
+        }
+        opt.textContent = `📁 ${parsedFmt.name} (Yüklendi ✓)`;
+        opt.selected = true;
+      }
+
+      // FMT şablonunu hafızaya kaydet
+      window.PortalStore.saveFmtTemplate(cleanInstId, parsedFmt);
 
       const badgeBox = document.getElementById('fmt-visual-badge-container');
       if (badgeBox) badgeBox.innerHTML = this.renderFmtVisualBadge(this.activeFmt);
@@ -4806,15 +4933,17 @@ window.App = {
         editorBox.innerHTML = `
           <span class="block text-[11px] font-bold text-white uppercase">Sütun Başlangıç ve Bitiş Değerlerini Düzenle:</span>
           <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs">
-            ${this.renderFmtFieldInputs(this.activeFmt, instId)}
+            ${this.renderFmtFieldInputs(this.activeFmt, cleanInstId)}
           </div>
         `;
       }
 
-      this.showToast(`✓ "${file.name}" FMT dosyası başarıyla çözümlendi!`, 'success');
-      this.updateTxtImportPreview(instId);
-    };
-    reader.readAsText(file, 'UTF-8');
+      this.showToast(`✓ "${file.name}" FMT dosyası başarıyla yüklendi ve uygulandı!`, 'success');
+      this.updateTxtImportPreview(cleanInstId);
+      if (typeof onCompleted === 'function') {
+        onCompleted(parsedFmt);
+      }
+    });
   },
 
   handleFmtPasteInput(instId) {
@@ -4822,13 +4951,29 @@ window.App = {
     if (!ta) return;
     const content = ta.value;
 
+    const session = window.PortalStore.getCurrentSession();
+    const cleanInstId = (!instId || instId === 'null' || instId === 'undefined') ? (session ? (session.institutionId || 'inst_oay') : 'inst_oay') : instId;
+
     const examSelect = document.getElementById('import-txt-exam-select');
     const examId = examSelect ? examSelect.value : null;
-    const exam = window.PortalStore.getExamById(instId, examId);
+    const exam = window.PortalStore.getExamById(cleanInstId, examId);
 
     const parsedFmt = window.PortalStore.parseFmtDefinition(content, exam);
     parsedFmt.name = 'Özel Yapıştırılan FMT';
     this.activeFmt = parsedFmt;
+
+    // Dropdown seçeneğini güncelle
+    const fmtSelect = document.getElementById('import-fmt-select');
+    if (fmtSelect) {
+      let opt = fmtSelect.querySelector(`option[value="${parsedFmt.id}"]`);
+      if (!opt) {
+        opt = document.createElement('option');
+        opt.value = parsedFmt.id;
+        fmtSelect.insertBefore(opt, fmtSelect.firstChild);
+      }
+      opt.textContent = `📝 Özel Yapıştırılan FMT (Aktif ✓)`;
+      opt.selected = true;
+    }
 
     const badgeBox = document.getElementById('fmt-visual-badge-container');
     if (badgeBox) badgeBox.innerHTML = this.renderFmtVisualBadge(this.activeFmt);
@@ -4838,26 +4983,29 @@ window.App = {
       editorBox.innerHTML = `
         <span class="block text-[11px] font-bold text-white uppercase">Sütun Başlangıç ve Bitiş Değerlerini Düzenle:</span>
         <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs">
-          ${this.renderFmtFieldInputs(this.activeFmt, instId)}
+          ${this.renderFmtFieldInputs(this.activeFmt, cleanInstId)}
         </div>
       `;
     }
 
-    this.updateTxtImportPreview(instId);
+    this.updateTxtImportPreview(cleanInstId);
   },
 
   saveCurrentFmtPrompt(instId) {
     if (!this.activeFmt) return;
+    const session = window.PortalStore.getCurrentSession();
+    const cleanInstId = (!instId || instId === 'null' || instId === 'undefined') ? (session ? (session.institutionId || 'inst_oay') : 'inst_oay') : instId;
+
     const name = prompt('Bu FMT formatına bir isim veriniz:', this.activeFmt.name || 'Özel Kurum FMT');
     if (!name) return;
 
     this.activeFmt.name = name.trim();
-    const res = window.PortalStore.saveFmtTemplate(instId, this.activeFmt);
+    const res = window.PortalStore.saveFmtTemplate(cleanInstId, this.activeFmt);
     if (res && res.success) {
       this.showToast(`✓ "${name}" FMT şablonu kurumunuza kaydedildi!`, 'success');
       const fmtSelect = document.getElementById('import-fmt-select');
       if (fmtSelect) {
-        const fmtList = window.PortalStore.getFmtTemplates(instId);
+        const fmtList = window.PortalStore.getFmtTemplates(cleanInstId);
         fmtSelect.innerHTML = fmtList.map(f => `<option value="${f.id}" ${f.id === res.template.id ? 'selected' : ''}>${f.name} ${f.isCustom ? '★ (Özel)' : ''}</option>`).join('');
       }
     } else {
@@ -4909,10 +5057,17 @@ window.App = {
       return ['txt', 'dat', 'csv'].includes(ext);
     }) || (files.length === 1 && !fmtFile ? files[0] : null);
 
-    if (fmtFile) {
-      this.handleFmtFileSelected({ files: [fmtFile] }, instId);
-    }
-    if (txtFile) {
+    const session = window.PortalStore.getCurrentSession();
+    const cleanInstId = (!instId || instId === 'null' || instId === 'undefined') ? (session ? (session.institutionId || 'inst_oay') : 'inst_oay') : instId;
+
+    if (fmtFile && txtFile) {
+      // Önce FMT dosyasını oku, başarıyla tamamlanınca TXT dosyasını yükle
+      this.handleFmtFileSelected({ files: [fmtFile] }, cleanInstId, () => {
+        this.handleTxtFileSelected({ files: [txtFile] });
+      });
+    } else if (fmtFile) {
+      this.handleFmtFileSelected({ files: [fmtFile] }, cleanInstId);
+    } else if (txtFile) {
       this.handleTxtFileSelected({ files: [txtFile] });
     }
   },
@@ -4923,23 +5078,23 @@ window.App = {
     this.handleSmartFileDrop(e, instId);
   },
 
-  handleTxtFileSelected(input) {
+  handleTxtFileSelected(input, onCompleted = null) {
     const file = input.files && input.files[0];
     const info = document.getElementById('import-txt-file-info');
     if (!file) return;
 
     if (info) info.textContent = `Seçilen: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const content = e.target.result;
+    this.readTextFileSmart(file, (content) => {
       const ta = document.getElementById('import-txt-textarea');
       if (ta) ta.value = content;
       this.showToast(`✓ "${file.name}" yüklendi.`, 'success');
       const session = window.PortalStore.getCurrentSession();
-      const instId = session ? session.institutionId : null;
+      const instId = session ? (session.institutionId || 'inst_oay') : 'inst_oay';
       this.updateTxtImportPreview(instId);
-    };
-    reader.readAsText(file, 'UTF-8');
+      if (typeof onCompleted === 'function') {
+        onCompleted(content);
+      }
+    });
   },
 
   handleImportTxtSubmit(e, instId) {
@@ -4983,10 +5138,56 @@ window.App = {
     }
   },
 
-  renderFmtRuler(sampleLine, fmt) {
-    if (!sampleLine || !fmt || !fmt.fields) return '';
-    const f = fmt.fields;
+  renderFmtRuler(sampleLine, fmt, exam = null) {
+    if (!sampleLine) return '';
     const len = sampleLine.length;
+    const semiCount = (sampleLine.match(/;/g) || []).length;
+    const tabCount = (sampleLine.match(/\t/g) || []).length;
+    const commaCount = (sampleLine.match(/,/g) || []).length;
+    const isDelimited = (semiCount >= 2 || tabCount >= 2 || commaCount >= 3);
+    const delim = semiCount >= 2 ? ';' : (tabCount >= 2 ? '\t' : (commaCount >= 3 ? ',' : null));
+
+    if (isDelimited && delim) {
+      const parsedSample = this.parseSingleOpticalLineWithFmt(sampleLine, exam, fmt);
+      return `
+        <div class="bg-slate-900/90 rounded-2xl border border-slate-800 p-3.5 space-y-2.5">
+          <div class="flex items-center justify-between text-[11px] font-bold">
+            <span class="text-white flex items-center gap-1.5">
+              <span>📏</span> <span>1. Satır Algılanan Ayrıştırılmış Format (${delim === '\t' ? 'TAB' : delim} ile Ayrılmış)</span>
+            </span>
+            <span class="font-mono text-cyan-400">Ayrıştırıcı: '${delim === '\t' ? '\\t (Tab)' : delim}'</span>
+          </div>
+          <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs font-mono">
+            <div class="p-2 rounded-xl bg-indigo-500/20 border border-indigo-500/40 text-indigo-300">
+              <span class="text-[10px] text-slate-400 block font-sans font-bold">Kitapçık</span>
+              <strong class="text-sm text-indigo-200">${parsedSample ? parsedSample.booklet : '-'}</strong>
+            </div>
+            <div class="p-2 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300">
+              <span class="text-[10px] text-slate-400 block font-sans font-bold">Talebe No</span>
+              <strong class="text-sm text-emerald-200 truncate block">${parsedSample ? parsedSample.studentNo : '-'}</strong>
+            </div>
+            <div class="p-2 rounded-xl bg-purple-500/20 border border-purple-500/40 text-purple-300">
+              <span class="text-[10px] text-slate-400 block font-sans font-bold">Ad Soyad</span>
+              <strong class="text-sm text-purple-200 truncate block">${parsedSample ? parsedSample.studentName : '-'}</strong>
+            </div>
+            <div class="p-2 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-300">
+              <span class="text-[10px] text-slate-400 block font-sans font-bold">Sınıf</span>
+              <strong class="text-sm text-amber-200 truncate block">${parsedSample ? parsedSample.className : '-'}</strong>
+            </div>
+            <div class="p-2 rounded-xl bg-cyan-500/20 border border-cyan-500/40 text-cyan-300">
+              <span class="text-[10px] text-slate-400 block font-sans font-bold">Cevaplar</span>
+              <strong class="text-xs text-cyan-200 truncate block">${parsedSample ? parsedSample.answers.substring(0, 15) : ''}... (${parsedSample ? parsedSample.answers.replace(/\s/g, '').length : 0} Cevap)</strong>
+            </div>
+          </div>
+          <div class="overflow-x-auto p-2 bg-slate-950 rounded-xl border border-slate-800 text-[11px] font-mono text-slate-300">
+            ${sampleLine.substring(0, 150)}
+          </div>
+        </div>
+      `;
+    }
+
+    if (!fmt || !fmt.fields) return '';
+    const f = fmt.fields;
 
     // Alanların değerlerini al
     const bSlice = (f.booklet.start > 0 && f.booklet.start <= len) ? sampleLine.substring(f.booklet.start - 1, f.booklet.end).trim() : '-';
@@ -5127,12 +5328,12 @@ window.App = {
 
     const previewList = parsedStudents.slice(0, 7);
     const missingKeysArr = Array.from(missingKeysSet);
-    const sampleLine = lines[0] || '';
+    const sampleLine = lines.find(l => this.parseSingleOpticalLineWithFmt(l, exam, this.activeFmt, options) !== null) || lines[0] || '';
 
     let html = `
       <div class="space-y-3">
         <!-- 1. Satır Görsel FMT Cetveli -->
-        ${this.renderFmtRuler(sampleLine, this.activeFmt)}
+        ${this.renderFmtRuler(sampleLine, this.activeFmt, exam)}
 
         <div class="bg-slate-950/80 rounded-2xl border border-slate-800 p-3 space-y-3">
           <!-- Özet Başlık Çubuğu -->
@@ -5232,13 +5433,22 @@ window.App = {
       upperTrim.startsWith('KURUM') ||
       upperTrim.startsWith('SINAV') ||
       upperTrim.startsWith('TARİH') ||
-      upperTrim.startsWith('TARİH:') ||
-      upperTrim.startsWith('ÖĞRENCİ NO') ||
-      upperTrim.startsWith('TALEBE NO') ||
+      upperTrim.startsWith('TARIH') ||
+      upperTrim.startsWith('ÖĞRENCİ') ||
+      upperTrim.startsWith('OGRENCI') ||
+      upperTrim.startsWith('TALEBE') ||
       upperTrim.startsWith('AD SOYAD') ||
+      upperTrim.startsWith('ADI SOYADI') ||
+      upperTrim.startsWith('SIRA') ||
+      upperTrim.startsWith('NO;') ||
+      upperTrim.startsWith('NO,') ||
+      upperTrim.startsWith('NO\t') ||
+      upperTrim.startsWith('KTP;') ||
+      upperTrim.startsWith('KITAPCIK') ||
+      upperTrim.startsWith('BOOKLET') ||
       upperTrim.startsWith('---') ||
       upperTrim.startsWith('===') ||
-      upperTrim.length < 5
+      upperTrim.length < 4
     ) {
       return null;
     }
@@ -5246,6 +5456,136 @@ window.App = {
     const qCount = (exam && exam.questionCount) ? parseInt(exam.questionCount, 10) : 20;
     const bookletMode = options.bookletMode || 'auto';
 
+    // Optik karakter 1-e-1 normalizasyonu (ASLA silme yapmaz, soru dizilimini milimetrik korur)
+    const normalizeOptChar = (ch) => {
+      if (!ch) return ' ';
+      const c = ch.toUpperCase();
+      if (['A', 'B', 'C', 'D', 'E', '*'].includes(c)) return c;
+      if (c === '1') return 'A';
+      if (c === '2') return 'B';
+      if (c === '3') return 'C';
+      if (c === '4') return 'D';
+      if (c === '5') return 'E';
+      if (c === '9' || c === 'X' || c === '+' || c === '#') return '*';
+      // '.', '-', '0', '_', '~', ' ' ve diğer tüm simgeler boşluk (boş bırakılmış soru)
+      return ' ';
+    };
+
+    // Ayrıştırıcı tespiti (CSV / Sekmeli / Noktalı Virgüllü dosya desteği)
+    const semiCount = (line.match(/;/g) || []).length;
+    const tabCount = (line.match(/\t/g) || []).length;
+    const commaCount = (line.match(/,/g) || []).length;
+
+    let isDelimited = false;
+    let delim = null;
+    if (semiCount >= 2) {
+      isDelimited = true;
+      delim = ';';
+    } else if (tabCount >= 2) {
+      isDelimited = true;
+      delim = '\t';
+    } else if (commaCount >= 3) {
+      isDelimited = true;
+      delim = ',';
+    }
+
+    if (isDelimited && delim) {
+      const parts = line.split(delim).map(p => p.trim().replace(/^["']|["']$/g, ''));
+      if (parts.length >= 3) {
+        // En uzun veya cevap karakterleri yoğun sütunu cevap olarak bul
+        let ansColIdx = -1;
+        let maxAnsScore = -1;
+
+        parts.forEach((p, idx) => {
+          const validChars = (p.match(/[A-E1-5* .\-_]/gi) || []).length;
+          const ratio = p.length > 0 ? (validChars / p.length) : 0;
+          if (p.length >= 10 && ratio >= 0.7 && p.length > maxAnsScore) {
+            maxAnsScore = p.length;
+            ansColIdx = idx;
+          }
+        });
+
+        // Cevap sütunu bulunamadıysa en uzun sütunu al
+        if (ansColIdx === -1) {
+          let maxLen = 0;
+          parts.forEach((p, idx) => {
+            if (p.length > maxLen) {
+              maxLen = p.length;
+              ansColIdx = idx;
+            }
+          });
+        }
+
+        // Kitapçık sütunu (A, B, C, D veya 1, 2, 3, 4)
+        let booklet = 'A';
+        if (bookletMode.startsWith('force_')) {
+          booklet = bookletMode.replace('force_', '').toUpperCase();
+        } else {
+          for (let i = 0; i < parts.length; i++) {
+            if (i === ansColIdx) continue;
+            const p = parts[i].toUpperCase();
+            if (['A', 'B', 'C', 'D'].includes(p)) {
+              booklet = p;
+              break;
+            } else if (p === '1') { booklet = 'A'; break; }
+            else if (p === '2') { booklet = 'B'; break; }
+            else if (p === '3') { booklet = 'C'; break; }
+            else if (p === '4') { booklet = 'D'; break; }
+          }
+        }
+
+        // Numara sütunu (Rakamlardan oluşan sütun)
+        let studentNo = '';
+        for (let i = 0; i < parts.length; i++) {
+          if (i === ansColIdx) continue;
+          const p = parts[i];
+          if (/^\d{1,11}$/.test(p)) {
+            studentNo = p;
+            break;
+          }
+        }
+
+        // Sınıf sütunu
+        let className = 'Genel';
+        for (let i = 0; i < parts.length; i++) {
+          if (i === ansColIdx) continue;
+          const p = parts[i];
+          if (/^(\d{1,2}[-\/ ]?[A-Za-z]|[A-Za-z0-9]{1,4})$/.test(p) && p !== studentNo && p !== booklet) {
+            className = p.replace(/\s+/g, '-').replace('/', '-');
+            break;
+          }
+        }
+
+        // İsim sütunu (Harf içeren ve diğer sütunlar olmayan)
+        let studentName = '';
+        for (let i = 0; i < parts.length; i++) {
+          if (i === ansColIdx) continue;
+          const p = parts[i];
+          if (p !== studentNo && p !== booklet && p !== className && /[A-Za-zÇĞİÖŞÜçğıöşü]{2,}/.test(p)) {
+            studentName = p;
+            break;
+          }
+        }
+        if (!studentName) studentName = studentNo ? `Talebe #${studentNo}` : 'İsimsiz Talebe';
+
+        // Cevap dizisini 1-e-1 normalize et
+        const rawAnswers = (ansColIdx !== -1 && parts[ansColIdx]) ? parts[ansColIdx] : '';
+        let finalAnswers = '';
+        for (let i = 0; i < qCount; i++) {
+          finalAnswers += normalizeOptChar(rawAnswers[i]);
+        }
+
+        return {
+          studentNo: studentNo || '',
+          studentName,
+          className: className || 'Genel',
+          booklet: booklet || 'A',
+          answers: finalAnswers
+        };
+      }
+    }
+
+    // Sabit Sütun (Fixed-Width) Optik Format Çözümleme
     const f = (fmt && fmt.fields) ? fmt.fields : {
       booklet: { enabled: true, start: 1, end: 1 },
       studentNo: { enabled: true, start: 2, end: 11 },
@@ -5254,7 +5594,7 @@ window.App = {
       answers: { enabled: true, start: 40, end: 40 + qCount - 1 }
     };
 
-    // 1. Kitapçık Türü (A, B, C, D)
+    // 1. Kitapçık Türü (A, B, C, D veya 1, 2, 3, 4)
     let booklet = 'A';
     if (bookletMode.startsWith('force_')) {
       booklet = bookletMode.replace('force_', '').toUpperCase();
@@ -5262,6 +5602,14 @@ window.App = {
       const bSlice = line.substring(f.booklet.start - 1, f.booklet.end).trim().toUpperCase();
       if (['A', 'B', 'C', 'D'].includes(bSlice)) {
         booklet = bSlice;
+      } else if (bSlice === '1') {
+        booklet = 'A';
+      } else if (bSlice === '2') {
+        booklet = 'B';
+      } else if (bSlice === '3') {
+        booklet = 'C';
+      } else if (bSlice === '4') {
+        booklet = 'D';
       } else {
         const firstChar = line[0].toUpperCase();
         if (['A', 'B', 'C', 'D'].includes(firstChar)) {
@@ -5277,6 +5625,8 @@ window.App = {
       const numMatch = noSlice.match(/\d+/);
       if (numMatch) {
         studentNo = numMatch[0];
+      } else if (noSlice) {
+        studentNo = noSlice.replace(/[^a-zA-Z0-9_-]/g, '');
       }
     }
     if (!studentNo) {
@@ -5310,45 +5660,35 @@ window.App = {
       }
     }
 
-    // 5. Cevaplar (FMT ile Tam Konum Kesimi)
+    // 5. Cevaplar (1-e-1 Karakter Koruma - Soru Kayması Kesin Olarak Önlenir)
     let finalAnswers = '';
-    if (fmt && fmt.subjects && fmt.subjects.length > 0) {
-      fmt.subjects.forEach(sub => {
-        const sStart = Math.max(0, sub.start - 1);
-        const sEnd = sub.end;
-        let sSlice = line.substring(sStart, sEnd).toUpperCase();
-        sSlice = sSlice.replace(/1/g, 'A').replace(/2/g, 'B').replace(/3/g, 'C').replace(/4/g, 'D').replace(/5/g, 'E').replace(/0/g, ' ');
-        sSlice = sSlice.replace(/[^A-E* ]/g, '');
-        const subLen = sub.length || (sub.end - sub.start + 1);
-        finalAnswers += sSlice.padEnd(subLen, ' ').substring(0, subLen);
-      });
-    } else if (f.answers && f.answers.enabled !== false && f.answers.start > 0) {
+
+    // Eğer FMT'de geçerli ders blokları varsa ve tek genel CEVAP tanımlanmamışsa ders ders kes
+    const validSubjects = (fmt && Array.isArray(fmt.subjects)) ? fmt.subjects.filter(s => s && s.start > 0) : [];
+    const hasSingleAnswers = (f.answers && f.answers.enabled !== false && f.answers.start > 0);
+
+    if (hasSingleAnswers) {
+      // Doğrudan genel CEVAP alanından 1-e-1 oku
       const aStart = Math.max(0, f.answers.start - 1);
-      const aEnd = f.answers.end || (aStart + qCount);
-      let aSlice = line.substring(aStart, aEnd).toUpperCase();
-      const digitCount = (aSlice.match(/[1-5]/g) || []).length;
-      const letterCount = (aSlice.match(/[A-E]/g) || []).length;
-      if (digitCount > letterCount && digitCount >= 5) {
-        aSlice = aSlice.replace(/1/g, 'A').replace(/2/g, 'B').replace(/3/g, 'C').replace(/4/g, 'D').replace(/5/g, 'E').replace(/0/g, ' ');
+      const rawAnsSlice = line.substring(aStart, aStart + qCount);
+      for (let i = 0; i < qCount; i++) {
+        finalAnswers += normalizeOptChar(rawAnsSlice[i]);
       }
-
-      const rawBlocks = aSlice.split(/\s{2,}/).map(b => b.replace(/[^A-E* ]/g, '').trim()).filter(b => b.length > 0);
-      const examSubjects = (exam && exam.subjects && exam.subjects.length > 0) ? exam.subjects : [];
-
-      if (rawBlocks.length > 1 && examSubjects.length === rawBlocks.length) {
-        examSubjects.forEach((sub, sIdx) => {
-          const subCount = (sub.endQ - sub.startQ + 1);
-          const blk = rawBlocks[sIdx] || '';
-          finalAnswers += blk.padEnd(subCount, ' ').substring(0, subCount);
-        });
-      } else {
-        const cleanAns = aSlice.replace(/[^A-E* ]/g, '');
-        finalAnswers = cleanAns.padEnd(qCount, ' ').substring(0, qCount);
-      }
+    } else if (validSubjects.length > 0) {
+      // Ders bloklarından sırayla oku
+      validSubjects.forEach(sub => {
+        const sStart = Math.max(0, sub.start - 1);
+        const sLen = sub.length || (sub.end - sub.start + 1);
+        const subSlice = line.substring(sStart, sStart + sLen);
+        for (let i = 0; i < sLen; i++) {
+          finalAnswers += normalizeOptChar(subSlice[i]);
+        }
+      });
     } else {
       finalAnswers = ''.padEnd(qCount, ' ');
     }
 
+    // Soru sayısına tam sabitle
     if (finalAnswers.length < qCount) {
       finalAnswers = finalAnswers.padEnd(qCount, ' ');
     } else if (finalAnswers.length > qCount) {

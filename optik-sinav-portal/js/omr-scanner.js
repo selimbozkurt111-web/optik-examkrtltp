@@ -467,15 +467,19 @@ window.OmrScanner = {
         // Satır yanındaki boş beyaz kağıt referans koyuluğu
         const paperRef = sampleDarkness(colLeft + (colWidth * 0.26), rowY, 3);
 
-        // A, B, C, D seçeneklerinin yatay pozisyonları
+        // A, B, C, D (ve varsa E) seçeneklerinin yatay pozisyonları
+        const rawKeyCheck = (exam.answerKeys && exam.answerKeys[detectedBooklet]) ? exam.answerKeys[detectedBooklet].toUpperCase() : '';
+        const hasOptionE = (exam.optionCount === 5 || rawKeyCheck.includes('E'));
+        const options = hasOptionE ? ['A', 'B', 'C', 'D', 'E'] : ['A', 'B', 'C', 'D'];
+        const optLen = options.length;
+
         const optStartX = colLeft + (colWidth * 0.42);
         const optEndX = colBounds.right - (colWidth * 0.03);
-        const optStep = (optEndX - optStartX) / 4;
+        const optStep = (optEndX - optStartX) / optLen;
 
         const scores = [];
-        const options = ['A', 'B', 'C', 'D'];
 
-        for (let oIdx = 0; oIdx < 4; oIdx++) {
+        for (let oIdx = 0; oIdx < optLen; oIdx++) {
           const optX = optStartX + (oIdx * optStep) + (optStep * 0.5);
           let bubbleDarkness = 0;
           for (let dy = -2; dy <= 2; dy += 2) {
@@ -489,10 +493,10 @@ window.OmrScanner = {
         // Karartma derecesine göre azalan sırala
         scores.sort((a, b) => b.fillScore - a.fillScore);
         const top = scores[0];
-        const runnerUp = scores[1];
+        const runnerUp = scores[1] || { fillScore: 0 };
 
-        // Eşik kontrolü: Net doldurulmuş kabarcık kontrolü
-        if (top.fillScore >= MARK_THRESHOLD && (top.fillScore - runnerUp.fillScore) >= 10) {
+        // Eşik kontrolü: Net doldurulmuş kabarcık kontrolü (18 eşik ve 8 fark ile hassas algılama)
+        if (top.fillScore >= 18 && (top.fillScore - runnerUp.fillScore) >= 8) {
           detectedAnswers[qIdx] = top.opt;
           markedCount++;
         } else {
@@ -532,7 +536,7 @@ window.OmrScanner = {
 
     this.playBeep(!isBlank);
 
-    // EĞER KAĞIT BOŞ İSE: Kesinlikle 0 Doğru, 0 Yanlış, qCount Boş ve 0 Net dön
+    // EĞER KAĞIT BOŞ İSE: Kesinlikle 0 Doğru, 0 Yanlış, qCount Boş, 0 Net ve 200 Taban Puan dön
     if (isBlank) {
       return {
         examId: exam.id,
@@ -548,7 +552,7 @@ window.OmrScanner = {
         totalWrong: 0,
         totalEmpty: qCount,
         totalNet: 0,
-        totalScore: 0,
+        totalScore: 200,
         markedCount: 0,
         isBlank: true,
         qrDetected: qrDetected,
@@ -614,7 +618,7 @@ window.OmrScanner = {
       else totalWrong++;
     }
     const totalNet = Math.max(0, parseFloat((totalCorrect - (totalWrong * 0.333)).toFixed(2)));
-    const totalScore = parseFloat((totalNet * 5).toFixed(1));
+    const totalScore = parseFloat((200 + (totalNet * (300 / (qCount || 20)))).toFixed(3));
 
     return {
       examId: exam.id,
