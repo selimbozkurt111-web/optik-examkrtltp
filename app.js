@@ -621,6 +621,7 @@ window.App = {
     const templates = window.PortalStore.getTemplates();
     const students = instId ? window.PortalStore.getStudents(instId) : [];
     const existingClasses = Array.from(new Set(students.map(s => (s.className || '').trim()).filter(Boolean))).sort();
+    const instExams = window.PortalStore.getAllInstitutionExams();
 
     const modal = document.createElement('div');
     modal.id = 'create-exam-modal';
@@ -639,6 +640,31 @@ window.App = {
         </div>
 
         <form onsubmit="App.handleSaveExamForm(event, '${instId || ''}', ${isGlobal})" class="space-y-4">
+          ${isGlobal ? `
+            <!-- Kurumların Sınavlarından Merkezi Sınava Kopyalama Alanı -->
+            <div class="bg-gradient-to-r from-cyan-950/60 via-slate-900 to-cyan-950/40 p-4 rounded-2xl border-2 border-cyan-500/50 shadow-lg space-y-2.5">
+              <div class="flex items-center justify-between">
+                <label class="block text-xs font-black uppercase text-cyan-300 flex items-center gap-1.5">
+                  <span>🏫</span> <span>Kurumların Kendi Sınavlarından Seç ve Aktar</span>
+                </label>
+                <span class="text-[10px] text-cyan-300 font-bold bg-cyan-500/20 px-2.5 py-0.5 rounded-full border border-cyan-500/40 font-mono">
+                  ${instExams.length} Kurum Sınavı
+                </span>
+              </div>
+              <p class="text-[11px] text-slate-300 leading-snug">
+                Kayıtlı kurs veya okulların kendi panellerinde tanımladığı sınavlardan birini seçerek tüm derslerini, soru sayılarını, katsayılarını, kazanımlarını ve 4 kitapçık cevap anahtarlarını tek tıkla bu merkezi sınava kopyalayabilirsiniz.
+              </p>
+              <select id="exam-import-institution-exam" onchange="App.handleSelectInstitutionExam(this.value)" class="w-full px-3.5 py-2.5 bg-slate-950 border border-cyan-500/60 rounded-xl text-white font-bold text-xs focus:border-cyan-400 focus:outline-none cursor-pointer">
+                <option value="">-- Kurum Sınavı Seçiniz (Formu Otomatik Doldurur) --</option>
+                ${instExams.map(ie => `
+                  <option value="${ie.institutionId}:::${ie.exam.id}">
+                    [${ie.institutionName}${ie.institutionCity ? ' • ' + ie.institutionCity : ''}] ${ie.exam.title} (${ie.exam.questionCount} Soru • ${ie.exam.examDate || '-'})
+                  </option>
+                `).join('')}
+              </select>
+            </div>
+          ` : ''}
+
           <!-- Hazır Şablon Seçimi -->
           <div class="bg-slate-950 p-3 rounded-2xl border border-slate-800">
             <label class="block text-[11px] font-bold uppercase text-emerald-400 mb-1">⚡ Hazır Sınav Formatı / Şablonu Seçiniz</label>
@@ -797,6 +823,61 @@ window.App = {
     } else {
       customInput.classList.add('hidden');
     }
+  },
+
+  // Kurumun kendi yaptığı sınavı seçip merkezi ortak sınava kopyalama motoru
+  handleSelectInstitutionExam(val) {
+    if (!val) return;
+    const parts = val.split(':::');
+    if (parts.length < 2) return;
+    const instId = parts[0];
+    const examId = parts[1];
+
+    const exam = window.PortalStore.getExamById(instId, examId);
+    if (!exam) {
+      this.showToast('Seçilen kurum sınavı bulunamadı.', 'error');
+      return;
+    }
+
+    const titleInput = document.getElementById('exam-form-title');
+    const dateInput = document.getElementById('exam-form-date');
+    const qCountInput = document.getElementById('exam-form-qcount');
+    const targetSelect = document.getElementById('exam-form-target');
+    const targetCustom = document.getElementById('exam-form-target-custom');
+    const bCountSelect = document.getElementById('exam-form-booklet-count');
+
+    if (titleInput) titleInput.value = exam.title || '';
+    if (dateInput && exam.examDate) dateInput.value = exam.examDate;
+    if (qCountInput) qCountInput.value = exam.questionCount || 20;
+
+    if (targetSelect) {
+      const tVal = exam.targetClass || '8. Sınıf';
+      const match = targetSelect.querySelector(`option[value="${tVal}"]`);
+      if (match) {
+        targetSelect.value = tVal;
+        if (targetCustom) targetCustom.classList.add('hidden');
+      } else {
+        targetSelect.value = 'custom';
+        if (targetCustom) {
+          targetCustom.classList.remove('hidden');
+          targetCustom.value = tVal;
+        }
+      }
+    }
+
+    const bookletTypes = (Array.isArray(exam.bookletTypes) && exam.bookletTypes.length > 0)
+      ? exam.bookletTypes
+      : (exam.answerKeys ? Object.keys(exam.answerKeys).filter(k => exam.answerKeys[k]) : ['A', 'B', 'C', 'D']);
+    const bCount = Math.max(1, Math.min(4, bookletTypes.length || 4));
+    if (bCountSelect) {
+      bCountSelect.value = bCount.toString();
+      this.handleBookletCountChange('create', bCount);
+    }
+
+    this.renderSubjectRows(exam.subjects || [], 'subject-rows-container');
+    this.renderBookletSubjectKeys('create', exam.subjects || [], exam.answerKeys || {});
+    this.renderQuestionTopics('create', exam.subjects || [], exam.questionTopics || {});
+    this.showToast(`✓ "${exam.title}" sınavının tüm ders ve cevapları aktarıldı!`, 'success');
   },
 
   // Sınav Şablonu Seçildiğinde Alanları Otomatik Doldur
@@ -4399,6 +4480,33 @@ window.App = {
     }
   },
 
+  // Optik okuyucu dosyalarını (ANSI Windows-1254 ve UTF-8) bozulmadan okuma motoru
+  readTextFileSmart(file, callback) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const buffer = e.target.result;
+      let text = '';
+      try {
+        // 1. Standart UTF-8 kontrolü (fatal: true ile geçersiz baytta hemen yakalar)
+        const utf8Decoder = new TextDecoder('utf-8', { fatal: true });
+        text = utf8Decoder.decode(buffer);
+      } catch {
+        // 2. Optik okuyucuların standart Türkçe Windows-1254 (ANSI) kodlaması
+        try {
+          const winDecoder = new TextDecoder('windows-1254');
+          text = winDecoder.decode(buffer);
+        } catch {
+          // 3. ISO-8859-9 yedeği
+          const isoDecoder = new TextDecoder('iso-8859-9');
+          text = isoDecoder.decode(buffer);
+        }
+      }
+      callback(text);
+    };
+    reader.readAsArrayBuffer(file);
+  },
+
   // ==========================================
   // 10.B. FMT İLE OPTİK OKUYUCU DOSYASI (.TXT / .DAT) İÇE AKTARMA MOTORU
   // ==========================================
@@ -4407,7 +4515,9 @@ window.App = {
     if (existing) existing.remove();
 
     const session = window.PortalStore.getCurrentSession();
-    const effectiveInstId = instId || (session ? session.institutionId : null);
+    const effectiveInstId = (instId && instId !== 'null' && instId !== 'undefined')
+      ? instId
+      : ((session && session.institutionId) ? session.institutionId : 'inst_oay');
     const exams = window.PortalStore.getExams(effectiveInstId) || [];
 
     if (exams.length === 0) {
@@ -4778,20 +4888,37 @@ window.App = {
     this.updateTxtImportPreview(instId);
   },
 
-  handleFmtFileSelected(input, instId) {
+  handleFmtFileSelected(input, instId, onCompleted = null) {
     const file = input.files && input.files[0];
     if (!file) return;
 
+    const session = window.PortalStore.getCurrentSession();
+    const cleanInstId = (!instId || instId === 'null' || instId === 'undefined') ? (session ? (session.institutionId || 'inst_oay') : 'inst_oay') : instId;
+
     const examSelect = document.getElementById('import-txt-exam-select');
     const examId = examSelect ? examSelect.value : null;
-    const exam = window.PortalStore.getExamById(instId, examId);
+    const exam = window.PortalStore.getExamById(cleanInstId, examId);
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const content = e.target.result;
+    this.readTextFileSmart(file, (content) => {
       const parsedFmt = window.PortalStore.parseFmtDefinition(content, exam);
       parsedFmt.name = file.name.replace(/\.[^/.]+$/, '') + ' (.FMT)';
       this.activeFmt = parsedFmt;
+
+      // Dropdown seçeneğini güncelle ve seçili yap
+      const fmtSelect = document.getElementById('import-fmt-select');
+      if (fmtSelect) {
+        let opt = fmtSelect.querySelector(`option[value="${parsedFmt.id}"]`);
+        if (!opt) {
+          opt = document.createElement('option');
+          opt.value = parsedFmt.id;
+          fmtSelect.insertBefore(opt, fmtSelect.firstChild);
+        }
+        opt.textContent = `📁 ${parsedFmt.name} (Yüklendi ✓)`;
+        opt.selected = true;
+      }
+
+      // FMT şablonunu hafızaya kaydet
+      window.PortalStore.saveFmtTemplate(cleanInstId, parsedFmt);
 
       const badgeBox = document.getElementById('fmt-visual-badge-container');
       if (badgeBox) badgeBox.innerHTML = this.renderFmtVisualBadge(this.activeFmt);
@@ -4804,15 +4931,17 @@ window.App = {
         editorBox.innerHTML = `
           <span class="block text-[11px] font-bold text-white uppercase">Sütun Başlangıç ve Bitiş Değerlerini Düzenle:</span>
           <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs">
-            ${this.renderFmtFieldInputs(this.activeFmt, instId)}
+            ${this.renderFmtFieldInputs(this.activeFmt, cleanInstId)}
           </div>
         `;
       }
 
-      this.showToast(`✓ "${file.name}" FMT dosyası başarıyla çözümlendi!`, 'success');
-      this.updateTxtImportPreview(instId);
-    };
-    reader.readAsText(file, 'UTF-8');
+      this.showToast(`✓ "${file.name}" FMT dosyası başarıyla yüklendi ve uygulandı!`, 'success');
+      this.updateTxtImportPreview(cleanInstId);
+      if (typeof onCompleted === 'function') {
+        onCompleted(parsedFmt);
+      }
+    });
   },
 
   handleFmtPasteInput(instId) {
@@ -4820,13 +4949,29 @@ window.App = {
     if (!ta) return;
     const content = ta.value;
 
+    const session = window.PortalStore.getCurrentSession();
+    const cleanInstId = (!instId || instId === 'null' || instId === 'undefined') ? (session ? (session.institutionId || 'inst_oay') : 'inst_oay') : instId;
+
     const examSelect = document.getElementById('import-txt-exam-select');
     const examId = examSelect ? examSelect.value : null;
-    const exam = window.PortalStore.getExamById(instId, examId);
+    const exam = window.PortalStore.getExamById(cleanInstId, examId);
 
     const parsedFmt = window.PortalStore.parseFmtDefinition(content, exam);
     parsedFmt.name = 'Özel Yapıştırılan FMT';
     this.activeFmt = parsedFmt;
+
+    // Dropdown seçeneğini güncelle
+    const fmtSelect = document.getElementById('import-fmt-select');
+    if (fmtSelect) {
+      let opt = fmtSelect.querySelector(`option[value="${parsedFmt.id}"]`);
+      if (!opt) {
+        opt = document.createElement('option');
+        opt.value = parsedFmt.id;
+        fmtSelect.insertBefore(opt, fmtSelect.firstChild);
+      }
+      opt.textContent = `📝 Özel Yapıştırılan FMT (Aktif ✓)`;
+      opt.selected = true;
+    }
 
     const badgeBox = document.getElementById('fmt-visual-badge-container');
     if (badgeBox) badgeBox.innerHTML = this.renderFmtVisualBadge(this.activeFmt);
@@ -4836,26 +4981,29 @@ window.App = {
       editorBox.innerHTML = `
         <span class="block text-[11px] font-bold text-white uppercase">Sütun Başlangıç ve Bitiş Değerlerini Düzenle:</span>
         <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs">
-          ${this.renderFmtFieldInputs(this.activeFmt, instId)}
+          ${this.renderFmtFieldInputs(this.activeFmt, cleanInstId)}
         </div>
       `;
     }
 
-    this.updateTxtImportPreview(instId);
+    this.updateTxtImportPreview(cleanInstId);
   },
 
   saveCurrentFmtPrompt(instId) {
     if (!this.activeFmt) return;
+    const session = window.PortalStore.getCurrentSession();
+    const cleanInstId = (!instId || instId === 'null' || instId === 'undefined') ? (session ? (session.institutionId || 'inst_oay') : 'inst_oay') : instId;
+
     const name = prompt('Bu FMT formatına bir isim veriniz:', this.activeFmt.name || 'Özel Kurum FMT');
     if (!name) return;
 
     this.activeFmt.name = name.trim();
-    const res = window.PortalStore.saveFmtTemplate(instId, this.activeFmt);
+    const res = window.PortalStore.saveFmtTemplate(cleanInstId, this.activeFmt);
     if (res && res.success) {
       this.showToast(`✓ "${name}" FMT şablonu kurumunuza kaydedildi!`, 'success');
       const fmtSelect = document.getElementById('import-fmt-select');
       if (fmtSelect) {
-        const fmtList = window.PortalStore.getFmtTemplates(instId);
+        const fmtList = window.PortalStore.getFmtTemplates(cleanInstId);
         fmtSelect.innerHTML = fmtList.map(f => `<option value="${f.id}" ${f.id === res.template.id ? 'selected' : ''}>${f.name} ${f.isCustom ? '★ (Özel)' : ''}</option>`).join('');
       }
     } else {
@@ -4907,10 +5055,17 @@ window.App = {
       return ['txt', 'dat', 'csv'].includes(ext);
     }) || (files.length === 1 && !fmtFile ? files[0] : null);
 
-    if (fmtFile) {
-      this.handleFmtFileSelected({ files: [fmtFile] }, instId);
-    }
-    if (txtFile) {
+    const session = window.PortalStore.getCurrentSession();
+    const cleanInstId = (!instId || instId === 'null' || instId === 'undefined') ? (session ? (session.institutionId || 'inst_oay') : 'inst_oay') : instId;
+
+    if (fmtFile && txtFile) {
+      // Önce FMT dosyasını oku, başarıyla tamamlanınca TXT dosyasını yükle
+      this.handleFmtFileSelected({ files: [fmtFile] }, cleanInstId, () => {
+        this.handleTxtFileSelected({ files: [txtFile] });
+      });
+    } else if (fmtFile) {
+      this.handleFmtFileSelected({ files: [fmtFile] }, cleanInstId);
+    } else if (txtFile) {
       this.handleTxtFileSelected({ files: [txtFile] });
     }
   },
@@ -4921,23 +5076,23 @@ window.App = {
     this.handleSmartFileDrop(e, instId);
   },
 
-  handleTxtFileSelected(input) {
+  handleTxtFileSelected(input, onCompleted = null) {
     const file = input.files && input.files[0];
     const info = document.getElementById('import-txt-file-info');
     if (!file) return;
 
     if (info) info.textContent = `Seçilen: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const content = e.target.result;
+    this.readTextFileSmart(file, (content) => {
       const ta = document.getElementById('import-txt-textarea');
       if (ta) ta.value = content;
       this.showToast(`✓ "${file.name}" yüklendi.`, 'success');
       const session = window.PortalStore.getCurrentSession();
-      const instId = session ? session.institutionId : null;
+      const instId = session ? (session.institutionId || 'inst_oay') : 'inst_oay';
       this.updateTxtImportPreview(instId);
-    };
-    reader.readAsText(file, 'UTF-8');
+      if (typeof onCompleted === 'function') {
+        onCompleted(content);
+      }
+    });
   },
 
   handleImportTxtSubmit(e, instId) {
