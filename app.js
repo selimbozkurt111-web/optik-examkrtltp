@@ -5136,10 +5136,56 @@ window.App = {
     }
   },
 
-  renderFmtRuler(sampleLine, fmt) {
-    if (!sampleLine || !fmt || !fmt.fields) return '';
-    const f = fmt.fields;
+  renderFmtRuler(sampleLine, fmt, exam = null) {
+    if (!sampleLine) return '';
     const len = sampleLine.length;
+    const semiCount = (sampleLine.match(/;/g) || []).length;
+    const tabCount = (sampleLine.match(/\t/g) || []).length;
+    const commaCount = (sampleLine.match(/,/g) || []).length;
+    const isDelimited = (semiCount >= 2 || tabCount >= 2 || commaCount >= 3);
+    const delim = semiCount >= 2 ? ';' : (tabCount >= 2 ? '\t' : (commaCount >= 3 ? ',' : null));
+
+    if (isDelimited && delim) {
+      const parsedSample = this.parseSingleOpticalLineWithFmt(sampleLine, exam, fmt);
+      return `
+        <div class="bg-slate-900/90 rounded-2xl border border-slate-800 p-3.5 space-y-2.5">
+          <div class="flex items-center justify-between text-[11px] font-bold">
+            <span class="text-white flex items-center gap-1.5">
+              <span>📏</span> <span>1. Satır Algılanan Ayrıştırılmış Format (${delim === '\t' ? 'TAB' : delim} ile Ayrılmış)</span>
+            </span>
+            <span class="font-mono text-cyan-400">Ayrıştırıcı: '${delim === '\t' ? '\\t (Tab)' : delim}'</span>
+          </div>
+          <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs font-mono">
+            <div class="p-2 rounded-xl bg-indigo-500/20 border border-indigo-500/40 text-indigo-300">
+              <span class="text-[10px] text-slate-400 block font-sans font-bold">Kitapçık</span>
+              <strong class="text-sm text-indigo-200">${parsedSample ? parsedSample.booklet : '-'}</strong>
+            </div>
+            <div class="p-2 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300">
+              <span class="text-[10px] text-slate-400 block font-sans font-bold">Talebe No</span>
+              <strong class="text-sm text-emerald-200 truncate block">${parsedSample ? parsedSample.studentNo : '-'}</strong>
+            </div>
+            <div class="p-2 rounded-xl bg-purple-500/20 border border-purple-500/40 text-purple-300">
+              <span class="text-[10px] text-slate-400 block font-sans font-bold">Ad Soyad</span>
+              <strong class="text-sm text-purple-200 truncate block">${parsedSample ? parsedSample.studentName : '-'}</strong>
+            </div>
+            <div class="p-2 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-300">
+              <span class="text-[10px] text-slate-400 block font-sans font-bold">Sınıf</span>
+              <strong class="text-sm text-amber-200 truncate block">${parsedSample ? parsedSample.className : '-'}</strong>
+            </div>
+            <div class="p-2 rounded-xl bg-cyan-500/20 border border-cyan-500/40 text-cyan-300">
+              <span class="text-[10px] text-slate-400 block font-sans font-bold">Cevaplar</span>
+              <strong class="text-xs text-cyan-200 truncate block">${parsedSample ? parsedSample.answers.substring(0, 15) : ''}... (${parsedSample ? parsedSample.answers.replace(/\s/g, '').length : 0} Cevap)</strong>
+            </div>
+          </div>
+          <div class="overflow-x-auto p-2 bg-slate-950 rounded-xl border border-slate-800 text-[11px] font-mono text-slate-300">
+            ${sampleLine.substring(0, 150)}
+          </div>
+        </div>
+      `;
+    }
+
+    if (!fmt || !fmt.fields) return '';
+    const f = fmt.fields;
 
     // Alanların değerlerini al
     const bSlice = (f.booklet.start > 0 && f.booklet.start <= len) ? sampleLine.substring(f.booklet.start - 1, f.booklet.end).trim() : '-';
@@ -5280,12 +5326,12 @@ window.App = {
 
     const previewList = parsedStudents.slice(0, 7);
     const missingKeysArr = Array.from(missingKeysSet);
-    const sampleLine = lines[0] || '';
+    const sampleLine = lines.find(l => this.parseSingleOpticalLineWithFmt(l, exam, this.activeFmt, options) !== null) || lines[0] || '';
 
     let html = `
       <div class="space-y-3">
         <!-- 1. Satır Görsel FMT Cetveli -->
-        ${this.renderFmtRuler(sampleLine, this.activeFmt)}
+        ${this.renderFmtRuler(sampleLine, this.activeFmt, exam)}
 
         <div class="bg-slate-950/80 rounded-2xl border border-slate-800 p-3 space-y-3">
           <!-- Özet Başlık Çubuğu -->
@@ -5385,13 +5431,22 @@ window.App = {
       upperTrim.startsWith('KURUM') ||
       upperTrim.startsWith('SINAV') ||
       upperTrim.startsWith('TARİH') ||
-      upperTrim.startsWith('TARİH:') ||
-      upperTrim.startsWith('ÖĞRENCİ NO') ||
-      upperTrim.startsWith('TALEBE NO') ||
+      upperTrim.startsWith('TARIH') ||
+      upperTrim.startsWith('ÖĞRENCİ') ||
+      upperTrim.startsWith('OGRENCI') ||
+      upperTrim.startsWith('TALEBE') ||
       upperTrim.startsWith('AD SOYAD') ||
+      upperTrim.startsWith('ADI SOYADI') ||
+      upperTrim.startsWith('SIRA') ||
+      upperTrim.startsWith('NO;') ||
+      upperTrim.startsWith('NO,') ||
+      upperTrim.startsWith('NO\t') ||
+      upperTrim.startsWith('KTP;') ||
+      upperTrim.startsWith('KITAPCIK') ||
+      upperTrim.startsWith('BOOKLET') ||
       upperTrim.startsWith('---') ||
       upperTrim.startsWith('===') ||
-      upperTrim.length < 5
+      upperTrim.length < 4
     ) {
       return null;
     }
@@ -5399,6 +5454,136 @@ window.App = {
     const qCount = (exam && exam.questionCount) ? parseInt(exam.questionCount, 10) : 20;
     const bookletMode = options.bookletMode || 'auto';
 
+    // Optik karakter 1-e-1 normalizasyonu (ASLA silme yapmaz, soru dizilimini milimetrik korur)
+    const normalizeOptChar = (ch) => {
+      if (!ch) return ' ';
+      const c = ch.toUpperCase();
+      if (['A', 'B', 'C', 'D', 'E', '*'].includes(c)) return c;
+      if (c === '1') return 'A';
+      if (c === '2') return 'B';
+      if (c === '3') return 'C';
+      if (c === '4') return 'D';
+      if (c === '5') return 'E';
+      if (c === '9' || c === 'X' || c === '+' || c === '#') return '*';
+      // '.', '-', '0', '_', '~', ' ' ve diğer tüm simgeler boşluk (boş bırakılmış soru)
+      return ' ';
+    };
+
+    // Ayrıştırıcı tespiti (CSV / Sekmeli / Noktalı Virgüllü dosya desteği)
+    const semiCount = (line.match(/;/g) || []).length;
+    const tabCount = (line.match(/\t/g) || []).length;
+    const commaCount = (line.match(/,/g) || []).length;
+
+    let isDelimited = false;
+    let delim = null;
+    if (semiCount >= 2) {
+      isDelimited = true;
+      delim = ';';
+    } else if (tabCount >= 2) {
+      isDelimited = true;
+      delim = '\t';
+    } else if (commaCount >= 3) {
+      isDelimited = true;
+      delim = ',';
+    }
+
+    if (isDelimited && delim) {
+      const parts = line.split(delim).map(p => p.trim().replace(/^["']|["']$/g, ''));
+      if (parts.length >= 3) {
+        // En uzun veya cevap karakterleri yoğun sütunu cevap olarak bul
+        let ansColIdx = -1;
+        let maxAnsScore = -1;
+
+        parts.forEach((p, idx) => {
+          const validChars = (p.match(/[A-E1-5* .\-_]/gi) || []).length;
+          const ratio = p.length > 0 ? (validChars / p.length) : 0;
+          if (p.length >= 10 && ratio >= 0.7 && p.length > maxAnsScore) {
+            maxAnsScore = p.length;
+            ansColIdx = idx;
+          }
+        });
+
+        // Cevap sütunu bulunamadıysa en uzun sütunu al
+        if (ansColIdx === -1) {
+          let maxLen = 0;
+          parts.forEach((p, idx) => {
+            if (p.length > maxLen) {
+              maxLen = p.length;
+              ansColIdx = idx;
+            }
+          });
+        }
+
+        // Kitapçık sütunu (A, B, C, D veya 1, 2, 3, 4)
+        let booklet = 'A';
+        if (bookletMode.startsWith('force_')) {
+          booklet = bookletMode.replace('force_', '').toUpperCase();
+        } else {
+          for (let i = 0; i < parts.length; i++) {
+            if (i === ansColIdx) continue;
+            const p = parts[i].toUpperCase();
+            if (['A', 'B', 'C', 'D'].includes(p)) {
+              booklet = p;
+              break;
+            } else if (p === '1') { booklet = 'A'; break; }
+            else if (p === '2') { booklet = 'B'; break; }
+            else if (p === '3') { booklet = 'C'; break; }
+            else if (p === '4') { booklet = 'D'; break; }
+          }
+        }
+
+        // Numara sütunu (Rakamlardan oluşan sütun)
+        let studentNo = '';
+        for (let i = 0; i < parts.length; i++) {
+          if (i === ansColIdx) continue;
+          const p = parts[i];
+          if (/^\d{1,11}$/.test(p)) {
+            studentNo = p;
+            break;
+          }
+        }
+
+        // Sınıf sütunu
+        let className = 'Genel';
+        for (let i = 0; i < parts.length; i++) {
+          if (i === ansColIdx) continue;
+          const p = parts[i];
+          if (/^(\d{1,2}[-\/ ]?[A-Za-z]|[A-Za-z0-9]{1,4})$/.test(p) && p !== studentNo && p !== booklet) {
+            className = p.replace(/\s+/g, '-').replace('/', '-');
+            break;
+          }
+        }
+
+        // İsim sütunu (Harf içeren ve diğer sütunlar olmayan)
+        let studentName = '';
+        for (let i = 0; i < parts.length; i++) {
+          if (i === ansColIdx) continue;
+          const p = parts[i];
+          if (p !== studentNo && p !== booklet && p !== className && /[A-Za-zÇĞİÖŞÜçğıöşü]{2,}/.test(p)) {
+            studentName = p;
+            break;
+          }
+        }
+        if (!studentName) studentName = studentNo ? `Talebe #${studentNo}` : 'İsimsiz Talebe';
+
+        // Cevap dizisini 1-e-1 normalize et
+        const rawAnswers = (ansColIdx !== -1 && parts[ansColIdx]) ? parts[ansColIdx] : '';
+        let finalAnswers = '';
+        for (let i = 0; i < qCount; i++) {
+          finalAnswers += normalizeOptChar(rawAnswers[i]);
+        }
+
+        return {
+          studentNo: studentNo || '',
+          studentName,
+          className: className || 'Genel',
+          booklet: booklet || 'A',
+          answers: finalAnswers
+        };
+      }
+    }
+
+    // Sabit Sütun (Fixed-Width) Optik Format Çözümleme
     const f = (fmt && fmt.fields) ? fmt.fields : {
       booklet: { enabled: true, start: 1, end: 1 },
       studentNo: { enabled: true, start: 2, end: 11 },
@@ -5407,7 +5592,7 @@ window.App = {
       answers: { enabled: true, start: 40, end: 40 + qCount - 1 }
     };
 
-    // 1. Kitapçık Türü (A, B, C, D)
+    // 1. Kitapçık Türü (A, B, C, D veya 1, 2, 3, 4)
     let booklet = 'A';
     if (bookletMode.startsWith('force_')) {
       booklet = bookletMode.replace('force_', '').toUpperCase();
@@ -5415,6 +5600,14 @@ window.App = {
       const bSlice = line.substring(f.booklet.start - 1, f.booklet.end).trim().toUpperCase();
       if (['A', 'B', 'C', 'D'].includes(bSlice)) {
         booklet = bSlice;
+      } else if (bSlice === '1') {
+        booklet = 'A';
+      } else if (bSlice === '2') {
+        booklet = 'B';
+      } else if (bSlice === '3') {
+        booklet = 'C';
+      } else if (bSlice === '4') {
+        booklet = 'D';
       } else {
         const firstChar = line[0].toUpperCase();
         if (['A', 'B', 'C', 'D'].includes(firstChar)) {
@@ -5430,6 +5623,8 @@ window.App = {
       const numMatch = noSlice.match(/\d+/);
       if (numMatch) {
         studentNo = numMatch[0];
+      } else if (noSlice) {
+        studentNo = noSlice.replace(/[^a-zA-Z0-9_-]/g, '');
       }
     }
     if (!studentNo) {
@@ -5463,45 +5658,35 @@ window.App = {
       }
     }
 
-    // 5. Cevaplar (FMT ile Tam Konum Kesimi)
+    // 5. Cevaplar (1-e-1 Karakter Koruma - Soru Kayması Kesin Olarak Önlenir)
     let finalAnswers = '';
-    if (fmt && fmt.subjects && fmt.subjects.length > 0) {
-      fmt.subjects.forEach(sub => {
-        const sStart = Math.max(0, sub.start - 1);
-        const sEnd = sub.end;
-        let sSlice = line.substring(sStart, sEnd).toUpperCase();
-        sSlice = sSlice.replace(/1/g, 'A').replace(/2/g, 'B').replace(/3/g, 'C').replace(/4/g, 'D').replace(/5/g, 'E').replace(/0/g, ' ');
-        sSlice = sSlice.replace(/[^A-E* ]/g, '');
-        const subLen = sub.length || (sub.end - sub.start + 1);
-        finalAnswers += sSlice.padEnd(subLen, ' ').substring(0, subLen);
-      });
-    } else if (f.answers && f.answers.enabled !== false && f.answers.start > 0) {
+
+    // Eğer FMT'de geçerli ders blokları varsa ve tek genel CEVAP tanımlanmamışsa ders ders kes
+    const validSubjects = (fmt && Array.isArray(fmt.subjects)) ? fmt.subjects.filter(s => s && s.start > 0) : [];
+    const hasSingleAnswers = (f.answers && f.answers.enabled !== false && f.answers.start > 0);
+
+    if (hasSingleAnswers) {
+      // Doğrudan genel CEVAP alanından 1-e-1 oku
       const aStart = Math.max(0, f.answers.start - 1);
-      const aEnd = f.answers.end || (aStart + qCount);
-      let aSlice = line.substring(aStart, aEnd).toUpperCase();
-      const digitCount = (aSlice.match(/[1-5]/g) || []).length;
-      const letterCount = (aSlice.match(/[A-E]/g) || []).length;
-      if (digitCount > letterCount && digitCount >= 5) {
-        aSlice = aSlice.replace(/1/g, 'A').replace(/2/g, 'B').replace(/3/g, 'C').replace(/4/g, 'D').replace(/5/g, 'E').replace(/0/g, ' ');
+      const rawAnsSlice = line.substring(aStart, aStart + qCount);
+      for (let i = 0; i < qCount; i++) {
+        finalAnswers += normalizeOptChar(rawAnsSlice[i]);
       }
-
-      const rawBlocks = aSlice.split(/\s{2,}/).map(b => b.replace(/[^A-E* ]/g, '').trim()).filter(b => b.length > 0);
-      const examSubjects = (exam && exam.subjects && exam.subjects.length > 0) ? exam.subjects : [];
-
-      if (rawBlocks.length > 1 && examSubjects.length === rawBlocks.length) {
-        examSubjects.forEach((sub, sIdx) => {
-          const subCount = (sub.endQ - sub.startQ + 1);
-          const blk = rawBlocks[sIdx] || '';
-          finalAnswers += blk.padEnd(subCount, ' ').substring(0, subCount);
-        });
-      } else {
-        const cleanAns = aSlice.replace(/[^A-E* ]/g, '');
-        finalAnswers = cleanAns.padEnd(qCount, ' ').substring(0, qCount);
-      }
+    } else if (validSubjects.length > 0) {
+      // Ders bloklarından sırayla oku
+      validSubjects.forEach(sub => {
+        const sStart = Math.max(0, sub.start - 1);
+        const sLen = sub.length || (sub.end - sub.start + 1);
+        const subSlice = line.substring(sStart, sStart + sLen);
+        for (let i = 0; i < sLen; i++) {
+          finalAnswers += normalizeOptChar(subSlice[i]);
+        }
+      });
     } else {
       finalAnswers = ''.padEnd(qCount, ' ');
     }
 
+    // Soru sayısına tam sabitle
     if (finalAnswers.length < qCount) {
       finalAnswers = finalAnswers.padEnd(qCount, ' ');
     } else if (finalAnswers.length > qCount) {
@@ -5515,7 +5700,7 @@ window.App = {
       booklet: booklet || 'A',
       answers: finalAnswers
     };
-  },
+  },,
 
   parseSingleOpticalLine(rawLine, exam, options = {}) {
     return this.parseSingleOpticalLineWithFmt(rawLine, exam, this.activeFmt, options);

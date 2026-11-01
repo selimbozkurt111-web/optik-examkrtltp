@@ -2090,11 +2090,22 @@ class MultiTenantStore {
       answers: { enabled: true, start: 40, end: 129, length: 90, title: 'Cevaplar' }
     };
     const subjects = [];
+    const metadata = {};
+    let hasExplicitAnswerField = false;
     let hasMatchedAny = false;
     let tempAd = null;
     let tempSoyad = null;
     let minDetectedStart = 999;
     const examQCount = (exam && exam.questionCount) ? parseInt(exam.questionCount, 10) : null;
+
+    // Ders olmayan üst/alt bilgi etiketleri (Subjects listesine KESİNLİKLE eklenmez)
+    const NON_SUBJECT_TAGS = [
+      'KURUM', 'IL', 'ILCE', 'OKUL', 'DONEM', 'TARIH', 'DATE', 'CINSIYET',
+      'GENDER', 'DOGUM', 'BIRTH', 'SERINO', 'SERI', 'KOD', 'CODE', 'OTURUM',
+      'SESSION', 'IMZA', 'YIL', 'YEAR', 'GRUP', 'GROUP', 'SUBE', 'BOLUM',
+      'ALAN', 'KAYIT', 'SIRA', 'YOKLAMA', 'TEL', 'TELEFON', 'PHONE', 'TC',
+      'KIMLIK', 'BASKI', 'FORM', 'VERSIYON', 'VERSION'
+    ];
 
     // Başlangıç, bitiş ve uzunluk çözümleme motoru
     const resolveRange = (keyNorm, n1, n2, hasDash, hasComma) => {
@@ -2240,9 +2251,13 @@ class MultiTenantStore {
           hasMatchedAny = true;
         } else if (norm.includes('CEVAP') || norm.includes('YANIT') || norm.includes('ANSWER') || norm.includes('OPTIK')) {
           fields.answers = { enabled: true, start, end, length, title: 'Cevaplar' };
+          hasExplicitAnswerField = true;
           hasMatchedAny = true;
+        } else if (NON_SUBJECT_TAGS.some(t => norm === t || norm.startsWith(t))) {
+          // Üst/alt bilgi etiketi (Kurum, İl, İlçe vb.) - Subjects içine KESİNLİKLE konulmaz
+          metadata[key] = { start, end, length };
         } else {
-          // Ders adı kontrolü (Örn: TURKCE, MATEMATIK, FEN vb.)
+          // Gerçek ders adı kontrolü (Örn: TURKCE, MATEMATIK, FEN vb.)
           subjects.push({
             name: key,
             start,
@@ -2287,7 +2302,8 @@ class MultiTenantStore {
 
     if (subjects.length > 0) {
       subjects.sort((a, b) => a.start - b.start);
-      if (!fields.answers.start || fields.answers.start === 40) {
+      // Sadece açıkça CEVAP alanı tanımlanmamışsa derslerin başlangıç ve bitişini cevap alanı yap
+      if (!hasExplicitAnswerField) {
         fields.answers.start = subjects[0].start;
         fields.answers.end = subjects[subjects.length - 1].end;
         fields.answers.length = (fields.answers.end - fields.answers.start + 1);

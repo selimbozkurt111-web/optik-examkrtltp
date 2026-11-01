@@ -240,15 +240,19 @@ window.PhotoOmrScanner = {
         // Yerel kağıt arka plan koyuluk referansı (Kabarcıkların hemen solundaki boş beyaz alan)
         const paperRef = sampleCircleDarkness(col.left + colWidth * 0.35, rowY, 5);
 
-        // A, B, C, D seçeneklerinin X koordinatları
+        // A, B, C, D (ve varsa E) seçeneklerinin dinamik X koordinatları
+        const rawKeyCheck = (activeExam && activeExam.answerKeys && activeExam.answerKeys[detectedBooklet]) ? activeExam.answerKeys[detectedBooklet].toUpperCase() : '';
+        const hasOptionE = (activeExam && (activeExam.optionCount === 5 || rawKeyCheck.includes('E')));
+        const options = hasOptionE ? ['A', 'B', 'C', 'D', 'E'] : ['A', 'B', 'C', 'D'];
+        const optCount = options.length;
+
         const optStartX = col.left + colWidth * 0.44;
         const optEndX = col.right - colWidth * 0.04;
-        const optStep = (optEndX - optStartX) / 3;
+        const optStep = (optEndX - optStartX) / (optCount - 1);
 
-        const options = ['A', 'B', 'C', 'D'];
         const scores = [];
 
-        for (let oIdx = 0; oIdx < 4; oIdx++) {
+        for (let oIdx = 0; oIdx < optCount; oIdx++) {
           const optX = optStartX + oIdx * optStep;
           const bubbleDark = sampleCircleDarkness(optX, rowY, 7);
           const fillScore = bubbleDark - paperRef;
@@ -264,11 +268,11 @@ window.PhotoOmrScanner = {
         // Karartma derecesine göre azalan sırala
         scores.sort((a, b) => b.fillScore - a.fillScore);
         const top = scores[0];
-        const runnerUp = scores[1];
+        const runnerUp = scores[1] || { fillScore: 0 };
 
         // Doldurulma eşiği kontrolü
-        // Eşik 22 ve ikinci seçenekle fark en az 10 ise net işaretleme
-        if (top.fillScore >= 22 && (top.fillScore - runnerUp.fillScore) >= 10) {
+        // Eşik 18 ve ikinci seçenekle fark en az 8 ise net işaretleme (Hafif kurşun kalemleri de kaçırmaz)
+        if (top.fillScore >= 18 && (top.fillScore - runnerUp.fillScore) >= 8) {
           detectedAnswers[globalQ - 1] = top.opt;
           markedCount++;
           bubbleVisualPoints.push({
