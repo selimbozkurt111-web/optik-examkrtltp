@@ -950,6 +950,32 @@ class MultiTenantStore {
   }
 
   // --- Kurum Bazlı Sınav İşlemleri ---
+  // Kurumların kendi bünyelerinde açtığı tüm sınavları tek listede toplar (Merkezi Ortak Sınav kopyalama için)
+  getAllInstitutionExams() {
+    const institutions = this.getInstitutions() || [];
+    const all = [];
+    institutions.forEach(inst => {
+      let exams = [];
+      try {
+        const raw = localStorage.getItem(STORAGE_PREFIX + inst.id + '_exams');
+        exams = raw ? JSON.parse(raw) : [];
+      } catch {
+        exams = [];
+      }
+      if (Array.isArray(exams)) {
+        exams.filter(e => !e.isGlobal).forEach(e => {
+          all.push({
+            institutionId: inst.id,
+            institutionName: inst.name || 'Kurum',
+            institutionCity: inst.city || '',
+            exam: e
+          });
+        });
+      }
+    });
+    return all;
+  }
+
   getExams(instId) {
     if (!instId) return this.getGlobalExams();
     let localExams = [];
@@ -2065,63 +2091,146 @@ class MultiTenantStore {
     };
     const subjects = [];
     let hasMatchedAny = false;
+    let tempAd = null;
+    let tempSoyad = null;
+    let minDetectedStart = 999;
+    const examQCount = (exam && exam.questionCount) ? parseInt(exam.questionCount, 10) : null;
 
-    lines.forEach(line => {
-      // Yorum veya başlık satırlarını atla
-      if (line.startsWith('#') || line.startsWith('//') || (line.startsWith(';') && !line.includes('=')) || line.startsWith('[') || line.toUpperCase().startsWith('REM')) {
+    // Başlangıç, bitiş ve uzunluk çözümleme motoru
+    const resolveRange = (keyNorm, n1, n2, hasDash, hasComma) => {
+      // 1. Tire ile ayrılmışsa açıkça aralık başlangıç ve bitişidir (örn: 2-11 veya 40-129)
+      if (hasDash && n2 >= n1) {
+        return { start: n1, end: n2, length: (n2 - n1 + 1) };
+      }
+      // 2. İkinci sayı birinciden küçükse kesinlikle uzunluktur (örn: SINIF=36,4 veya TURKCE=40,20)
+      if (n2 < n1) {
+        return { start: n1, end: (n1 + n2 - 1), length: n2 };
+      }
+      // 3. Her iki sayı da 1 ise (örn: KTP=1,1)
+      if (n1 === 1 && n2 === 1) {
+        return { start: 1, end: 1, length: 1 };
+      }
+      // 4. Cevaplar için akıllı soru sayısı tespiti
+      if (keyNorm.includes('CEVAP') || keyNorm.includes('YANIT') || keyNorm.includes('ANSWER')) {
+        if (examQCount) {
+          if (n2 === examQCount) {
+            return { start: n1, end: (n1 + n2 - 1), length: n2 };
+          }
+          if ((n2 - n1 + 1) === examQCount) {
+            return { start: n1, end: n2, length: (n2 - n1 + 1) };
+          }
+        }
+        const commonCounts = [15, 20, 25, 30, 40, 50, 60, 75, 80, 90, 100, 120, 150];
+        if (commonCounts.includes(n2)) {
+          return { start: n1, end: (n1 + n2 - 1), length: n2 };
+        }
+        if (commonCounts.includes(n2 - n1 + 1)) {
+          return { start: n1, end: n2, length: (n2 - n1 + 1) };
+        }
+        if (hasComma && n2 <= 200 && n1 <= 100) {
+          return { start: n1, end: (n1 + n2 - 1), length: n2 };
+        }
+      }
+      // 5. Ad Soyad sütunu: genellikle 15-35 karakter arası uzunluktadır (örn: ADSOYAD=12,24)
+      if (keyNorm.includes('AD') || keyNorm.includes('SOYAD') || keyNorm.includes('ISIM') || keyNorm.includes('NAME')) {
+        if (hasComma && n2 <= 35) {
+          return { start: n1, end: (n1 + n2 - 1), length: n2 };
+        }
+        if (n2 >= 20 && (n2 - n1) >= 10 && (n2 - n1) <= 35) {
+          return { start: n1, end: n2, length: (n2 - n1 + 1) };
+        }
+      }
+      // 6. Talebe No: genellikle 2-12 hane uzunluktadır (örn: NO=2,10)
+      if (keyNorm.includes('NO') || keyNorm.includes('NUMARA') || keyNorm.includes('OGR') || keyNorm.includes('TC')) {
+        if (hasComma && n2 <= 12) {
+          return { start: n1, end: (n1 + n2 - 1), length: n2 };
+        }
+        if (n2 > n1 && (n2 - n1 + 1) <= 12) {
+          return { start: n1, end: n2, length: (n2 - n1 + 1) };
+        }
+      }
+      // 7. Sınıf / Şube: genellikle 2-6 karakter uzunluktadır (örn: SINIF=36,4)
+      if (keyNorm.includes('SINIF') || keyNorm.includes('SUBE') || keyNorm.includes('CLASS')) {
+        if (hasComma && n2 <= 6) {
+          return { start: n1, end: (n1 + n2 - 1), length: n2 };
+        }
+        if (n2 > n1 && (n2 - n1 + 1) <= 6) {
+          return { start: n1, end: n2, length: (n2 - n1 + 1) };
+        }
+      }
+      // 8. Virgül ile ayrılmış standart anahtar=değer ise uzunluk olarak değerlendir
+      if (hasComma) {
+        return { start: n1, end: (n1 + n2 - 1), length: n2 };
+      }
+      // Boşluklu Sekonik tarzı bitiş pozisyonu
+      return { start: n1, end: n2, length: (n2 - n1 + 1) };
+    };
+
+    lines.forEach(rawL => {
+      // Satır içi yorumları temizle
+      const line = rawL.replace(/(\/\/|#|;).*$/, '').trim();
+      if (!line || line.startsWith('[') || line.toUpperCase().startsWith('REM')) {
         return;
       }
 
       let key = '';
       let n1 = 0;
       let n2 = 0;
+      let hasDash = false;
+      let hasComma = false;
 
-      // 1. Durum: KEY=N1,N2 veya KEY:N1,N2 veya KEY=N1-N2
-      const matchKV = line.match(/^([A-Za-z0-9_ğüşöçİĞÜŞÖÇ\- ]+)\s*[=:\t;,]\s*(\d+)\s*[-,\s;]+\s*(\d+)/i);
-      // 2. Durum: N1 N2 KEY (Sekonik standardı: 1 1 KTP veya 2 11 OGRNO)
-      const matchSekonik = line.match(/^(\d+)\s+(\d+)\s+([A-Za-z0-9_ğüşöçİĞÜŞÖÇ\- ]+)/i);
-      // 3. Durum: KEY N1 N2 (KEY 1 1)
-      const matchNameStartLen = line.match(/^([A-Za-z0-9_ğüşöçİĞÜŞÖÇ\- ]+)\s+(\d+)\s+(\d+)/i);
+      // Durum 1: KEY=N1,N2 veya KEY:N1,N2 veya KEY=N1-N2 veya KEY N1,N2
+      const matchKV = line.match(/^([A-Za-z0-9_ğüşöçİĞÜŞÖÇ.\- ]+?)\s*[=:\t]\s*(\d+)\s*([-,\s;]+)\s*(\d+)/i);
+      // Durum 2: N1 N2 KEY (Sekonik 3 sütun standardı: 1 1 KTP veya 2 11 OGRNO)
+      const matchSekonik = line.match(/^(\d+)\s+([-,]?\s*)(\d+)\s+([A-Za-z0-9_ğüşöçİĞÜŞÖÇ.\- ]+)/i);
+      // Durum 3: KEY N1 N2 veya KEY N1-N2
+      const matchNameStartLen = line.match(/^([A-Za-z0-9_ğüşöçİĞÜŞÖÇ.\- ]+?)\s+(\d+)\s*([-,\s;]+)\s*(\d+)/i);
 
       if (matchKV) {
         key = matchKV[1].trim();
         n1 = parseInt(matchKV[2], 10);
-        n2 = parseInt(matchKV[3], 10);
+        const sep = matchKV[3] || '';
+        hasDash = sep.includes('-');
+        hasComma = sep.includes(',');
+        n2 = parseInt(matchKV[4], 10);
       } else if (matchSekonik) {
         n1 = parseInt(matchSekonik[1], 10);
-        n2 = parseInt(matchSekonik[2], 10);
-        key = matchSekonik[3].trim();
+        const sep = matchSekonik[2] || '';
+        hasDash = sep.includes('-');
+        hasComma = sep.includes(',');
+        n2 = parseInt(matchSekonik[3], 10);
+        key = matchSekonik[4].trim();
       } else if (matchNameStartLen) {
         key = matchNameStartLen[1].trim();
         n1 = parseInt(matchNameStartLen[2], 10);
-        n2 = parseInt(matchNameStartLen[3], 10);
+        const sep = matchNameStartLen[3] || '';
+        hasDash = sep.includes('-');
+        hasComma = sep.includes(',');
+        n2 = parseInt(matchNameStartLen[4], 10);
       }
 
-      if (n1 > 0 && n2 > 0 && key) {
-        let start = n1;
-        let end = n2;
-        let length = 1;
-
-        if (n2 >= n1) {
-          start = n1;
-          end = n2;
-          length = (n2 - n1 + 1);
-        } else {
-          start = n1;
-          length = n2;
-          end = (n1 + n2 - 1);
-        }
+      if (key && !isNaN(n1) && !isNaN(n2) && n1 >= 0 && n2 > 0) {
+        if (n1 < minDetectedStart) minDetectedStart = n1;
 
         const norm = key.toUpperCase()
           .replace(/İ/g, 'I').replace(/Ğ/g, 'G').replace(/Ü/g, 'U')
           .replace(/Ş/g, 'S').replace(/Ö/g, 'O').replace(/Ç/g, 'C')
           .replace(/[^A-Z0-9]/g, '');
 
+        const resolved = resolveRange(norm, n1, n2, hasDash, hasComma);
+        const { start, end, length } = resolved;
+
         if (norm.includes('KTP') || norm.includes('KITAP') || norm.includes('BOOKLET') || norm === 'KT') {
           fields.booklet = { enabled: true, start, end, length, title: 'Kitapçık' };
           hasMatchedAny = true;
         } else if (norm.includes('NO') || norm.includes('NUMARA') || norm.includes('OGR') || norm.includes('TC') || norm.includes('TALEBE')) {
           fields.studentNo = { enabled: true, start, end, length, title: 'Talebe No' };
+          hasMatchedAny = true;
+        } else if (norm === 'AD' || norm === 'ISIM' || norm === 'NAME' || norm === 'FIRSTNAME') {
+          tempAd = { start, end, length };
+          hasMatchedAny = true;
+        } else if (norm === 'SOYAD' || norm === 'SURNAME' || norm === 'LASTNAME') {
+          tempSoyad = { start, end, length };
           hasMatchedAny = true;
         } else if (norm.includes('AD') || norm.includes('SOYAD') || norm.includes('ISIM') || norm.includes('NAME')) {
           fields.studentName = { enabled: true, start, end, length, title: 'Adı Soyadı' };
@@ -2145,6 +2254,37 @@ class MultiTenantStore {
       }
     });
 
+    // Ayrı AD ve SOYAD alanları tanımlanmışsa birleştir
+    if (tempAd && tempSoyad) {
+      const start = Math.min(tempAd.start, tempSoyad.start);
+      const end = Math.max(tempAd.end, tempSoyad.end);
+      fields.studentName = {
+        enabled: true,
+        start,
+        end,
+        length: (end - start + 1),
+        title: 'Adı Soyadı'
+      };
+    } else if (tempAd) {
+      fields.studentName = { enabled: true, start: tempAd.start, end: tempAd.end, length: tempAd.length, title: 'Adı Soyadı' };
+    } else if (tempSoyad) {
+      fields.studentName = { enabled: true, start: tempSoyad.start, end: tempSoyad.end, length: tempSoyad.length, title: 'Adı Soyadı' };
+    }
+
+    // 0-indeksli format tespit edilmişse (örn: 0'dan başlıyorsa) 1-indeksliye dönüştür
+    if (minDetectedStart === 0) {
+      ['booklet', 'studentNo', 'studentName', 'className', 'answers'].forEach(k => {
+        if (fields[k]) {
+          fields[k].start += 1;
+          fields[k].end += 1;
+        }
+      });
+      subjects.forEach(s => {
+        s.start += 1;
+        s.end += 1;
+      });
+    }
+
     if (subjects.length > 0) {
       subjects.sort((a, b) => a.start - b.start);
       if (!fields.answers.start || fields.answers.start === 40) {
@@ -2154,7 +2294,7 @@ class MultiTenantStore {
       }
     }
 
-    const qCount = (exam && exam.questionCount) ? parseInt(exam.questionCount, 10) : (fields.answers.length || 90);
+    const qCount = examQCount || (fields.answers.length || 90);
     if (!fields.answers.end || fields.answers.end <= fields.answers.start) {
       fields.answers.end = fields.answers.start + qCount - 1;
       fields.answers.length = qCount;
