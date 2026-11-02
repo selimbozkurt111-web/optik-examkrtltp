@@ -3258,7 +3258,7 @@ window.App = {
         counter.textContent = (cur + 1).toString();
       }
 
-      this.showToast(`✓ ${result.studentName} okundu! (${result.totalNet} Net - ${result.totalScore} Puan)`, 'success');
+      this.showToast(`✓ ${result.studentName} okundu! (${result.totalNet} Net - ${(Number(result.totalScore) || 200).toFixed(2)} Puan)`, 'success');
     }
     this.renderScanResultCard(result);
   },
@@ -3354,7 +3354,7 @@ window.App = {
             <span class="text-xs text-slate-400 font-mono">${result.studentNo ? `No: ${result.studentNo} • ` : ''}Sınıf: ${result.className} • Kitapçık: <span class="text-emerald-400 font-bold">${result.booklet || 'A'}</span></span>
           </div>
           <div class="text-right">
-            <span class="text-2xl font-black ${isBlank ? 'text-amber-400' : 'text-emerald-400'} font-mono">${result.totalScore}</span>
+            <span class="text-2xl font-black ${isBlank ? 'text-amber-400' : 'text-emerald-400'} font-mono">${(Number(result.totalScore) || 200).toFixed(2)}</span>
             <span class="block text-[10px] font-bold text-slate-400 uppercase">Toplam Puan</span>
           </div>
         </div>
@@ -3537,7 +3537,7 @@ window.App = {
                     <td class="p-3 text-center font-bold text-emerald-400">${r.totalCorrect}</td>
                     <td class="p-3 text-center font-bold text-rose-400">${r.totalWrong}</td>
                     <td class="p-3 text-center font-mono font-bold text-cyan-400">${r.totalNet}</td>
-                    <td class="p-3 text-center font-mono font-black text-amber-400 text-sm">${r.totalScore}</td>
+                    <td class="p-3 text-center font-mono font-black text-amber-400 text-sm">${(Number(r.totalScore) || 200).toFixed(2)}</td>
                     <td class="p-3 text-right">
                       <div class="flex items-center justify-end gap-1.5">
                         <button onclick="App.showManualResultModal('${instId}', '${currentExam.id}', '${r.studentNo}')" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-amber-300 rounded-lg text-[11px] font-bold transition cursor-pointer" title="Cevapları / Puanı Elle Düzenle">
@@ -3553,7 +3553,7 @@ window.App = {
                           <span>📜</span> <span>Karne</span>
                         </button>
                         ${r.parentPhone ? `
-                          <button onclick="App.sendWhatsAppCard('${encodeURIComponent(r.parentPhone)}', '${encodeURIComponent(r.studentName)}', '${r.totalNet}', '${r.totalScore}', '${encodeURIComponent(JSON.stringify(r.topicAnalysis || []))}')" class="px-2.5 py-1 bg-emerald-600/30 hover:bg-emerald-600 text-emerald-300 hover:text-white rounded-lg text-[11px] font-bold transition cursor-pointer" title="WhatsApp Gönder">
+                          <button onclick="App.sendWhatsAppCard('${encodeURIComponent(r.parentPhone)}', '${encodeURIComponent(r.studentName)}', '${r.totalNet}', '${(Number(r.totalScore) || 200).toFixed(2)}', '${encodeURIComponent(JSON.stringify(r.topicAnalysis || []))}')" class="px-2.5 py-1 bg-emerald-600/30 hover:bg-emerald-600 text-emerald-300 hover:text-white rounded-lg text-[11px] font-bold transition cursor-pointer" title="WhatsApp Gönder">
                             💬
                           </button>
                         ` : ''}
@@ -3899,7 +3899,7 @@ window.App = {
                   <td class="p-3 text-center font-bold text-emerald-400">${r.totalCorrect}</td>
                   <td class="p-3 text-center font-bold text-rose-400">${r.totalWrong}</td>
                   <td class="p-3 text-center font-mono font-bold text-cyan-400">${r.totalNet}</td>
-                  <td class="p-3 text-center font-mono font-black text-amber-400 text-sm">${r.totalScore}</td>
+                  <td class="p-3 text-center font-mono font-black text-amber-400 text-sm">${(Number(r.totalScore) || 200).toFixed(2)}</td>
                 </tr>
               `).join('')}
             </tbody>
@@ -4334,7 +4334,7 @@ window.App = {
     if (elW) elW.textContent = scored.totalWrong;
     if (elE) elE.textContent = scored.totalEmpty;
     if (elN) elN.textContent = scored.totalNet;
-    if (elS) elS.textContent = scored.totalScore;
+    if (elS) elS.textContent = (Number(scored.totalScore) || 200).toFixed(2);
 
     // Ders bazlı canlı istatistik rozetlerini güncelle
     const subjects = (Array.isArray(exam.subjects) && exam.subjects.length > 0)
@@ -5700,7 +5700,7 @@ window.App = {
       booklet: booklet || 'A',
       answers: finalAnswers
     };
-  },,
+  },
 
   parseSingleOpticalLine(rawLine, exam, options = {}) {
     return this.parseSingleOpticalLineWithFmt(rawLine, exam, this.activeFmt, options);
@@ -6124,7 +6124,7 @@ window.App = {
               <h3 class="text-base sm:text-lg font-black text-white">${result.studentName} - Konu & Kazanım Karnesi</h3>
             </div>
             <p class="text-xs text-slate-400 mt-0.5">
-              No: <strong class="text-emerald-400 font-mono">${result.studentNo}</strong> • Sınıf: ${result.className} • Toplam Net: <strong class="text-cyan-400 font-mono">${result.totalNet}</strong> • Puan: <strong class="text-amber-400 font-mono">${result.totalScore}</strong>
+              No: <strong class="text-emerald-400 font-mono">${result.studentNo}</strong> • Sınıf: ${result.className} • Toplam Net: <strong class="text-cyan-400 font-mono">${result.totalNet}</strong> • Puan: <strong class="text-amber-400 font-mono">${(Number(result.totalScore) || 200).toFixed(2)}</strong>
             </p>
           </div>
           <button onclick="document.getElementById('student-topic-modal').remove()" class="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-sm font-bold cursor-pointer">✕</button>
@@ -6185,7 +6185,7 @@ window.App = {
 
         <div class="flex justify-end gap-2">
           ${result.parentPhone ? `
-            <button onclick="App.sendWhatsAppCard('${encodeURIComponent(result.parentPhone)}', '${encodeURIComponent(result.studentName)}', '${result.totalNet}', '${result.totalScore}', '${encodeURIComponent(JSON.stringify(topics))}')" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow transition flex items-center gap-1.5 cursor-pointer">
+            <button onclick="App.sendWhatsAppCard('${encodeURIComponent(result.parentPhone)}', '${encodeURIComponent(result.studentName)}', '${result.totalNet}', '${(Number(result.totalScore) || 200).toFixed(2)}', '${encodeURIComponent(JSON.stringify(topics))}')" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow transition flex items-center gap-1.5 cursor-pointer">
               <span>💬</span> <span>Konulu WhatsApp Karnesi Gönder</span>
             </button>
           ` : ''}
@@ -6268,10 +6268,10 @@ window.App = {
                     ${r.parentPhone || 'Kayıtsız'}
                   </td>
                   <td class="p-2.5 text-center font-mono font-bold text-cyan-400">${r.totalNet}</td>
-                  <td class="p-2.5 text-center font-mono font-black text-amber-400">${r.totalScore}</td>
+                  <td class="p-2.5 text-center font-mono font-black text-amber-400">${(Number(r.totalScore) || 200).toFixed(2)}</td>
                   <td class="p-2.5 text-right">
                     ${r.parentPhone ? `
-                      <button onclick="App.markWhatsAppSent('wa-row-${r.studentNo}', '${encodeURIComponent(r.parentPhone)}', '${encodeURIComponent(r.studentName)}', '${r.totalNet}', '${r.totalScore}', '${encodeURIComponent(JSON.stringify(r.topicAnalysis || []))}')" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] rounded-xl shadow transition flex items-center gap-1.5 ml-auto cursor-pointer">
+                      <button onclick="App.markWhatsAppSent('wa-row-${r.studentNo}', '${encodeURIComponent(r.parentPhone)}', '${encodeURIComponent(r.studentName)}', '${r.totalNet}', '${(Number(r.totalScore) || 200).toFixed(2)}', '${encodeURIComponent(JSON.stringify(r.topicAnalysis || []))}')" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] rounded-xl shadow transition flex items-center gap-1.5 ml-auto cursor-pointer">
                         <span>💬</span> <span>Gönder</span>
                       </button>
                     ` : `
@@ -7215,7 +7215,7 @@ window.App = {
                 </div>
               </div>
               <div class="text-right">
-                <span class="text-3xl font-black font-mono ${isBlank ? 'text-amber-400' : 'text-teal-400'}">${result.totalScore}</span>
+                <span class="text-3xl font-black font-mono ${isBlank ? 'text-amber-400' : 'text-teal-400'}">${(Number(result.totalScore) || 200).toFixed(2)}</span>
                 <span class="block text-[10px] font-bold text-slate-400 uppercase">Sınav Puanı</span>
                 <span class="text-[9px] text-slate-500 font-mono">Taban 200 • Tavan 500</span>
               </div>
@@ -7287,7 +7287,7 @@ window.App = {
             <!-- Aksiyon Butonları -->
             <div class="flex flex-wrap gap-2 pt-1">
               ${(result.parentPhone && !isBlank) ? `
-                <button onclick="App.sendWhatsAppCard('${encodeURIComponent(result.parentPhone)}', '${encodeURIComponent(result.studentName)}', '${result.totalNet}', '${result.totalScore}', '${encodeURIComponent(JSON.stringify(result.topicAnalysis || []))}')" class="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs rounded-xl shadow transition flex items-center justify-center gap-1.5 cursor-pointer">
+                <button onclick="App.sendWhatsAppCard('${encodeURIComponent(result.parentPhone)}', '${encodeURIComponent(result.studentName)}', '${result.totalNet}', '${(Number(result.totalScore) || 200).toFixed(2)}', '${encodeURIComponent(JSON.stringify(result.topicAnalysis || []))}')" class="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs rounded-xl shadow transition flex items-center justify-center gap-1.5 cursor-pointer">
                   <span>💬</span> <span>WhatsApp Karnesi</span>
                 </button>
               ` : ''}
@@ -7360,7 +7360,7 @@ window.App = {
                       <td class="p-2 font-sans font-bold text-white">${r.studentName}</td>
                       <td class="p-2 text-teal-400 font-bold text-center">${r.booklet || 'A'}</td>
                       <td class="p-2 text-cyan-400 font-bold text-center">${r.totalNet}</td>
-                      <td class="p-2 text-emerald-400 font-black text-center">${r.totalScore}</td>
+                      <td class="p-2 text-emerald-400 font-black text-center">${(Number(r.totalScore) || 200).toFixed(2)}</td>
                       <td class="p-2 text-center">
                         <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">✓ Kaydedildi</span>
                       </td>
